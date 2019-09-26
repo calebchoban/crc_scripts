@@ -1,0 +1,9 @@
+output/
+halos/
+
+*.pyc
+
+*.png
+*.pdf
+*.eps
+*.jpg

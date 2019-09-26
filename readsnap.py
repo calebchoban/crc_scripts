@@ -153,7 +153,7 @@ def readsnap(sdir,snum,ptype,
     
     boxsize*=hinv*ascale
     if (npartTotal[ptype]<=0): file.close(); return {'k':-1};
-    if (header_only==1): file.close(); return {'k':0,'time':time,
+    if (header_only==1): file.close(); return {'k':0,'time':time,'redshift':redshift,
         'boxsize':boxsize,'hubble':hubble,'npart':npart,'npartTotal':npartTotal};
 
     # initialize variables to be read
