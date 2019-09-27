@@ -1,10 +1,20 @@
 from readsnap import readsnap
 from dust_plots import *
 from astropy.table import Table
+import os
 
 halo_dir = './halos/'
 snap_dir = './output/'
 image_dir = './images/'
+
+# First create ouput directory if needed
+try:
+    # Create target Directory
+    os.mkdir(image_dir)
+    print "Directory " + image_dir +  " Created " 
+except:
+    print "Directory " + image_dir +  " already exists"
+
 # Load in halohistory data for main halo. All values should be in code units
 halo_data = Table.read(halo_dir + 'halo_0000000.dat',format='ascii')
 
@@ -28,12 +38,9 @@ for num in range(startnum,endnum+1):
 	coords = G['p']
 	# coordinates within a sphere of radius Rvir
 	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
-	print len(G['rho'][in_sphere])
-	print np.sum(G['m'][in_sphere])
-
 
 	# Make phase plot
-	phase_plot(G,H,time=True,mask=in_sphere,foutname="phase_plot_%03d.png" % num)
+	phase_plot(G,H,time=True,mask=in_sphere,foutname=image_dir+"phase_plot_%03d.png" % num)
 	plt.close()
-	DZ_vs_dens(G,H,time=True,mask=in_sphere,foutname="DZ_vs_dens_%03d.png" % num)
+	DZ_vs_dens(G,H,time=True,mask=in_sphere,foutname=image_dir+"DZ_vs_dens_%03d.png" % num)
 	plt.close()
