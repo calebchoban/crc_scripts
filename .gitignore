@@ -1,5 +1,6 @@
 output/
 halos/
+data/
 
 *.pyc
 *.json

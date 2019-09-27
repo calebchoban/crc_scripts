@@ -1,8 +1,12 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import json
+import pickle
+import os
+from readsnap import readsnap
+from astropy.table import Table
 import gas_temperature as gas_temp
+# Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"])
@@ -51,6 +55,7 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, nHmin=1E-6, nHmax=1
 	plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), weights=M, vmin=vmin, vmax=vmax) 
 	cbar = plt.colorbar()
 	cbar.ax.set_ylabel(r'Mass in pixel $(10^{10} M_{\odot}/h)$')
+
 
 	plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$') 
 	plt.ylabel(r'log T (K)')
@@ -174,7 +179,7 @@ def DZ_vs_time(redshift_range):
 
 
 
-def compile_dust_data(snap_dir, foutname='data.json', data_dir='data/', overwrite=False, startnum=0, endnum=600):
+def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., overwrite=False, startnum=0, endnum=600, implementation='species'):
 	"""
 	Compiles all the dust data needed for time evolution plots from all of the snapshots 
 	into a small file.
@@ -193,8 +198,70 @@ def compile_dust_data(snap_dir, foutname='data.json', data_dir='data/', overwrit
 	if os.path.isfile(data_dir + foutname) and not overwrite:
 		"Data exists already. \n If you want to overwrite it use the overwrite param."
 	else:
+		# First create ouput directory if needed
+		try:
+		    # Create target Directory
+		    os.mkdir(data_dir)
+		    print "Directory " + data_dir +  " Created " 
+		except:
+		    print "Directory " + data_dir +  " already exists"
+
 		print "Fetching data now..."
-		# First get the names of all the snapshots
-		for num in range(startnum, endnum):
+		length = endnum-startnum+1
+		DZ_ratio = np.zeros(length)
+		sil_to_C_ratio = np.zeros(length)
+		sfr = np.zeros(length)
+		metallicity = np.zeros(length)
+		redshift = np.zeros(length)
+		source_frac = np.zeros((length,4))
+		spec_frac = np.zeros((length,4))
+
+		total_star_mass = 0
+		prev_time = 0
+		# Go through each of the snapshots and get the data
+		for i, num in enumerate(range(startnum, endnum+1)):
+			print num
 			G = readsnap(snap_dir, num, 0)
-		# TODO : Determine what data to saved to compiled data list
+			H = readsnap(snap_dir, num, 0, header_only=True)
+			S = readsnap(snap_dir, num, 4)
+
+			if mask:
+				print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
+				halo_data = Table.read(halo_dir,format='ascii')
+				xpos =  halo_data['col7'][num]
+				ypos =  halo_data['col8'][num]
+				zpos =  halo_data['col9'][num]
+				rvir = halo_data['col13'][num]*Rvir_frac
+				center = np.array([xpos,ypos,zpos])
+
+				coords = G['p']
+				# coordinates within a sphere of radius Rvir
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
+				for key in G.keys():
+					if key != 'k':
+						G[key] = G[key][in_sphere]
+
+			M = G['m']
+			redshift[i] = H['redshift']
+			metallicity[i] = np.average(G['z'][:,0], weights=M)
+			source_frac[i] = np.average(G['dzs'], axis = 0, weights=M)
+			if implementation == "species":
+				spec_frac[i] = np.average(G['spec'], axis = 0, weights=M)
+				sil_to_C_ratio = np.average(G['spec'][:,1]/G['spec'][:,0], weights=M)
+			elif implementation == 'elemental':
+				spec_frac[i,0] = np.average(G['dz'][:,2], weights=M)
+				spec_frac[i,1] = np.average(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], weights=M)
+				spec_frac[i,2] = 0.
+				spec_frac[i,3] = 0.
+				sil_to_C_ratio = np.average((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2], weights=M)
+
+			DZ_ratio[i] = np.average(G['dz'][:,0]/G['z'][:,0], weights=M)
+			# TODO : Fix sfr so it only counts all new stars born within the last 20 Myr
+			sfr[i] = (np.sum(S['m']) - total_star_mass) / (H['time']-prev_time)
+			total_star_mass = S['m']
+
+		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
+
+		# TODO : Switch to saving data in hdf5 using h5py
+		with open(data_dir+foutname, "w") as write_file:
+		    pickle.dump(data, write_file)

@@ -6,6 +6,7 @@ import os
 halo_dir = './halos/'
 snap_dir = './output/'
 image_dir = './images/'
+halo_name = 'halo_0000000.dat'
 
 # First create ouput directory if needed
 try:
@@ -16,12 +17,12 @@ except:
     print "Directory " + image_dir +  " already exists"
 
 # Load in halohistory data for main halo. All values should be in code units
-halo_data = Table.read(halo_dir + 'halo_0000000.dat',format='ascii')
+halo_data = Table.read(halo_dir + halo_name,format='ascii')
 
 # First and last snapshot numbers
 startnum = 589
 endnum = 589
-
+"""
 for num in range(startnum,endnum+1):
 
 	print num
@@ -44,3 +45,7 @@ for num in range(startnum,endnum+1):
 	plt.close()
 	DZ_vs_dens(G,H,time=True,mask=in_sphere,foutname=image_dir+"DZ_vs_dens_%03d.png" % num)
 	plt.close()
+"""
+
+# Now preload the time evolution data
+compile_dust_data(snap_dir, foutname='data.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1., startnum=startnum, endnum=endnum, implementation='elemental')
