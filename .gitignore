@@ -2,6 +2,7 @@ output/
 halos/
 
 *.pyc
+*.json
 
 *.png
 *.pdf

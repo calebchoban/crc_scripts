@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#PBS -q condo
+#PBS -N dust_plots
+#PBS -l nodes=1:ppn=16
+#PBS -l walltime=01:00:00
+#PBS -o dust_plots.o
+#PBS -e dust_plots.e
+#PBS -d .
+set -e
+pwd
+date
+
+python test.py
