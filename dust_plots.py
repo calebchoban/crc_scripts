@@ -1,11 +1,14 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import pickle
 import os
 from readsnap import readsnap
 from astropy.table import Table
 import gas_temperature as gas_temp
+from tasz import *
+
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
@@ -14,6 +17,7 @@ mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["xkcd:blue", "xkcd:red", "xk
 
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
+UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
 UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
 UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s
 UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
@@ -91,6 +95,10 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	None
 	"""
 
+	# TODO : Replace standard deviation with weighted percentiles for the 16th and 84th precentile 
+	#        to better plot error in log space
+
+	
 	if depletion:
 		nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS
 	else:
@@ -126,7 +134,7 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	plt.fill_between(nH_bins[1:], np.log10(mean_DZ[1:] - std_DZ[1:]), np.log10(mean_DZ[1:] + std_DZ[1:]),alpha = 0.4)
 	plt.xlabel(r'$n_H (cm^{-3})$')
 	plt.ylabel(r'Log D/Z Ratio')
-	plt.ylim([-2.5,0.])
+	plt.ylim([-2.0,0.])
 	plt.xlim([nHmin, nHmax])
 	plt.xscale('log')
 	if time:
@@ -137,9 +145,9 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 
 
 
-def DZ_vs_r(G, H, center, radius, mask=[], time=False):
+def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_frac = 1., foutname='DZ_vs_r.png'):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs radius in a given circle
+	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius
 
 	Parameters
 	----------
@@ -149,17 +157,75 @@ def DZ_vs_r(G, H, center, radius, mask=[], time=False):
 		Snapshot header structure
 	center: array
 		3-D coordinate of center of circle
-	radius: double
-		Radius of circle in kpc
-	mask : np.array, optional
-	    Mask for which particles to use in plot
+	Rvir: double
+		Virial radius of circle
+	bin_nums: int
+		Number of bins to use
 	time : bool, optional
 		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+	Rvir_frac: int, optional
+		Max radius for plot as fraction of virial radius
+	foutname: str, optional
+		Name of file to be saved
 
 	Returns
 	-------
 	None
 	"""	
+
+	if depletion:
+		DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
+	else:
+		DZ = G['dz'][:,0]/G['z'][:,0]
+
+	r_bins = np.linspace(0, Rvir*Rvir_frac, num=bin_nums)
+	r_coords = (r_bins[1:] + r_bins[:-1]) / 2.
+	mean_DZ = np.zeros(bin_nums-1)
+	std_DZ = np.zeros(bin_nums-1)
+
+	coords = G['p']
+	M = G['m']
+	# Get only data of particles in sphere since those are the ones we care about
+	# Also gives a nice speed-up
+	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(Rvir*Rvir_frac,2.)
+	M=M[in_sphere]
+	DZ=DZ[in_sphere]
+	coords=coords[in_sphere]
+
+	for i in range(bin_nums-1):
+		# find all coordinates within shell
+		r_min = r_bins[i]; r_max = r_bins[i+1];
+		in_shell = np.logical_and(np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.),
+									np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
+		weights = M[in_shell]
+		values = DZ[in_shell]
+		mean_DZ[i] = np.average(values,weights=weights)
+		std_DZ[i] = np.sqrt(np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum())
+
+	print mean_DZ
+	print r_bins
+	print r_coords
+	# Convert coordinates to physical units
+	r_coords *= H['time'] * H['hubble']  # kpc
+	print mean_DZ
+	print r_bins
+	print r_coords
+
+	ax=plt.figure()
+	plt.plot(r_coords, np.log10(mean_DZ))
+	plt.fill_between(r_coords, np.log10(mean_DZ - std_DZ), np.log10(mean_DZ + std_DZ), alpha = 0.4)
+	plt.xlabel("Radius (kpc)")
+	plt.ylabel("D/Z Ratio")
+	if time:
+		z = H['redshift']
+		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+	plt.xlim([r_coords[0],r_coords[-1]])
+	plt.ylim([-2.0,0.])
+	plt.savefig(foutname)
+	plt.close()
+
 
 
 
@@ -216,8 +282,6 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		source_frac = np.zeros((length,4))
 		spec_frac = np.zeros((length,4))
 
-		total_star_mass = 0
-		prev_time = 0
 		# Go through each of the snapshots and get the data
 		for i, num in enumerate(range(startnum, endnum+1)):
 			print num
@@ -234,15 +298,20 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				rvir = halo_data['col13'][num]*Rvir_frac
 				center = np.array([xpos,ypos,zpos])
 
+				# Keep data for particles with coordinates within a sphere of radius Rvir
 				coords = G['p']
-				# coordinates within a sphere of radius Rvir
 				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
 				for key in G.keys():
 					if key != 'k':
 						G[key] = G[key][in_sphere]
+				coords = S['p']
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
+				S['age'] = S['age'][in_sphere]
+				S['m'] = S['m'][in_sphere]
 
 			M = G['m']
 			redshift[i] = H['redshift']
+			h = H['hubble']
 			metallicity[i] = np.average(G['z'][:,0], weights=M)
 			source_frac[i] = np.average(G['dzs'], axis = 0, weights=M)
 			if implementation == "species":
@@ -256,12 +325,13 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				sil_to_C_ratio = np.average((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2], weights=M)
 
 			DZ_ratio[i] = np.average(G['dz'][:,0]/G['z'][:,0], weights=M)
-			# TODO : Fix sfr so it only counts all new stars born within the last 20 Myr
-			sfr[i] = (np.sum(S['m']) - total_star_mass) / (H['time']-prev_time)
-			total_star_mass = S['m']
+			# Calculate SFR as all stars born within the last 20 Myrs
+			formation_time = tfora(S['age'], H['omega0'], h)
+			current_time = tfora(H['time'], H['omega0'], h)
+			new_stars = (current_time - formation_time) > 20E-3 
+			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / 20E6   # Msun/yr
 
 		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
 
-		# TODO : Switch to saving data in hdf5 using h5py
-		with open(data_dir+foutname, "w") as write_file:
-		    pickle.dump(data, write_file)
+		with open(data_dir+foutname, 'wb') as handle:
+			pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)

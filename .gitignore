@@ -4,6 +4,8 @@ data/
 
 *.pyc
 *.json
+*.e
+*.o
 
 *.png
 *.pdf
