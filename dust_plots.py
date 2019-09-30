@@ -95,10 +95,10 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	None
 	"""
 
-	# TODO : Replace standard deviation with weighted percentiles for the 16th and 84th precentile 
+	# TODO : Replace standard deviation with WEIGHTED percentiles for the 16th and 84th precentile 
 	#        to better plot error in log space
 
-	
+
 	if depletion:
 		nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS
 	else:
@@ -112,9 +112,11 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 
 	# Make bins for nH 
 	nH_bins = np.logspace(np.log10(nHmin),np.log10(nHmax),bin_nums)
+	nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
 	digitized = np.digitize(nH,nH_bins)
-	mean_DZ = np.zeros(len(nH_bins - 1))
-	std_DZ = np.zeros(len(nH_bins - 1))
+	mean_DZ = np.zeros(bin_nums - 1)
+	# 16th and 84th percentiles
+	std_DZ = np.zeros([bin_nums - 1,2])
 
 	for i in range(1,len(nH_bins)):
 		if len(nH[digitized==i])==0:
@@ -125,13 +127,17 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 			weights = M[digitized == i]
 			values = DZ[digitized == i]
 			mean_DZ[i] = np.average(values,weights=weights)
-			variance = np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum()
-			std_DZ[i] = np.sqrt(variance)
+			#variance = np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum()
+			#std_DZ[i] = np.sqrt(variance)
+			std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
+
+	# Replace zeros with small values since we are taking the log of the values
+	std_DZ[std_DZ == 0] = 1E-5
 
 	ax=plt.figure()
 	# Now take the log value of the binned statistics
-	plt.plot(nH_bins[1:], np.log10(mean_DZ[1:]))
-	plt.fill_between(nH_bins[1:], np.log10(mean_DZ[1:] - std_DZ[1:]), np.log10(mean_DZ[1:] + std_DZ[1:]),alpha = 0.4)
+	plt.plot(nH_vals, np.log10(mean_DZ))
+	plt.fill_between(nH_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	plt.xlabel(r'$n_H (cm^{-3})$')
 	plt.ylabel(r'Log D/Z Ratio')
 	plt.ylim([-2.0,0.])
@@ -175,15 +181,20 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 	None
 	"""	
 
+	# TODO : Replace standard deviation with WEIGHTED percentiles for the 16th and 84th precentile 
+	#        to better plot error in log space
+
+
 	if depletion:
 		DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
 	else:
 		DZ = G['dz'][:,0]/G['z'][:,0]
 
 	r_bins = np.linspace(0, Rvir*Rvir_frac, num=bin_nums)
-	r_coords = (r_bins[1:] + r_bins[:-1]) / 2.
+	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
 	mean_DZ = np.zeros(bin_nums-1)
-	std_DZ = np.zeros(bin_nums-1)
+	# 16th and 84th percentiles
+	std_DZ = np.zeros([bin_nums - 1,2])
 
 	coords = G['p']
 	M = G['m']
@@ -202,26 +213,24 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		weights = M[in_shell]
 		values = DZ[in_shell]
 		mean_DZ[i] = np.average(values,weights=weights)
-		std_DZ[i] = np.sqrt(np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum())
+		#std_DZ[i] = np.sqrt(np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum())
+		std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
 
-	print mean_DZ
-	print r_bins
-	print r_coords
 	# Convert coordinates to physical units
-	r_coords *= H['time'] * H['hubble']  # kpc
-	print mean_DZ
-	print r_bins
-	print r_coords
+	r_vals *= H['time'] * H['hubble']  # kpc
+
+	# Replace zeros with small values since we are taking the log of the values
+	std_DZ[std_DZ == 0] = 1E-5
 
 	ax=plt.figure()
-	plt.plot(r_coords, np.log10(mean_DZ))
-	plt.fill_between(r_coords, np.log10(mean_DZ - std_DZ), np.log10(mean_DZ + std_DZ), alpha = 0.4)
+	plt.plot(r_vals, np.log10(mean_DZ))
+	plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
 	plt.xlabel("Radius (kpc)")
-	plt.ylabel("D/Z Ratio")
+	plt.ylabel("Log D/Z Ratio")
 	if time:
 		z = H['redshift']
 		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
-	plt.xlim([r_coords[0],r_coords[-1]])
+	plt.xlim([r_vals[0],r_vals[-1]])
 	plt.ylim([-2.0,0.])
 	plt.savefig(foutname)
 	plt.close()
