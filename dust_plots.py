@@ -121,7 +121,7 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	for i in range(1,len(nH_bins)):
 		if len(nH[digitized==i])==0:
 			mean_DZ[i] = np.nan
-			std_DZ[i] = np.nan
+			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
 			continue
 		else:
 			weights = M[digitized == i]
@@ -212,9 +212,15 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 									np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
 		weights = M[in_shell]
 		values = DZ[in_shell]
-		mean_DZ[i] = np.average(values,weights=weights)
+		if len(values) > 0:
+			mean_DZ[i] = np.average(values,weights=weights)
+			std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
+		else:
+			mean_DZ[i] = np.nan
+			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
+		
 		#std_DZ[i] = np.sqrt(np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum())
-		std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
+		
 
 	# Convert coordinates to physical units
 	r_vals *= H['time'] * H['hubble']  # kpc
@@ -238,23 +244,47 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 
 
 
-def DZ_vs_time(redshift_range):
+def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
 
 	Parameters
 	----------
-	redshift_range : array
-		Range of redshift for plot 
+	dataname : str
+		Name of data file
+	datadir: str
+		Directory of data
+	foutname: str
+		Name of file to be saved
 
 	Returns
 	-------
 	None
 	"""
 
+	with open(data_dir+dataname, 'rb') as handle:
+		data = pickle.load(handle)
+	
+	redshift = data['redshift']
+	mean_DZ = data['DZ_ratio'][:,0]
+	std_DZ = [:,[1,2]]
+
+	ax=plt.figure()
+	plt.plot(red_shift, np.log10(mean_DZ))
+	plt.fill_between(redshift, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
+	plt.xlabel('z')
+	plt.ylabel(r'Log D/Z Ratio')
+	plt.ylim([-2.0,0.])
+	#plt.xlim([nHmin, nHmax])
+	plt.xscale('log')
+
+	plt.savefig(foutname)
+	plt.close()
+	
 
 
-def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., overwrite=False, startnum=0, endnum=600, implementation='species'):
+
+def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., overwrite=False, startnum=0, endnum=600, implementation='species', depletion=False):
 	"""
 	Compiles all the dust data needed for time evolution plots from all of the snapshots 
 	into a small file.
@@ -283,13 +313,14 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 
 		print "Fetching data now..."
 		length = endnum-startnum+1
-		DZ_ratio = np.zeros(length)
-		sil_to_C_ratio = np.zeros(length)
+		# Most data comes with mean of values and 16th and 84th percentile
+		DZ_ratio = np.zeros([length,3])
+		sil_to_C_ratio = np.zeros([length,3])
 		sfr = np.zeros(length)
-		metallicity = np.zeros(length)
+		metallicity = np.zeros([length,3])
 		redshift = np.zeros(length)
-		source_frac = np.zeros((length,4))
-		spec_frac = np.zeros((length,4))
+		source_frac = np.zeros((length,4,3))
+		spec_frac = np.zeros((length,4,3))
 
 		# Go through each of the snapshots and get the data
 		for i, num in enumerate(range(startnum, endnum+1)):
@@ -301,10 +332,10 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			if mask:
 				print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
 				halo_data = Table.read(halo_dir,format='ascii')
-				xpos =  halo_data['col7'][num]
-				ypos =  halo_data['col8'][num]
-				zpos =  halo_data['col9'][num]
-				rvir = halo_data['col13'][num]*Rvir_frac
+				xpos =  halo_data['col7'][num-1]
+				ypos =  halo_data['col8'][num-1]
+				zpos =  halo_data['col9'][num-1]
+				rvir = halo_data['col13'][num-1]*Rvir_frac
 				center = np.array([xpos,ypos,zpos])
 
 				# Keep data for particles with coordinates within a sphere of radius Rvir
@@ -321,19 +352,46 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			M = G['m']
 			redshift[i] = H['redshift']
 			h = H['hubble']
-			metallicity[i] = np.average(G['z'][:,0], weights=M)
-			source_frac[i] = np.average(G['dzs'], axis = 0, weights=M)
-			if implementation == "species":
-				spec_frac[i] = np.average(G['spec'], axis = 0, weights=M)
-				sil_to_C_ratio = np.average(G['spec'][:,1]/G['spec'][:,0], weights=M)
-			elif implementation == 'elemental':
-				spec_frac[i,0] = np.average(G['dz'][:,2], weights=M)
-				spec_frac[i,1] = np.average(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], weights=M)
-				spec_frac[i,2] = 0.
-				spec_frac[i,3] = 0.
-				sil_to_C_ratio = np.average((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2], weights=M)
 
-			DZ_ratio[i] = np.average(G['dz'][:,0]/G['z'][:,0], weights=M)
+			if depletion:
+				metallicity[i,0] = np.average(G['z'][:,0]+G['dz'][:,0], weights=M)
+				metallicity[i,1],metallicity[i,2] = np.percentile(G['z'][:,0]+G['dz'][:,0], [16,84])
+			else:
+				metallicity[i,0] = np.average(G['z'][:,0], weights=M)
+				metallicity[i,1],metallicity[i,2] = np.percentile(G['z'][:,0], [16,84])
+
+			source_frac[i,:,0] = np.average(G['dzs'], axis = 0, weights=M)
+			source_frac[i,:,1],source_frac[i,:,2] = np.percentile(G['dzs'], [16,84], axis=0)
+			if implementation == 'species':
+				spec_frac[i,:,0] = np.average(G['spec'], axis = 0, weights=M)
+				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(G['spec'], [16,84], axis=0)
+				# Need to mask nan values for average to work
+				sil_to_C_vals = G['spec'][:,1]/G['spec'][:,0]
+				not_nan = ~np.isnan(sil_to_C_vals)
+				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
+				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84], axis=0)
+			elif implementation == 'elemental':
+				spec_frac[i,0,0] = np.average(G['dz'][:,2], weights=M)
+				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(G['dz'][:,2], [16,84])
+				spec_frac[i,1,0] = np.average(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], weights=M)
+				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], [16,84])
+				spec_frac[i,2] = 0.
+				spec_frac[i,2,0]=0.; spec_frac[i,2,2]=0.;
+				spec_frac[i,3] = 0.
+				spec_frac[i,3,0]=0.; spec_frac[i,3,2]=0.;
+
+				# Need to mask nan values for average to work
+				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
+				not_nan = ~np.isnan(sil_to_C_vals)
+				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
+				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84])
+
+			if depletion:
+				DZ_vals = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
+			else:
+				DZ_vals = G['dz'][:,0]/G['z'][:,0]
+			DZ_ratio[i,0] = np.average(DZ_vals, weights=M)
+			DZ_ratio[i,1],DZ_ratio[i,2] = np.percentile(DZ_vals, [16,84])
 			# Calculate SFR as all stars born within the last 20 Myrs
 			formation_time = tfora(S['age'], H['omega0'], h)
 			current_time = tfora(H['time'], H['omega0'], h)
@@ -341,6 +399,5 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / 20E6   # Msun/yr
 
 		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
-
 		with open(data_dir+foutname, 'wb') as handle:
 			pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)

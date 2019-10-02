@@ -18,7 +18,6 @@ def tasz(omeganot, littleh, interval=1000):
 def tfora(a, omeganot, littleh):
     f = omeganot * a ** (-3.0) / (1.0 - omeganot)
     t = (2.0/3.0)* 9.779e9 * (1.0/littleh) * np.log((1.0 + (1.0+f)**0.5)/f**0.5) / (1.0-omeganot)**0.5
-    print (t/1e9)
     return (t/1e9)
     
 def hubble_param(a, omeganot, littleh):

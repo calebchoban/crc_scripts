@@ -21,8 +21,9 @@ except:
 halo_data = Table.read(halo_dir + halo_name,format='ascii')
 
 # First and last snapshot numbers
-startnum = 596
-endnum = 597
+startnum = 70
+endnum = 598
+"""
 
 
 for num in range(startnum,endnum+1):
@@ -40,7 +41,6 @@ for num in range(startnum,endnum+1):
 
 	DZ_vs_r(G, H, center, rvir, bin_nums=50, time=True, foutname=image_dir+'DZ_vs_r%03d.png' % num)
 
-	"""
 	coords = G['p']
 	# coordinates within a sphere of radius Rvir
 	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
@@ -56,10 +56,11 @@ for num in range(startnum,endnum+1):
 # Create movie of images
 subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 phase_plot_%03d.png phase_plot.mp4'],shell=True) 
 subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_dens_%03d.png DZ_vs_dens.mp4'],shell=True) 
-subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_r_%03d.png DZ_vs_r.mp4'],shell=True) 
-
 """
+#subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_r_%03d.png DZ_vs_r.mp4'],shell=True) 
+
+
 # Now preload the time evolution data
-compile_dust_data(snap_dir, foutname='data.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1., startnum=startnum, endnum=endnum, implementation='elemental')
+compile_dust_data(snap_dir, foutname='data.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1., startnum=10, endnum=599, implementation='elemental')
 
-
+#DZ_vs_time(finname='data.pickle', data_dir='data/')
