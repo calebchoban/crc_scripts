@@ -244,7 +244,7 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 
 
 
-def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png'):
+def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, omeganot=0.272, h=0.72):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
 
@@ -266,20 +266,132 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 		data = pickle.load(handle)
 	
 	redshift = data['redshift']
+	if time:
+		time_data = tfora(1./(1.+redshift), omeganot, h)
+	else:
+		time_data = redshift
 	mean_DZ = data['DZ_ratio'][:,0]
-	std_DZ = [:,[1,2]]
+	std_DZ = data['DZ_ratio'][:,1:]
+	# Replace zeros in with small numbers
+	std_DZ[std_DZ==0.] = 1E-5
 
 	ax=plt.figure()
-	plt.plot(red_shift, np.log10(mean_DZ))
-	plt.fill_between(redshift, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
-	plt.xlabel('z')
+	plt.plot(time_data, np.log10(mean_DZ))
+	plt.fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	plt.ylabel(r'Log D/Z Ratio')
 	plt.ylim([-2.0,0.])
-	#plt.xlim([nHmin, nHmax])
-	plt.xscale('log')
+	if time:
+		plt.xlabel('t (Gyr)')
+		plt.xscale('log')
+	else:
+		plt.xlabel('z')
+		plt.gca().invert_xaxis()
+		plt.xscale('log')
 
 	plt.savefig(foutname)
 	plt.close()
+
+def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, omeganot=0.272, h=0.72):
+	"""
+	Plots all time averaged data vs time from precompiled data
+
+	Parameters
+	----------
+	dataname : str
+		Name of data file
+	datadir: str
+		Directory of data
+	foutname: str
+		Name of file to be saved
+
+	Returns
+	-------
+	None
+	"""
+
+	species_names = ['Carbon','Silicates','SiC','Iron']
+	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+
+	with open(data_dir+dataname, 'rb') as handle:
+		data = pickle.load(handle)
+	
+	redshift = data['redshift']
+	if time:
+		time_data = tfora(1./(1.+redshift), omeganot, h)
+	else:
+		time_data = redshift
+	sfr = data['sfr'] 
+	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
+	mean_Z = data['metallicity'][:,0]; std_Z = data['metallicity'][:,1:];
+	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
+	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
+	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
+
+	print data['metallicity']
+
+	fig,axes = plt.subplots(2, 3, sharex='all', figsize=(24,12))
+
+	axes[0,0].plot(time_data, np.log10(mean_DZ))
+	axes[0,0].fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
+	axes[0,0].set_ylabel(r'Log D/Z Ratio')
+	axes[0,0].set_ylim([-2.0,0.])
+	axes[0,0].set_xscale('log')
+
+	axes[0,1].plot(time_data, sfr)
+	axes[0,1].set_ylabel(r'SFR $(M_{\odot}/yr)$')
+	axes[0,1].set_ylim([0.01,10])
+	axes[0,1].set_xscale('log')
+	axes[0,1].set_yscale('log')
+
+
+	axes[0,2].plot(time_data, np.log10(mean_Z))
+	axes[0,2].fill_between(time_data, np.log10(std_Z[:,0]), np.log10(std_Z[:,1]),alpha = 0.4)
+	axes[0,2].set_ylabel(r'Log Z')
+	axes[0,2].set_ylim([np.log10(2E-6),-2.])
+	axes[0,2].set_xscale('log')
+
+	for i in range(4):
+		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
+		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
+	axes[1,0].set_ylabel(r'Species Mass Fraction')
+	axes[1,0].set_ylim([1E-8,1E-3])
+	axes[1,0].set_yscale('log')
+	axes[1,0].set_xscale('log')
+	axes[1,0].legend(loc=4)
+
+	for i in range(4):
+		axes[1,1].plot(time_data, mean_source[:,i], label=source_names[i])
+		axes[1,1].fill_between(time_data, std_source[:,i,0], std_source[:,i,1],alpha = 0.4)
+	axes[1,1].set_ylabel(r'Source Mass Fraction')
+	axes[1,1].set_ylim([1E-2,1])
+	axes[1,1].set_yscale('log')
+	axes[1,1].set_xscale('log')
+	axes[1,1].legend(loc=4)
+
+	axes[1,2].plot(time_data, mean_sil_to_C)
+	axes[1,2].fill_between(time_data, std_sil_to_C[:,0], std_sil_to_C[:,1],alpha = 0.4)
+	axes[1,2].set_ylabel(r'Silicates to Carbon Ratio')
+	axes[1,2].set_ylim([1E-2,1E1])
+	axes[1,2].set_yscale('log')
+	axes[1,2].set_xscale('log')
+
+
+	if time:
+		axes[1,0].set_xlabel('t (Gyr)')
+		axes[1,1].set_xlabel('t (Gyr)')
+		axes[1,2].set_xlabel('t (Gyr)')
+	else:
+		axes[1,0].set_xlabel('z')
+		axes[1,1].set_xlabel('z')
+		axes[1,2].set_xlabel('z')
+		plt.gca().invert_xaxis()
+		
+
+	plt.tight_layout()
+
+	plt.savefig(foutname)
+	plt.close()
+
 	
 
 
@@ -363,18 +475,18 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			source_frac[i,:,0] = np.average(G['dzs'], axis = 0, weights=M)
 			source_frac[i,:,1],source_frac[i,:,2] = np.percentile(G['dzs'], [16,84], axis=0)
 			if implementation == 'species':
-				spec_frac[i,:,0] = np.average(G['spec'], axis = 0, weights=M)
-				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(G['spec'], [16,84], axis=0)
+				spec_frac[i,:,0] = np.average(G['spec']/G['dz'][:,0], axis = 0, weights=M)
+				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(G['spec']/G['dz'][:,0], [16,84], axis=0)
 				# Need to mask nan values for average to work
 				sil_to_C_vals = G['spec'][:,1]/G['spec'][:,0]
 				not_nan = ~np.isnan(sil_to_C_vals)
 				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
 				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84], axis=0)
 			elif implementation == 'elemental':
-				spec_frac[i,0,0] = np.average(G['dz'][:,2], weights=M)
-				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(G['dz'][:,2], [16,84])
-				spec_frac[i,1,0] = np.average(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], weights=M)
-				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10], [16,84])
+				spec_frac[i,0,0] = np.average(G['dz'][:,2]/G['dz'][:,0], weights=M)
+				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(G['dz'][:,2]/G['dz'][:,0], [16,84])
+				spec_frac[i,1,0] = np.average((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0], weights=M)
+				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0], [16,84])
 				spec_frac[i,2] = 0.
 				spec_frac[i,2,0]=0.; spec_frac[i,2,2]=0.;
 				spec_frac[i,3] = 0.
@@ -395,7 +507,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			# Calculate SFR as all stars born within the last 20 Myrs
 			formation_time = tfora(S['age'], H['omega0'], h)
 			current_time = tfora(H['time'], H['omega0'], h)
-			new_stars = (current_time - formation_time) > 20E-3 
+			new_stars = (current_time - formation_time) < 20E-3 
 			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / 20E6   # Msun/yr
 
 		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
