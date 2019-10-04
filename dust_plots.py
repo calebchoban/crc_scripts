@@ -339,7 +339,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 
 	axes[0,1].plot(time_data, sfr)
 	axes[0,1].set_ylabel(r'SFR $(M_{\odot}/yr)$')
-	axes[0,1].set_ylim([0.01,10])
+	axes[0,1].set_ylim([0.0001,0.1])
 	axes[0,1].set_xscale('log')
 	axes[0,1].set_yscale('log')
 
@@ -350,11 +350,12 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	axes[0,2].set_ylim([np.log10(2E-6),-2.])
 	axes[0,2].set_xscale('log')
 
+	print mean_spec
 	for i in range(4):
 		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
 		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
 	axes[1,0].set_ylabel(r'Species Mass Fraction')
-	axes[1,0].set_ylim([1E-8,1E-3])
+	axes[1,0].set_ylim([1E-3,1])
 	axes[1,0].set_yscale('log')
 	axes[1,0].set_xscale('log')
 	axes[1,0].legend(loc=4)
@@ -475,24 +476,31 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			source_frac[i,:,0] = np.average(G['dzs'], axis = 0, weights=M)
 			source_frac[i,:,1],source_frac[i,:,2] = np.percentile(G['dzs'], [16,84], axis=0)
 			if implementation == 'species':
-				spec_frac[i,:,0] = np.average(G['spec']/G['dz'][:,0], axis = 0, weights=M)
-				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(G['spec']/G['dz'][:,0], [16,84], axis=0)
+				# Need to mask nan values for average to work
+				spec_frac_vals = G['spec']/G['dz'][:,0]
+				not_nan = ~np.isnan(spec_frac_vals)
+				spec_frac[i,:,0] = np.average(spec_frac_vals[not_nan], axis = 0, weights=M[not_nan])
+				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(spec_frac_vals[not_nan], [16,84], axis=0)
 				# Need to mask nan values for average to work
 				sil_to_C_vals = G['spec'][:,1]/G['spec'][:,0]
 				not_nan = ~np.isnan(sil_to_C_vals)
 				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
 				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84], axis=0)
 			elif implementation == 'elemental':
-				spec_frac[i,0,0] = np.average(G['dz'][:,2]/G['dz'][:,0], weights=M)
-				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(G['dz'][:,2]/G['dz'][:,0], [16,84])
-				spec_frac[i,1,0] = np.average((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0], weights=M)
-				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile((G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0], [16,84])
+				# Need to mask nan values for average to work
+				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
+				not_nan = ~np.isnan(spec_frac_vals)
+				spec_frac[i,0,0] = np.average(spec_frac_vals[not_nan], weights=M[not_nan])
+				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(spec_frac_vals[not_nan], [16,84])
+				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
+				not_nan = ~np.isnan(spec_frac_vals)
+				spec_frac[i,1,0] = np.average(spec_frac_vals[not_nan], weights=M[not_nan])
+				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(spec_frac_vals[not_nan], [16,84])
 				spec_frac[i,2] = 0.
 				spec_frac[i,2,0]=0.; spec_frac[i,2,2]=0.;
 				spec_frac[i,3] = 0.
 				spec_frac[i,3,0]=0.; spec_frac[i,3,2]=0.;
 
-				# Need to mask nan values for average to work
 				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
 				not_nan = ~np.isnan(sil_to_C_vals)
 				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
@@ -507,8 +515,9 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			# Calculate SFR as all stars born within the last 20 Myrs
 			formation_time = tfora(S['age'], H['omega0'], h)
 			current_time = tfora(H['time'], H['omega0'], h)
-			new_stars = (current_time - formation_time) < 20E-3 
-			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / 20E6   # Msun/yr
+			time_interval = 100E-3 # 100 Myr
+			new_stars = (current_time - formation_time) < time_interval
+			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / (time_interval*1E9)   # Msun/yr
 
 		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
 		with open(data_dir+foutname, 'wb') as handle:

@@ -61,8 +61,9 @@ subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ
 
 
 # Now preload the time evolution data
-compile_dust_data(snap_dir, foutname='data.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1., startnum=10, endnum=599, implementation='elemental')
+compile_dust_data(snap_dir, foutname='data_1.0_Rvir.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1.0, startnum=10, endnum=599, implementation='elemental')
 
+# Plot precompiled data
 #DZ_vs_time(dataname='data.pickle', data_dir='data/', time=True)
 
 #all_data_vs_time(dataname='data.pickle', data_dir='data/', time=True)
