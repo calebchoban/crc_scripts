@@ -120,16 +120,16 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 
 	for i in range(1,len(nH_bins)):
 		if len(nH[digitized==i])==0:
-			mean_DZ[i] = np.nan
-			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
+			mean_DZ[i-1] = np.nan
+			std_DZ[i-1,0] = np.nan; std_DZ[i-1,1] = np.nan;
 			continue
 		else:
 			weights = M[digitized == i]
 			values = DZ[digitized == i]
-			mean_DZ[i] = np.average(values,weights=weights)
+			mean_DZ[i-1] = np.average(values,weights=weights)
 			#variance = np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum()
 			#std_DZ[i] = np.sqrt(variance)
-			std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
+			std_DZ[i-1,0],std_DZ[i-1,1] = np.percentile(values, [18,84])
 
 	# Replace zeros with small values since we are taking the log of the values
 	std_DZ[std_DZ == 0] = 1E-5
@@ -140,7 +140,7 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	plt.fill_between(nH_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	plt.xlabel(r'$n_H (cm^{-3})$')
 	plt.ylabel(r'Log D/Z Ratio')
-	plt.ylim([-2.0,0.])
+	plt.ylim([-3.0,0.])
 	plt.xlim([nHmin, nHmax])
 	plt.xscale('log')
 	if time:
@@ -237,7 +237,7 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		z = H['redshift']
 		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
 	plt.xlim([r_vals[0],r_vals[-1]])
-	plt.ylim([-2.0,0.])
+	plt.ylim([-3.0,0.])
 	plt.savefig(foutname)
 	plt.close()
 
@@ -309,7 +309,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	None
 	"""
 
-	species_names = ['Carbon','Silicates','SiC','Iron']
+	species_names = ['Silicates','Carbon','SiC','Iron']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 	with open(data_dir+dataname, 'rb') as handle:
@@ -476,35 +476,35 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			source_frac[i,:,0] = np.average(G['dzs'], axis = 0, weights=M)
 			source_frac[i,:,1],source_frac[i,:,2] = np.percentile(G['dzs'], [16,84], axis=0)
 			if implementation == 'species':
-				# Need to mask nan values for average to work
-				spec_frac_vals = G['spec']/G['dz'][:,0]
-				not_nan = ~np.isnan(spec_frac_vals)
-				spec_frac[i,:,0] = np.average(spec_frac_vals[not_nan], axis = 0, weights=M[not_nan])
-				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(spec_frac_vals[not_nan], [16,84], axis=0)
-				# Need to mask nan values for average to work
-				sil_to_C_vals = G['spec'][:,1]/G['spec'][:,0]
-				not_nan = ~np.isnan(sil_to_C_vals)
-				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
-				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84], axis=0)
+				# Need to mask all rows with nan and inf values for average to work
+				spec_frac_vals = G['spec']/G['dz'][:,0][:,None]
+				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals)).all(axis=1)
+				spec_frac[i,:,0] = np.average(spec_frac_vals[is_num], axis = 0, weights=M[is_num])
+				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(spec_frac_vals[is_num], [16,84], axis=0)
+
+				sil_to_C_vals = G['spec'][:,0]/G['spec'][:,1]
+				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
+				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[is_num], weights=M[is_num])
+				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[is_num], [16,84], axis=0)
 			elif implementation == 'elemental':
-				# Need to mask nan values for average to work
+				# Need to mask nan and inf values for average to work
 				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
-				not_nan = ~np.isnan(spec_frac_vals)
-				spec_frac[i,0,0] = np.average(spec_frac_vals[not_nan], weights=M[not_nan])
-				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(spec_frac_vals[not_nan], [16,84])
+				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
+				spec_frac[i,0,0] = np.average(spec_frac_vals[is_num], weights=M[is_num])
+				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(spec_frac_vals[is_num], [16,84])
 				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
-				not_nan = ~np.isnan(spec_frac_vals)
-				spec_frac[i,1,0] = np.average(spec_frac_vals[not_nan], weights=M[not_nan])
-				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(spec_frac_vals[not_nan], [16,84])
+				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
+				spec_frac[i,1,0] = np.average(spec_frac_vals[is_num], weights=M[is_num])
+				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(spec_frac_vals[is_num], [16,84])
 				spec_frac[i,2] = 0.
 				spec_frac[i,2,0]=0.; spec_frac[i,2,2]=0.;
 				spec_frac[i,3] = 0.
 				spec_frac[i,3,0]=0.; spec_frac[i,3,2]=0.;
 
 				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
-				not_nan = ~np.isnan(sil_to_C_vals)
-				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[not_nan], weights=M[not_nan])
-				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[not_nan], [16,84])
+				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
+				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[is_num], weights=M[is_num])
+				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[is_num], [16,84])
 
 			if depletion:
 				DZ_vals = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
