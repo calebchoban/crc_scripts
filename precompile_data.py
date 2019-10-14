@@ -21,14 +21,17 @@ except:
 halo_data = Table.read(halo_dir + halo_name,format='ascii')
 
 # First and last snapshot numbers
-startnum = 64
+startnum = 10
 endnum = 598
+
+# Maximum radius used for getting data
+r_max_phys = 5 # kpc
 
 
 # Now preload the time evolution data
-compile_dust_data(snap_dir, foutname='data_1.0_Rvir.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1.0, startnum=10, endnum=599, implementation='species')
+compile_dust_data(snap_dir, foutname='data_5_kpc.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, r_max=r_max_phys, startnum=startnum, endnum=endnum, implementation='elemental')
 
 # Plot precompiled data
-DZ_vs_time(dataname='data_1.0_Rvir.pickle', data_dir='data/', time=True)
+DZ_vs_time(dataname='data_5_kpc.pickle', data_dir='data/', time=True)
 
-all_data_vs_time(dataname='data_1.0_Rvir.pickle', data_dir='data/', time=True)
+all_data_vs_time(dataname='data_5_kpc.pickle', data_dir='data/', time=True)

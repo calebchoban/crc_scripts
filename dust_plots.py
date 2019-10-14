@@ -151,7 +151,7 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 
 
 
-def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_frac = 1., foutname='DZ_vs_r.png'):
+def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_frac = 1., r_max = None, foutname='DZ_vs_r.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius
 
@@ -190,7 +190,12 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 	else:
 		DZ = G['dz'][:,0]/G['z'][:,0]
 
-	r_bins = np.linspace(0, Rvir*Rvir_frac, num=bin_nums)
+	if r_max == None:
+		r_max = Rvir*Rvir_frac
+	else:
+		r_max /= H['time']*H['hubble'] # Convert from physical kpc to code units
+	
+	r_bins = np.linspace(0, r_max, num=bin_nums)
 	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
 	mean_DZ = np.zeros(bin_nums-1)
 	# 16th and 84th percentiles
@@ -200,7 +205,7 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 	M = G['m']
 	# Get only data of particles in sphere since those are the ones we care about
 	# Also gives a nice speed-up
-	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(Rvir*Rvir_frac,2.)
+	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
 	M=M[in_sphere]
 	DZ=DZ[in_sphere]
 	coords=coords[in_sphere]
@@ -279,7 +284,7 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 	plt.plot(time_data, np.log10(mean_DZ))
 	plt.fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	plt.ylabel(r'Log D/Z Ratio')
-	plt.ylim([-2.0,0.])
+	plt.ylim([-3.0,0.])
 	if time:
 		plt.xlabel('t (Gyr)')
 		plt.xscale('log')
@@ -321,20 +326,21 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	else:
 		time_data = redshift
 	sfr = data['sfr'] 
-	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
+	# Get mean and std, and make sure to set zero std to small number
+	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:]; std_DZ[std_DZ==0.] = 1E-7;
 	mean_Z = data['metallicity'][:,0]; std_Z = data['metallicity'][:,1:];
-	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
-	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
-	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
+	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:]; std_spec[std_spec==0.] = 1E-7;
+	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:]; std_source[std_source==0.] = 1E-7;
+	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:]; std_sil_to_C[std_sil_to_C==0.] = 1E-7;
 
-	print data['metallicity']
+	print mean_spec
 
 	fig,axes = plt.subplots(2, 3, sharex='all', figsize=(24,12))
 
 	axes[0,0].plot(time_data, np.log10(mean_DZ))
 	axes[0,0].fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	axes[0,0].set_ylabel(r'Log D/Z Ratio')
-	axes[0,0].set_ylim([-2.0,0.])
+	axes[0,0].set_ylim([-3.0,0.])
 	axes[0,0].set_xscale('log')
 
 	axes[0,1].plot(time_data, sfr)
@@ -350,7 +356,6 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	axes[0,2].set_ylim([np.log10(2E-6),-2.])
 	axes[0,2].set_xscale('log')
 
-	print mean_spec
 	for i in range(4):
 		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
 		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
@@ -397,7 +402,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 
 
 
-def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., overwrite=False, startnum=0, endnum=600, implementation='species', depletion=False):
+def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., r_max = None, overwrite=False, startnum=0, endnum=600, implementation='species', depletion=False):
 	"""
 	Compiles all the dust data needed for time evolution plots from all of the snapshots 
 	into a small file.
@@ -435,6 +440,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		source_frac = np.zeros((length,4,3))
 		spec_frac = np.zeros((length,4,3))
 
+
 		# Go through each of the snapshots and get the data
 		for i, num in enumerate(range(startnum, endnum+1)):
 			print num
@@ -443,22 +449,29 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			S = readsnap(snap_dir, num, 4)
 
 			if mask:
-				print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
 				halo_data = Table.read(halo_dir,format='ascii')
 				xpos =  halo_data['col7'][num-1]
 				ypos =  halo_data['col8'][num-1]
 				zpos =  halo_data['col9'][num-1]
 				rvir = halo_data['col13'][num-1]*Rvir_frac
 				center = np.array([xpos,ypos,zpos])
+				if r_max == None:
+					print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
+					r_max_code = halo_data['col13'][num-1]*Rvir_frac
+				else:
+					print "Using AHF halo as spherical mask with radius of " + str(r_max) + " kpc."
+					r_max_code = r_max / (H['time']*H['hubble']) # Convert from kpc to code units
+
+					print r_max_code, halo_data['col13'][num-1]			
 
 				# Keep data for particles with coordinates within a sphere of radius Rvir
 				coords = G['p']
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
 				for key in G.keys():
 					if key != 'k':
 						G[key] = G[key][in_sphere]
 				coords = S['p']
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
 				S['age'] = S['age'][in_sphere]
 				S['m'] = S['m'][in_sphere]
 
@@ -512,7 +525,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				DZ_vals = G['dz'][:,0]/G['z'][:,0]
 			DZ_ratio[i,0] = np.average(DZ_vals, weights=M)
 			DZ_ratio[i,1],DZ_ratio[i,2] = np.percentile(DZ_vals, [16,84])
-			# Calculate SFR as all stars born within the last 20 Myrs
+			# Calculate SFR as all stars born within the last 100 Myrs
 			formation_time = tfora(S['age'], H['omega0'], h)
 			current_time = tfora(H['time'], H['omega0'], h)
 			time_interval = 100E-3 # 100 Myr

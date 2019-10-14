@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH -J dust_plots
 #SBATCH -p skx-normal
-#SBATCH -t 01:00:00
+#SBATCH -t 06:00:00
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -A TG-AST120025
@@ -15,4 +15,4 @@ pwd
 date
 
 
-python test.py
+python snapshot_plots.py

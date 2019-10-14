@@ -22,10 +22,10 @@ halo_data = Table.read(halo_dir + halo_name,format='ascii')
 
 # First and last snapshot numbers
 startnum = 64
-startnum = 402
 endnum = 598
 
-
+# Maximum radius used for getting data
+r_max_phys = 5 # kpc
 
 for num in range(startnum,endnum+1):
 
@@ -40,11 +40,12 @@ for num in range(startnum,endnum+1):
 	rvir = halo_data['col13'][num-1]
 	center = np.array([xpos,ypos,zpos])
 
-	DZ_vs_r(G, H, center, rvir, bin_nums=50, time=True, foutname=image_dir+'DZ_vs_r%03d.png' % num)
+	DZ_vs_r(G, H, center, rvir, bin_nums=50, time=True, foutname=image_dir+'DZ_vs_r_%03d.png' % num, r_max = r_max_phys)
 
 	coords = G['p']
-	# coordinates within a sphere of radius Rvir
-	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(rvir,2.)
+	# coordinates within a sphere of radius 5 kpc
+	r_max_code = r_max_phys / (H['time']*H['hubble']) # convert from kpc to code units
+	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
 
 	# Make phase plot
 	phase_plot(G,H,time=True,mask=in_sphere,foutname=image_dir+"phase_plot_%03d.png" % num)
@@ -56,14 +57,4 @@ for num in range(startnum,endnum+1):
 # Create movie of images
 subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 phase_plot_%03d.png phase_plot.mp4'],shell=True) 
 subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_dens_%03d.png DZ_vs_dens.mp4'],shell=True) 
-subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_r_%03d.png DZ_vs_r.mp4'],shell=True) 
-
-"""
-# Now preload the time evolution data
-compile_dust_data(snap_dir, foutname='data_1.0_Rvir.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, Rvir_frac = 1.0, startnum=10, endnum=599, implementation='elemental')
-
-# Plot precompiled data
-#DZ_vs_time(dataname='data.pickle', data_dir='data/', time=True)
-
-#all_data_vs_time(dataname='data.pickle', data_dir='data/', time=True)
-"""
+subprocess.call(['./movie_maker.sh ' + image_dir + ' ' + str(startnum) + ' 25 DZ_vs_r%03d.png DZ_vs_r.mp4'],shell=True) 
