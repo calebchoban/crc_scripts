@@ -151,6 +151,77 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 
 
 
+
+def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4, Zmax=1e1, foutname='DZ_vs_Z.png'):
+	"""
+	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles
+
+	Parameters
+	----------
+	G : dict
+	    Snapshot gas data structure
+	H : dict
+		Snapshot header structure
+	mask : np.array, optional
+	    Mask for which particles to use in plot, default mask=True means all values are used
+	bin_nums: int
+		Number of bins to use
+	time : bool, optional
+		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+
+	Returns
+	-------
+	None
+	"""
+
+	if depletion:
+		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
+		Z = (G['z'][:,0]+G['dz'][:,0])[mask]
+	else:
+		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
+		Z = G['z'][:,0][mask]
+	M = G['m'][mask]
+
+	Z_bins = np.logspace(np.log10(Zmin),np.log10(Zmax),bin_nums)
+	Z_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
+	digitized = np.digitize(Z,Z_bins)
+	mean_DZ = np.zeros(bin_nums-1)
+	# 16th and 84th percentiles
+	std_DZ = np.zeros([bin_nums - 1,2])
+
+
+	for i in range(1,len(Z_bins)):
+		if len(Z[digitized==i])==0:
+			mean_DZ[i-1] = np.nan
+			std_DZ[i-1,0] = np.nan; std_DZ[i-1,1] = np.nan;
+			continue
+		else:
+			weights = M[digitized == i]
+			values = DZ[digitized == i]
+			mean_DZ[i-1] = np.average(values,weights=weights)
+			std_DZ[i-1,0],std_DZ[i-1,1] = np.percentile(values, [18,84])
+
+	# Replace zeros with small values since we are taking the log of the values
+	std_DZ[std_DZ == 0] = 1E-5
+
+	ax=plt.figure()
+	plt.plot(Z_vals, np.log10(mean_DZ))
+	plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
+	plt.xlabel(r'Metallicity $(Z_{\odot})$')
+	plt.ylabel("Log D/Z Ratio")
+	if time:
+		z = H['redshift']
+		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+	plt.xlim([r_vals[0],r_vals[-1]])
+	plt.ylim([-3.0,0.])
+	plt.savefig(foutname)
+	plt.close()	
+
+
+
+
 def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_frac = 1., r_max = None, foutname='DZ_vs_r.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius
@@ -180,10 +251,6 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 	-------
 	None
 	"""	
-
-	# TODO : Replace standard deviation with WEIGHTED percentiles for the 16th and 84th precentile 
-	#        to better plot error in log space
-
 
 	if depletion:
 		DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
@@ -223,8 +290,6 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		else:
 			mean_DZ[i] = np.nan
 			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
-		
-		#std_DZ[i] = np.sqrt(np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum())
 		
 
 	# Convert coordinates to physical units
