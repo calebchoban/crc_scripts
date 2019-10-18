@@ -29,7 +29,7 @@ r_max_phys = 5 # kpc
 
 
 # Now preload the time evolution data
-compile_dust_data(snap_dir, foutname='data_5_kpc.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, r_max=r_max_phys, startnum=startnum, endnum=endnum, implementation='elemental')
+compile_dust_data(snap_dir, foutname='data_5_kpc.pickle', mask=True, overwrite=True, halo_dir=halo_dir+halo_name, r_max=r_max_phys, startnum=startnum, endnum=endnum, implementation='species')
 
 # Plot precompiled data
 DZ_vs_time(dataname='data_5_kpc.pickle', data_dir='data/', time=True)

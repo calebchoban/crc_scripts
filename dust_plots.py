@@ -25,6 +25,45 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.67E-24 # grams
 
+# Small number used to plot zeros on log graph
+small_num = 1E-7
+
+def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
+	"""
+	Calculates percentiles associated with a (possibly weighted) array
+
+	Parameters
+	----------
+	a : array-like
+	    The input array from which to calculate percents
+	percentiles : array-like
+	    The percentiles to calculate (0.0 - 100.0)
+	weights : array-like, optional
+	    The weights to assign to values of a.  Equal weighting if None
+	    is specified
+
+	Returns
+	-------
+	values : np.array
+	    The values associated with the specified percentiles.  
+	"""
+
+	# Standardize and sort based on values in a
+	percentiles = percentiles
+	if weights is None:
+		weights = np.ones(a.size)
+	idx = np.argsort(a)
+	a_sort = a[idx]
+	w_sort = weights[idx]
+
+	# Get the percentiles for each data point in array
+	p=1.*w_sort.cumsum()/w_sort.sum()*100
+	# Get the value of a at the given percentiles
+	values=np.interp(percentiles, p, a_sort)
+	return values
+
+
+
 def phase_plot(G, H, mask=True, time=False, depletion=False, nHmin=1E-6, nHmax=1E3, Tmin=1E1, Tmax=1E8, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, foutname='phase_plot.png'):
 	"""
 	Plots the temperate-density has phase
@@ -68,6 +107,7 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, nHmin=1E-6, nHmax=1
 		z = H['redshift']
 		ax.text(.75, .9, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha='right')
 	plt.savefig(foutname)
+	plt.close()
 
 
 
@@ -126,13 +166,10 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 		else:
 			weights = M[digitized == i]
 			values = DZ[digitized == i]
-			mean_DZ[i-1] = np.average(values,weights=weights)
-			#variance = np.dot(weights, (values - mean_DZ[i]) ** 2) / weights.sum()
-			#std_DZ[i] = np.sqrt(variance)
-			std_DZ[i-1,0],std_DZ[i-1,1] = np.percentile(values, [18,84])
+			mean_DZ[i-1],std_DZ[i-1,0],std_DZ[i-1,1] = weighted_percentile(values, weights=weights)
 
 	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = 1E-5
+	std_DZ[std_DZ == 0] = small_num
 
 	ax=plt.figure()
 	# Now take the log value of the binned statistics
@@ -175,12 +212,12 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4
 	-------
 	None
 	"""
-
+	solar_Z = 0.02
 	if depletion:
 		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
-		Z = (G['z'][:,0]+G['dz'][:,0])[mask]
+		Z = (G['z'][:,0]+G['dz'][:,0])[mask]/solar_Z
 	else:
-		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
+		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]/solar_Z
 		Z = G['z'][:,0][mask]
 	M = G['m'][mask]
 
@@ -200,22 +237,21 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4
 		else:
 			weights = M[digitized == i]
 			values = DZ[digitized == i]
-			mean_DZ[i-1] = np.average(values,weights=weights)
-			std_DZ[i-1,0],std_DZ[i-1,1] = np.percentile(values, [18,84])
-
+			mean_DZ[i-1],std_DZ[i-1,0],std_DZ[i-1,1] = weighted_percentile(values, weights=weights)
 	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = 1E-5
+	std_DZ[std_DZ == 0] = small_num
 
 	ax=plt.figure()
 	plt.plot(Z_vals, np.log10(mean_DZ))
-	plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
+	plt.fill_between(Z_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
 	plt.xlabel(r'Metallicity $(Z_{\odot})$')
 	plt.ylabel("Log D/Z Ratio")
 	if time:
 		z = H['redshift']
 		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
-	plt.xlim([r_vals[0],r_vals[-1]])
-	plt.ylim([-3.0,0.])
+	plt.xlim([Z_vals[0],Z_vals[-1]])
+	plt.xscale('log')
+	plt.ylim([-3.0,0.5])
 	plt.savefig(foutname)
 	plt.close()	
 
@@ -285,18 +321,16 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		weights = M[in_shell]
 		values = DZ[in_shell]
 		if len(values) > 0:
-			mean_DZ[i] = np.average(values,weights=weights)
-			std_DZ[i,0],std_DZ[i,1] = np.percentile(values, [18,84])
+			mean_DZ[i],std_DZ[i,0],std_DZ[i,1] = weighted_percentile(values, weights=weights)
 		else:
 			mean_DZ[i] = np.nan
 			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
 		
+	# Replace zeros with small values since we are taking the log of the values
+	std_DZ[std_DZ == 0] = small_num
 
 	# Convert coordinates to physical units
 	r_vals *= H['time'] * H['hubble']  # kpc
-
-	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = 1E-5
 
 	ax=plt.figure()
 	plt.plot(r_vals, np.log10(mean_DZ))
@@ -343,7 +377,7 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 	mean_DZ = data['DZ_ratio'][:,0]
 	std_DZ = data['DZ_ratio'][:,1:]
 	# Replace zeros in with small numbers
-	std_DZ[std_DZ==0.] = 1E-5
+	std_DZ[std_DZ==0.] = small_num
 
 	ax=plt.figure()
 	plt.plot(time_data, np.log10(mean_DZ))
@@ -392,11 +426,11 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 		time_data = redshift
 	sfr = data['sfr'] 
 	# Get mean and std, and make sure to set zero std to small number
-	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:]; std_DZ[std_DZ==0.] = 1E-7;
+	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
 	mean_Z = data['metallicity'][:,0]; std_Z = data['metallicity'][:,1:];
-	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:]; std_spec[std_spec==0.] = 1E-7;
-	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:]; std_source[std_source==0.] = 1E-7;
-	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:]; std_sil_to_C[std_sil_to_C==0.] = 1E-7;
+	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
+	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
+	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
 
 	print mean_spec
 
@@ -525,9 +559,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 					r_max_code = halo_data['col13'][num-1]*Rvir_frac
 				else:
 					print "Using AHF halo as spherical mask with radius of " + str(r_max) + " kpc."
-					r_max_code = r_max / (H['time']*H['hubble']) # Convert from kpc to code units
-
-					print r_max_code, halo_data['col13'][num-1]			
+					r_max_code = r_max / (H['time']*H['hubble']) # Convert from kpc to code units	
 
 				# Keep data for particles with coordinates within a sphere of radius Rvir
 				coords = G['p']
@@ -545,51 +577,55 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			h = H['hubble']
 
 			if depletion:
-				metallicity[i,0] = np.average(G['z'][:,0]+G['dz'][:,0], weights=M)
-				metallicity[i,1],metallicity[i,2] = np.percentile(G['z'][:,0]+G['dz'][:,0], [16,84])
+				metallicity[i] = weighted_percentile(G['z'][:,0]+G['dz'][:,0], weights=M)
 			else:
-				metallicity[i,0] = np.average(G['z'][:,0], weights=M)
-				metallicity[i,1],metallicity[i,2] = np.percentile(G['z'][:,0], [16,84])
+				metallicity[i] = weighted_percentile(G['z'][:,0], weights=M)
 
-			source_frac[i,:,0] = np.average(G['dzs'], axis = 0, weights=M)
-			source_frac[i,:,1],source_frac[i,:,2] = np.percentile(G['dzs'], [16,84], axis=0)
+			for j in range(4):
+				source_frac[i,j] = weighted_percentile(G['dzs'][:,j], weights=M)
+				source_frac[i,j][source_frac[i,j]==0] = small_num
+
+
 			if implementation == 'species':
 				# Need to mask all rows with nan and inf values for average to work
-				spec_frac_vals = G['spec']/G['dz'][:,0][:,None]
-				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals)).all(axis=1)
-				spec_frac[i,:,0] = np.average(spec_frac_vals[is_num], axis = 0, weights=M[is_num])
-				spec_frac[i,:,1],spec_frac[i,:,2] = np.percentile(spec_frac_vals[is_num], [16,84], axis=0)
+				for j in range(4):
+					spec_frac_vals = G['spec'][:,j]/G['dz'][:,0]
+					is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
+					spec_frac[i,j] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
+					spec_frac[i,j][spec_frac[i,j]==0] = small_num
 
 				sil_to_C_vals = G['spec'][:,0]/G['spec'][:,1]
 				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
-				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[is_num], weights=M[is_num])
-				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[is_num], [16,84], axis=0)
+				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
+				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = small_num
+
 			elif implementation == 'elemental':
 				# Need to mask nan and inf values for average to work
 				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
-				spec_frac[i,0,0] = np.average(spec_frac_vals[is_num], weights=M[is_num])
-				spec_frac[i,0,1], spec_frac[i,0,2] = np.percentile(spec_frac_vals[is_num], [16,84])
+				spec_frac[i,0] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
+				spec_frac[i,0][spec_frac[i,0]==0] = small_num
+
 				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
-				spec_frac[i,1,0] = np.average(spec_frac_vals[is_num], weights=M[is_num])
-				spec_frac[i,1,1],spec_frac[i,1,2] = np.percentile(spec_frac_vals[is_num], [16,84])
-				spec_frac[i,2] = 0.
-				spec_frac[i,2,0]=0.; spec_frac[i,2,2]=0.;
-				spec_frac[i,3] = 0.
-				spec_frac[i,3,0]=0.; spec_frac[i,3,2]=0.;
+				spec_frac[i,1] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
+				spec_frac[i,1][spec_frac[i,1]==0] = small_num
+
+				spec_frac[i,2,0] = 0.; spec_frac[i,2,1]=0.; spec_frac[i,2,2]=0.;
+				spec_frac[i,3,0] = 0.; spec_frac[i,3,1]=0.; spec_frac[i,3,2]=0.;
 
 				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
 				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
-				sil_to_C_ratio[i,0] = np.average(sil_to_C_vals[is_num], weights=M[is_num])
-				sil_to_C_ratio[i,1],sil_to_C_ratio[i,2] = np.percentile(sil_to_C_vals[is_num], [16,84])
+				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
+				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = small_num
 
 			if depletion:
 				DZ_vals = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
 			else:
 				DZ_vals = G['dz'][:,0]/G['z'][:,0]
-			DZ_ratio[i,0] = np.average(DZ_vals, weights=M)
-			DZ_ratio[i,1],DZ_ratio[i,2] = np.percentile(DZ_vals, [16,84])
+			DZ_ratio[i] = weighted_percentile(DZ_vals, weights=M)
+			DZ_ratio[i][DZ_ratio[i]==0] = small_num
+
 			# Calculate SFR as all stars born within the last 100 Myrs
 			formation_time = tfora(S['age'], H['omega0'], h)
 			current_time = tfora(H['time'], H['omega0'], h)
