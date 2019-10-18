@@ -217,8 +217,8 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4
 		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
 		Z = (G['z'][:,0]+G['dz'][:,0])[mask]/solar_Z
 	else:
-		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]/solar_Z
-		Z = G['z'][:,0][mask]
+		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
+		Z = G['z'][:,0][mask]/solar_Z
 	M = G['m'][mask]
 
 	Z_bins = np.logspace(np.log10(Zmin),np.log10(Zmax),bin_nums)
