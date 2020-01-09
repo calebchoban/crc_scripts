@@ -10,4 +10,4 @@ set -e
 pwd
 date
 
-python precompile_data.py
+python cosmo_precompile_data.py

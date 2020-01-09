@@ -3,9 +3,9 @@ halos/
 data/
 
 *.pyc
-*.json
 *.e
 *.o
+*.hdf5
 
 *.png
 *.pdf

@@ -12,14 +12,16 @@ from tasz import *
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"])
+colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
+linestyles = ['-','--',':','-.']
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
 
 
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
 UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
 UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
-UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s
+UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s # 0.978 Gyr/h
 UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
 UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 2)
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
@@ -64,7 +66,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 
 
 
-def phase_plot(G, H, mask=True, time=False, depletion=False, nHmin=1E-6, nHmax=1E3, Tmin=1E1, Tmax=1E8, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, foutname='phase_plot.png'):
+def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, nHmin=1E-6, nHmax=1E3, Tmin=1E1, Tmax=1E8, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, foutname='phase_plot.png'):
 	"""
 	Plots the temperate-density has phase
 
@@ -104,14 +106,18 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, nHmin=1E-6, nHmax=1
 	plt.ylabel(r'log T (K)')
 	plt.tight_layout()
 	if time:
-		z = H['redshift']
-		ax.text(.75, .9, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha='right')
+		if cosmological:
+			z = H['redshift']
+			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right')
+		else:
+			t = H['time']
+			ax.text(.75, .9, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right')	
 	plt.savefig(foutname)
 	plt.close()
 
 
 
-def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=1E-2, nHmax=1E3, foutname='DZ_vs_dens.png'):
+def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, foutname='DZ_vs_dens.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs density 
 
@@ -181,15 +187,19 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, nHmin=
 	plt.xlim([nHmin, nHmax])
 	plt.xscale('log')
 	if time:
-		z = H['redshift']
-		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		if cosmological:
+			z = H['redshift']
+			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		else:
+			t = H['time']
+			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')			
 	plt.savefig(foutname)
 	plt.close()
 
 
 
 
-def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4, Zmax=1e1, foutname='DZ_vs_Z.png'):
+def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmological=True,Zmin=1E-4, Zmax=1e1, foutname='DZ_vs_Z.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles
 
@@ -247,8 +257,12 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4
 	plt.xlabel(r'Metallicity $(Z_{\odot})$')
 	plt.ylabel("Log D/Z Ratio")
 	if time:
-		z = H['redshift']
-		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		if cosmological:
+			z = H['redshift']
+			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		else:
+			t = H['time']
+			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')		
 	plt.xlim([Z_vals[0],Z_vals[-1]])
 	plt.xscale('log')
 	plt.ylim([-3.0,0.5])
@@ -258,7 +272,7 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, Zmin=1E-4
 
 
 
-def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_frac = 1., r_max = None, foutname='DZ_vs_r.png'):
+def DZ_vs_r(G, H, center, r_max, bin_nums=50, time=False, depletion=False, cosmological=True,  foutname='DZ_vs_r.png'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius
 
@@ -270,16 +284,14 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		Snapshot header structure
 	center: array
 		3-D coordinate of center of circle
-	Rvir: double
-		Virial radius of circle
+	r_max: double
+		maximum radius
 	bin_nums: int
 		Number of bins to use
 	time : bool, optional
 		Print time in corner of plot (useful for movies)
 	depletion: bool, optional
 		Was the simulation run with the DEPLETION option
-	Rvir_frac: int, optional
-		Max radius for plot as fraction of virial radius
 	foutname: str, optional
 		Name of file to be saved
 
@@ -292,11 +304,6 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 		DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
 	else:
 		DZ = G['dz'][:,0]/G['z'][:,0]
-
-	if r_max == None:
-		r_max = Rvir*Rvir_frac
-	else:
-		r_max /= H['time']*H['hubble'] # Convert from physical kpc to code units
 	
 	r_bins = np.linspace(0, r_max, num=bin_nums)
 	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
@@ -329,17 +336,18 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 	# Replace zeros with small values since we are taking the log of the values
 	std_DZ[std_DZ == 0] = small_num
 
-	# Convert coordinates to physical units
-	r_vals *= H['time'] * H['hubble']  # kpc
-
 	ax=plt.figure()
 	plt.plot(r_vals, np.log10(mean_DZ))
 	plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
 	plt.xlabel("Radius (kpc)")
 	plt.ylabel("Log D/Z Ratio")
 	if time:
-		z = H['redshift']
-		ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		if cosmological:
+			z = H['redshift']
+			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+		else:
+			t = H['time']
+			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')		
 	plt.xlim([r_vals[0],r_vals[-1]])
 	plt.ylim([-3.0,0.])
 	plt.savefig(foutname)
@@ -348,7 +356,7 @@ def DZ_vs_r(G, H, center, Rvir, bin_nums=50, time=False, depletion=False, Rvir_f
 
 
 
-def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, omeganot=0.272, h=0.72):
+def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
 
@@ -369,11 +377,14 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 	with open(data_dir+dataname, 'rb') as handle:
 		data = pickle.load(handle)
 	
-	redshift = data['redshift']
-	if time:
-		time_data = tfora(1./(1.+redshift), omeganot, h)
+	if cosmological:
+		if time:
+			time_data = data['time']
+		else:
+			time_data = -1.+1./data['a_scale']
 	else:
-		time_data = redshift
+		time_data = data['time']
+
 	mean_DZ = data['DZ_ratio'][:,0]
 	std_DZ = data['DZ_ratio'][:,1:]
 	# Replace zeros in with small numbers
@@ -384,7 +395,7 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 	plt.fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
 	plt.ylabel(r'Log D/Z Ratio')
 	plt.ylim([-3.0,0.])
-	if time:
+	if time or not cosmological:
 		plt.xlabel('t (Gyr)')
 		plt.xscale('log')
 	else:
@@ -395,7 +406,7 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 	plt.savefig(foutname)
 	plt.close()
 
-def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, omeganot=0.272, h=0.72):
+def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, cosmological=True):
 	"""
 	Plots all time averaged data vs time from precompiled data
 
@@ -413,26 +424,28 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	None
 	"""
 
+	Z_solar = 0.02
 	species_names = ['Silicates','Carbon','SiC','Iron']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 	with open(data_dir+dataname, 'rb') as handle:
 		data = pickle.load(handle)
 	
-	redshift = data['redshift']
-	if time:
-		time_data = tfora(1./(1.+redshift), omeganot, h)
+	if cosmological:
+		if time:
+			time_data = data['time']
+		else:
+			time_data = -1.+1./data['a_scale']
 	else:
-		time_data = redshift
+		time_data = data['time']
+
 	sfr = data['sfr'] 
 	# Get mean and std, and make sure to set zero std to small number
 	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
-	mean_Z = data['metallicity'][:,0]; std_Z = data['metallicity'][:,1:];
+	mean_Z = data['metallicity'][:,0]/Z_solar; std_Z = data['metallicity'][:,1:]/Z_solar;
 	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
 	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
 	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
-
-	print mean_spec
 
 	fig,axes = plt.subplots(2, 3, sharex='all', figsize=(24,12))
 
@@ -451,8 +464,8 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 
 	axes[0,2].plot(time_data, np.log10(mean_Z))
 	axes[0,2].fill_between(time_data, np.log10(std_Z[:,0]), np.log10(std_Z[:,1]),alpha = 0.4)
-	axes[0,2].set_ylabel(r'Log Z')
-	axes[0,2].set_ylim([np.log10(2E-6),-2.])
+	axes[0,2].set_ylabel(r'Log Z $(Z_{\odot})$')
+	axes[0,2].set_ylim([np.log10(1E-2),1])
 	axes[0,2].set_xscale('log')
 
 	for i in range(4):
@@ -481,7 +494,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	axes[1,2].set_xscale('log')
 
 
-	if time:
+	if time or not cosmological:
 		axes[1,0].set_xlabel('t (Gyr)')
 		axes[1,1].set_xlabel('t (Gyr)')
 		axes[1,2].set_xlabel('t (Gyr)')
@@ -497,11 +510,10 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	plt.savefig(foutname)
 	plt.close()
 
-	
 
 
 
-def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., r_max = None, overwrite=False, startnum=0, endnum=600, implementation='species', depletion=False):
+def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., r_max = None, overwrite=False, cosmological=True, startnum=0, endnum=600, implementation='species', depletion=False):
 	"""
 	Compiles all the dust data needed for time evolution plots from all of the snapshots 
 	into a small file.
@@ -535,7 +547,8 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		sil_to_C_ratio = np.zeros([length,3])
 		sfr = np.zeros(length)
 		metallicity = np.zeros([length,3])
-		redshift = np.zeros(length)
+		time = np.zeros(length)
+		a_scale = np.zeros(length)
 		source_frac = np.zeros((length,4,3))
 		spec_frac = np.zeros((length,4,3))
 
@@ -543,38 +556,54 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		# Go through each of the snapshots and get the data
 		for i, num in enumerate(range(startnum, endnum+1)):
 			print num
-			G = readsnap(snap_dir, num, 0)
-			H = readsnap(snap_dir, num, 0, header_only=True)
-			S = readsnap(snap_dir, num, 4)
+			G = readsnap(snap_dir, num, 0, cosmological=cosmological)
+			H = readsnap(snap_dir, num, 0, header_only=True, cosmological=cosmological)
+			S = readsnap(snap_dir, num, 4, cosmological=cosmological)
 
 			if mask:
-				halo_data = Table.read(halo_dir,format='ascii')
-				xpos =  halo_data['col7'][num-1]
-				ypos =  halo_data['col8'][num-1]
-				zpos =  halo_data['col9'][num-1]
-				rvir = halo_data['col13'][num-1]*Rvir_frac
-				center = np.array([xpos,ypos,zpos])
-				if r_max == None:
-					print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
-					r_max_code = halo_data['col13'][num-1]*Rvir_frac
-				else:
-					print "Using AHF halo as spherical mask with radius of " + str(r_max) + " kpc."
-					r_max_code = r_max / (H['time']*H['hubble']) # Convert from kpc to code units	
-
-				# Keep data for particles with coordinates within a sphere of radius Rvir
 				coords = G['p']
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
+				if cosmological:
+					halo_data = Table.read(halo_dir,format='ascii')
+					# Convert to physical units
+					xpos =  halo_data['col7'][num-1]*H['time']/H['hubble']
+					ypos =  halo_data['col8'][num-1]*H['time']/H['hubble']
+					zpos =  halo_data['col9'][num-1]*H['time']/H['hubble']
+					rvir = halo_data['col13'][num-1]*H['time']/H['hubble']
+					center = np.array([xpos,ypos,zpos])
+					if r_max == None:
+						print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
+						r_max = rvir*Rvir_frac
+					else:
+						print "Using AHF halo as spherical mask with radius of " + str(r_max) + " kpc."
+
+				else:
+					if r_max == None:
+						print "Must give maximum radius r_max for noncosmological simulations!"
+						exit()
+					# Recenter coords at center of periodic box
+					boxsize = H['boxsize']
+					mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
+					coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2;
+					center = np.average(coords, weights = G['m'], axis = 0)
+
+				# Keep data for gas and star particles with coordinates within a sphere of radius r_max
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
 				for key in G.keys():
 					if key != 'k':
 						G[key] = G[key][in_sphere]
 				coords = S['p']
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
+				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
 				S['age'] = S['age'][in_sphere]
 				S['m'] = S['m'][in_sphere]
 
 			M = G['m']
-			redshift[i] = H['redshift']
+			omeganot = H['omega0']
 			h = H['hubble']
+			if cosmological:
+				a_scale[i] = H['time']
+				time[i] = tfora(H['time'], omeganot, h)
+			else:
+				time[i] = H['time']
 
 			if depletion:
 				metallicity[i] = weighted_percentile(G['z'][:,0]+G['dz'][:,0], weights=M)
@@ -627,12 +656,20 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			DZ_ratio[i][DZ_ratio[i]==0] = small_num
 
 			# Calculate SFR as all stars born within the last 100 Myrs
-			formation_time = tfora(S['age'], H['omega0'], h)
-			current_time = tfora(H['time'], H['omega0'], h)
+			if cosmological:
+				formation_time = tfora(S['age'], omeganot, h)
+				current_time = time[i]
+			else:
+				formation_time = S['age']*UnitTime_in_Gyr
+				current_time = time[i]*UnitTime_in_Gyr
+
 			time_interval = 100E-3 # 100 Myr
 			new_stars = (current_time - formation_time) < time_interval
-			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar * h / (time_interval*1E9)   # Msun/yr
+			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar / (time_interval*1E9)   # Msun/yr
 
-		data = {'redshift':redshift,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
+		if cosmological:
+			data = {'time':time,'a_scale':a_scale,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
+		else:
+			data = {'time':time,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
 		with open(data_dir+foutname, 'wb') as handle:
 			pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
