@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 plt.switch_backend('agg')
 import pickle
 import os
@@ -510,7 +511,111 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	plt.savefig(foutname)
 	plt.close()
 
+	
+def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='compare_runs_vs_time.png', labels=["fiducial"], time=False, cosmological=True):
+	"""
+	Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
+	Parameters
+	----------
+	dataname : list
+		List of data file names for sims
+	datadir: str
+		Directory of data
+	foutname: str
+		Name of file to be saved
+
+	Returns
+	-------
+	None
+	"""
+
+	Z_solar = 0.02
+	species_names = ['Silicates','Carbon','SiC','Iron']
+	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+
+	fig,axes = plt.subplots(2, 2, sharex='all', figsize=(24,12))
+	lines = [] # List of line styles used for plot legend
+	for i,dataname in enumerate(datanames):
+
+		lines += [mlines.Line2D([], [], color='xkcd:black',
+                          linestyle=linestyles[i], label=labels[i])]
+
+		with open(data_dir+dataname, 'rb') as handle:
+			data = pickle.load(handle)
+		
+		if cosmological:
+			if time:
+				time_data = data['time']
+			else:
+				time_data = -1.+1./data['a_scale']
+		else:
+			time_data = data['time']
+
+		# Get mean and std, and make sure to set zero std to small number
+		mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
+		mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
+		mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
+		mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
+		
+		axes[0,0].plot(time_data, np.log10(mean_DZ), color=colors[0], linestyle=linestyles[i])
+
+		for j in range(4):
+			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=colors[j], linestyle=linestyles[i])
+
+
+		for j in range(4):
+			axes[1,0].plot(time_data, mean_source[:,j], label=source_names[j], color=colors[j], linestyle=linestyles[i])
+
+		axes[1,1].plot(time_data, mean_sil_to_C, color=colors[0], linestyle=linestyles[i])
+
+
+	axes[0,0].set_ylabel(r'Log D/Z Ratio')
+	axes[0,0].set_ylim([-3.0,0.])
+	axes[0,0].set_xscale('log')
+
+	axes[0,1].set_ylabel(r'Species Mass Fraction')
+	axes[0,1].set_ylim([1E-3,1])
+	axes[0,1].set_yscale('log')
+	axes[0,1].set_xscale('log')
+	spec_lines = []
+	for i in range(4):
+		spec_lines += [mlines.Line2D([], [], color=colors[i], label=species_names[i])]
+	axes[0,1].legend(handles=spec_lines,loc=4)
+
+	axes[1,0].set_ylabel(r'Source Mass Fraction')
+	axes[1,0].set_ylim([1E-2,1])
+	axes[1,0].set_yscale('log')
+	axes[1,0].set_xscale('log')
+	source_lines = []
+	for i in range(4):
+		source_lines += [mlines.Line2D([], [], color=colors[i], label=source_names[i])]
+	axes[1,0].legend(handles=source_lines, loc=4)
+
+	axes[1,1].set_ylabel(r'Silicates to Carbon Ratio')
+	axes[1,1].set_ylim([1E-2,1E1])
+	axes[1,1].set_yscale('log')
+	axes[1,1].set_xscale('log')
+
+
+	if time or not cosmological:
+		axes[1,0].set_xlabel('t (Gyr)')
+		axes[1,1].set_xlabel('t (Gyr)')
+	else:
+		axes[1,0].set_xlabel('z')
+		axes[1,1].set_xlabel('z')
+		plt.gca().invert_xaxis()
+
+	# Create the legend for the different runs
+	fig.legend(handles=lines,   		# The line objects
+           loc="upper center",  		# Position of legend
+           borderaxespad=0.1,   		# Small spacing around legend box
+           ncol=len(lines),    			# Make the legend stretch horizontally across the plot
+           fontsize=24,
+           bbox_to_anchor=(0.5, .95)) 	# Pin the legend to just above the plots
+
+	plt.savefig(foutname)
+	plt.close()
 
 
 def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., r_max = None, overwrite=False, cosmological=True, startnum=0, endnum=600, implementation='species', depletion=False):

@@ -8,17 +8,10 @@ import subprocess
 main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological/non_cosmological_runs/Elemental/'
 snap_dirs = [main_dir+'fiducial_model/', main_dir+'species_creation_eff', main_dir+'enhanced_dest', main_dir+'decreased_stellar']
 names = ['fiducial_model','species_creation_eff','enhanced_dest','decreased_stellar']
+labels = ['Fiducial','Spec. creation eff.','Enhanced dest.','Decreased stellar']
 image_dir = './images/'
 
-main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological/non_cosmological_runs/Elemental/'
-snap_dirs = ['./']
-names = 'fiducial_model'
-image_dir = './images/'
-
-implementation = 'elemental'
-
-
-dataname = implementation+'_'+names+'_data_20_kpc.pickle'
+implementation = 'species'
 
 # First create ouput directory if needed
 try:
@@ -29,19 +22,26 @@ except:
     print "Directory " + image_dir +  " already exists"
 
 # First and last snapshot numbers
-startnum = 400
-endnum = 401
+startnum = 0
+endnum = 400
 
 # Maximum radius used for getting data
-r_max_phys = 20 # kpc
+r_max = 20 # kpc
 
-#dataname = implementation+'_'+names[i]+'_data_20_kpc.pickle'
+
+data_names = []
 
 # Now preload the time evolution data
+
 for i,snap_dir in enumerate(snap_dirs):
-	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=True, cosmological=False, r_max=r_max_phys, startnum=startnum, endnum=endnum, implementation=implementation)
+	dataname = implementation+'_'+names[i]+'_data_'+str(r_max)+'_kpc.pickle'
+	data_names += [dataname]
+	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=True, cosmological=False, r_max=r_max, startnum=startnum, endnum=endnum, implementation=implementation)
 
-# Plot precompiled data
-DZ_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=False, foutname=image_dir+'DZ_vs_time.png')
+	# Plot precompiled data
+	DZ_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=False, foutname=image_dir+names[i]+'_DZ_vs_time.png')
 
-all_data_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=False, foutname=image_dir+'all_data_vs_time.png')
+	all_data_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=False, foutname=image_dir+names[i]+'_all_data_vs_time.png')
+
+# Now plot a comparison of each of the runs
+compare_runs_vs_time(datanames=data_names, data_dir='data/', foutname=image_dir+'compare_runs_vs_time.png', labels=labels, cosmological=False)
