@@ -51,6 +51,10 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	    The values associated with the specified percentiles.  
 	"""
 
+	# First deal with empty array
+	if len(a)==0:
+		return np.full(len(percentiles), np.nan)
+
 	# Standardize and sort based on values in a
 	percentiles = percentiles
 	if weights is None:
@@ -665,6 +669,10 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			H = readsnap(snap_dir, num, 0, header_only=True, cosmological=cosmological)
 			S = readsnap(snap_dir, num, 4, cosmological=cosmological)
 
+			if G['k']==-1:
+				print "No snapshot found in directory"
+				print "Snap directory:", snap_dir
+
 			if mask:
 				coords = G['p']
 				if cosmological:
@@ -696,10 +704,12 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				for key in G.keys():
 					if key != 'k':
 						G[key] = G[key][in_sphere]
-				coords = S['p']
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
-				S['age'] = S['age'][in_sphere]
-				S['m'] = S['m'][in_sphere]
+				# Check if there are any star particles
+				if S['k']!=-1:
+					coords = S['p']
+					in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
+					S['age'] = S['age'][in_sphere]
+					S['m'] = S['m'][in_sphere]
 
 			M = G['m']
 			omeganot = H['omega0']
@@ -761,16 +771,17 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			DZ_ratio[i][DZ_ratio[i]==0] = small_num
 
 			# Calculate SFR as all stars born within the last 100 Myrs
-			if cosmological:
-				formation_time = tfora(S['age'], omeganot, h)
-				current_time = time[i]
-			else:
-				formation_time = S['age']*UnitTime_in_Gyr
-				current_time = time[i]*UnitTime_in_Gyr
+			if S['k']!=-1:
+				if cosmological:
+					formation_time = tfora(S['age'], omeganot, h)
+					current_time = time[i]
+				else:
+					formation_time = S['age']*UnitTime_in_Gyr
+					current_time = time[i]*UnitTime_in_Gyr
 
-			time_interval = 100E-3 # 100 Myr
-			new_stars = (current_time - formation_time) < time_interval
-			sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar / (time_interval*1E9)   # Msun/yr
+				time_interval = 100E-3 # 100 Myr
+				new_stars = (current_time - formation_time) < time_interval
+				sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar / (time_interval*1E9)   # Msun/yr
 
 		if cosmological:
 			data = {'time':time,'a_scale':a_scale,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
