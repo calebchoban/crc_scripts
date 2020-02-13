@@ -10,4 +10,4 @@ set -e
 pwd
 date
 
-python cosmo_plots.py
+python non_cosmo_plots.py
