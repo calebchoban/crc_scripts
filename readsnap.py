@@ -159,7 +159,7 @@ def readsnap(sdir,snum,ptype,
     # initialize variables to be read
     pos=np.zeros([npartTotal[ptype],3],dtype=np.float64)
     vel=np.copy(pos)
-    ids=np.zeros([npartTotal[ptype]],dtype=long)
+    ids=np.zeros([npartTotal[ptype]],dtype=int)
     mass=np.zeros([npartTotal[ptype]],dtype=np.float64)
     if (ptype==0):
         ugas=np.copy(mass)
@@ -180,7 +180,7 @@ def readsnap(sdir,snum,ptype,
         dust_metal=np.zeros([npartTotal[ptype],flag_dust-4],dtype=np.float64)
         dust_source=np.zeros([npartTotal[ptype],4],dtype=np.float64)
     if (ptype == 0) and (flag_species > 0):
-        dust_species=np.zeros([npartTotal[ptype],4],dtype=np.float64)
+        dust_species=np.zeros([npartTotal[ptype],flag_species],dtype=np.float64)
     if (ptype==4) and (flag_sfr>0) and (flag_stellarage>0):
         stellage=np.copy(mass)
     if (ptype==5) and (skip_bh==0):
@@ -264,7 +264,7 @@ def readsnap(sdir,snum,ptype,
 	## correct to same ID as original gas particle for new stars, if bit-flip applied
     if ((np.min(ids)<0) | (np.max(ids)>1.e9)):
         bad = (ids < 0) | (ids > 1.e9)
-        ids[bad] += (long(1) << 31)
+        ids[bad] += (int(1) << 31)
 
     # do the cosmological conversions on final vectors as needed
     pos *= hinv*ascale # snapshot units are comoving
@@ -454,7 +454,7 @@ def load_gadget_format_binary_particledat(f, header, ptype, skip_bh=0):
     ### Variable particle masses. 
     Npart_MassCode = np.copy(np.array(Npart))
     Npart=np.array(Npart)
-    Npart_MassCode[(Npart <= 0) | (np.array(Massarr,dtype='d') > 0.0)] = long(0)
+    Npart_MassCode[(Npart <= 0) | (np.array(Massarr,dtype='d') > 0.0)] = int(0)
     NwithMass = np.sum(Npart_MassCode)
     mass = array.array('f')
     mass.fromfile(f, NwithMass)

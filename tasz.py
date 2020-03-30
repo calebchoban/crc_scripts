@@ -10,7 +10,7 @@ def tasz(omeganot, littleh, interval=1000):
         a = amin + i*(amax-amin)/interval
         f = omeganot * a ** (-3.0) / (1.0 - omeganot)
         t = (2.0/3.0)* 9.779e9 * (1.0/littleh) * np.log((1.0 + (1.0+f)**0.5)/f**0.5) / (1.0-omeganot)**0.5
-        print a,'  ',t/1e9
+        print(a,'  ',t/1e9)
         alist.append(a)
         tlist.append(t/1e9)
     return alist, tlist

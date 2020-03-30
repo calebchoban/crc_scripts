@@ -19,13 +19,14 @@ cosmological = False
 try:
     # Create target Directory
     os.mkdir(image_dir)
-    print "Directory " + image_dir +  " Created " 
+    print("Directory ", image_dir, " Created")
 except:
-    print "Directory " + image_dir +  " already exists"
+    print("Directory ", image_dir, " already exists")
+
 
 # First and last snapshot numbers
 startnum = 0
-endnum = 400
+endnum = 380
 
 # Maximum radius used for getting data
 r_max = 20 # kpc

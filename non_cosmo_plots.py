@@ -6,14 +6,14 @@ import subprocess
 
 
 
-main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Elemental/'
-names = ['fiducial_model','species_creation_eff','enhanced_dest','decreased_acc']
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
+names = ['fiducial_model','elem_creation_eff','enhanced_acc','extra_O']
 snap_dirs = [main_dir + i + '/output/' for i in names] 
-labels = ['Fiducial','Spec. Creation Eff.','Enhanced Dest.','Decreased Acc.']
-image_dir = './non_cosmo_images/'
+labels = ['Fiducial','Spec. Creation Eff.','Enhanced Dest.','Enhanced O']
+image_dir = './non_cosmo_species_images/'
 sub_dir = 'snapshot_images/' # subdirectory since this will make a lot of images
 
-implementation = 'elemental'
+implementation = 'species'
 
 cosmological = False
 

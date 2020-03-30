@@ -430,7 +430,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	"""
 
 	Z_solar = 0.02
-	species_names = ['Silicates','Carbon','SiC','Iron']
+	species_names = ['Silicates','Carbon','SiC','Iron','O Bucket']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 	with open(data_dir+dataname, 'rb') as handle:
@@ -443,6 +443,8 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 			time_data = -1.+1./data['a_scale']
 	else:
 		time_data = data['time']
+
+	num_species = np.shape(data['spec'])[1]
 
 	sfr = data['sfr'] 
 	# Get mean and std, and make sure to set zero std to small number
@@ -473,7 +475,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	axes[0,2].set_ylim([np.log10(1E-2),1])
 	axes[0,2].set_xscale('log')
 
-	for i in range(4):
+	for i in range(num_species):
 		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
 		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
 	axes[1,0].set_ylabel(r'Species Mass Fraction')
@@ -535,7 +537,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	"""
 
 	Z_solar = 0.02
-	species_names = ['Silicates','Carbon','SiC','Iron']
+	species_names = ['Silicates','Carbon','SiC','Iron','O Bucket']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 	fig,axes = plt.subplots(2, 2, sharex='all', figsize=(24,12))
@@ -556,6 +558,8 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		else:
 			time_data = data['time']
 
+		num_species = np.shape(data['spec'])[1]
+
 		# Get mean and std, and make sure to set zero std to small number
 		mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
 		mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
@@ -564,7 +568,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		
 		axes[0,0].plot(time_data, np.log10(mean_DZ), color=colors[0], linestyle=linestyles[i])
 
-		for j in range(4):
+		for j in range(num_species):
 			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=colors[j], linestyle=linestyles[i])
 
 
@@ -583,7 +587,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	axes[0,1].set_yscale('log')
 	axes[0,1].set_xscale('log')
 	spec_lines = []
-	for i in range(4):
+	for i in range(num_species):
 		spec_lines += [mlines.Line2D([], [], color=colors[i], label=species_names[i])]
 	axes[0,1].legend(handles=spec_lines,loc=4)
 
@@ -643,14 +647,23 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 	else:
 		# First create ouput directory if needed
 		try:
-		    # Create target Directory
-		    os.mkdir(data_dir)
-		    print "Directory " + data_dir +  " Created " 
+			# Create target Directory
+			os.mkdir(data_dir)
+			print("Directory ", data_dir, " Created")
 		except:
-		    print "Directory " + data_dir +  " already exists"
+			print("Directory ", data_dir, " already exists")
 
-		print "Fetching data now..."
+
+		print("Fetching data now...")
 		length = endnum-startnum+1
+		# Need to load in the first snapshot to see how many dust species there are
+		G = readsnap(snap_dir, startnum, 0, cosmological=cosmological)
+		if G['k']==-1:
+			print("No snapshot found in directory")
+			print("Snap directory:", snap_dir)
+			exit()
+		species_num = range(G['spec'])[1]
+		print("There are %i dust species"%species_num)
 		# Most data comes with mean of values and 16th and 84th percentile
 		DZ_ratio = np.zeros([length,3])
 		sil_to_C_ratio = np.zeros([length,3])
@@ -659,19 +672,20 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		time = np.zeros(length)
 		a_scale = np.zeros(length)
 		source_frac = np.zeros((length,4,3))
-		spec_frac = np.zeros((length,4,3))
+		spec_frac = np.zeros((length,species_num,3))
 
 
 		# Go through each of the snapshots and get the data
 		for i, num in enumerate(range(startnum, endnum+1)):
-			print num
+			print(num)
 			G = readsnap(snap_dir, num, 0, cosmological=cosmological)
 			H = readsnap(snap_dir, num, 0, header_only=True, cosmological=cosmological)
 			S = readsnap(snap_dir, num, 4, cosmological=cosmological)
 
 			if G['k']==-1:
-				print "No snapshot found in directory"
-				print "Snap directory:", snap_dir
+				print("No snapshot found in directory")
+				print("Snap directory:", snap_dir)
+				exit()
 
 			if mask:
 				coords = G['p']
@@ -684,14 +698,14 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 					rvir = halo_data['col13'][num-1]*H['time']/H['hubble']
 					center = np.array([xpos,ypos,zpos])
 					if r_max == None:
-						print "Using AHF halo as spherical mask with radius of " + str(Rvir_frac) + " * Rvir."
+						print("Using AHF halo as spherical mask with radius of ",str(Rvir_frac)," * Rvir.")
 						r_max = rvir*Rvir_frac
 					else:
-						print "Using AHF halo as spherical mask with radius of " + str(r_max) + " kpc."
+						print("Using AHF halo as spherical mask with radius of ",str(r_max)," kpc.")
 
 				else:
 					if r_max == None:
-						print "Must give maximum radius r_max for noncosmological simulations!"
+						print("Must give maximum radius r_max for noncosmological simulations!")
 						exit()
 					# Recenter coords at center of periodic box
 					boxsize = H['boxsize']
