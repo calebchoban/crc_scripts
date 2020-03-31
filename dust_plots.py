@@ -657,13 +657,16 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 		print("Fetching data now...")
 		length = endnum-startnum+1
 		# Need to load in the first snapshot to see how many dust species there are
-		G = readsnap(snap_dir, startnum, 0, cosmological=cosmological)
-		if G['k']==-1:
-			print("No snapshot found in directory")
-			print("Snap directory:", snap_dir)
-			exit()
-		species_num = np.shape(G['spec'])[1]
-		print("There are %i dust species"%species_num)
+		if implementation=='species':
+			G = readsnap(snap_dir, startnum, 0, cosmological=cosmological)
+			if G['k']==-1:
+				print("No snapshot found in directory")
+				print("Snap directory:", snap_dir)
+				return
+			species_num = np.shape(G['spec'])[1]
+			print("There are %i dust species"%species_num)
+		else:
+			species_num = 2
 		# Most data comes with mean of values and 16th and 84th percentile
 		DZ_ratio = np.zeros([length,3])
 		sil_to_C_ratio = np.zeros([length,3])
@@ -685,7 +688,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			if G['k']==-1:
 				print("No snapshot found in directory")
 				print("Snap directory:", snap_dir)
-				exit()
+				return
 
 			if mask:
 				coords = G['p']
@@ -706,7 +709,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				else:
 					if r_max == None:
 						print("Must give maximum radius r_max for noncosmological simulations!")
-						exit()
+						return
 					# Recenter coords at center of periodic box
 					boxsize = H['boxsize']
 					mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
@@ -746,7 +749,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 
 			if implementation == 'species':
 				# Need to mask all rows with nan and inf values for average to work
-				for j in range(4):
+				for j in range(species_num):
 					spec_frac_vals = G['spec'][:,j]/G['dz'][:,0]
 					is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 					spec_frac[i,j] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
@@ -768,9 +771,6 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 				spec_frac[i,1] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
 				spec_frac[i,1][spec_frac[i,1]==0] = small_num
-
-				spec_frac[i,2,0] = 0.; spec_frac[i,2,1]=0.; spec_frac[i,2,2]=0.;
-				spec_frac[i,3,0] = 0.; spec_frac[i,3,1]=0.; spec_frac[i,3,2]=0.;
 
 				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
 				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
