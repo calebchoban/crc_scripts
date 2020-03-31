@@ -10,6 +10,7 @@ names = ['fiducial_model','species_creation_eff','enhanced_dest','decreased_acc'
 snap_dirs = [main_dir + i + '/output/' for i in names] 
 labels = ['Fiducial','Spec. Creation Eff.','Enhanced Dest.','Decreased Acc.']
 image_dir = './non_cosmo_images/'
+set_name = 'largest_change' # name of set of runs to be compared
 
 implementation = 'elemental'
 
@@ -44,9 +45,9 @@ for i,snap_dir in enumerate(snap_dirs):
 	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=True, cosmological=cosmological, r_max=r_max, startnum=startnum, endnum=endnum, implementation=implementation)
 
 	# Plot precompiled data
-	DZ_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=cosmological, foutname=image_dir+name+'_DZ_vs_time.png')
+	DZ_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=cosmological, foutname=image_dir+implementation+'_'+name+'_DZ_vs_time.png')
 
-	all_data_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=cosmological, foutname=image_dir+name+'_all_data_vs_time.png')
+	all_data_vs_time(dataname=dataname, data_dir='data/', time=True, cosmological=cosmological, foutname=image_dir+implementation+'_'+name+'_all_data_vs_time.png')
 
 # Now plot a comparison of each of the runs
-compare_runs_vs_time(datanames=data_names, data_dir='data/', foutname=image_dir+'compare_runs_vs_time.png', labels=labels, cosmological=cosmological)
+compare_runs_vs_time(datanames=data_names, data_dir='data/', foutname=image_dir+implementation+'_'+set_name+'_compare_runs_vs_time.png', labels=labels, cosmological=cosmological)

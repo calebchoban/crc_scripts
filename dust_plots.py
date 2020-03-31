@@ -662,7 +662,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			print("No snapshot found in directory")
 			print("Snap directory:", snap_dir)
 			exit()
-		species_num = range(G['spec'])[1]
+		species_num = np.shape(G['spec'])[1]
 		print("There are %i dust species"%species_num)
 		# Most data comes with mean of values and 16th and 84th percentile
 		DZ_ratio = np.zeros([length,3])
