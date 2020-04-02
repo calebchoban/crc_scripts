@@ -39,7 +39,7 @@ data_names = []
 
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
-	print name
+	print(name)
 	dataname = implementation+'_'+name+'_data_'+str(r_max)+'_kpc.pickle'
 	data_names += [dataname]
 	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=True, cosmological=cosmological, r_max=r_max, startnum=startnum, endnum=endnum, implementation=implementation)

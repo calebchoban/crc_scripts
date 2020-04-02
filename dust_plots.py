@@ -444,7 +444,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	else:
 		time_data = data['time']
 
-	num_species = np.shape(data['spec'])[1]
+	num_species = np.shape(data['spec_frac'])[1]
 
 	sfr = data['sfr'] 
 	# Get mean and std, and make sure to set zero std to small number
@@ -558,7 +558,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		else:
 			time_data = data['time']
 
-		num_species = np.shape(data['spec'])[1]
+		num_species = np.shape(data['spec_frac'])[1]
 
 		# Get mean and std, and make sure to set zero std to small number
 		mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];

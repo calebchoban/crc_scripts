@@ -41,10 +41,10 @@ r_max_phys = 20 # kpc
 
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
-	print name
+	print(name)
 
 	for num in range(startnum,endnum+1):
-		print num
+		print(num)
 
 		H = readsnap(snap_dir, num, 0, header_only=1, cosmological=cosmological)
 		G = readsnap(snap_dir, num, 0, cosmological=cosmological)
@@ -70,6 +70,10 @@ for i,snap_dir in enumerate(snap_dirs):
 		
 	# Create movie of images
 	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_phase_plot_%03d.png '+implementation+'_'+name+'_phase_plot.mp4'],shell=True) 
+	os.system('cp '+image_dir+sub_dir+implementation+'_'+name+'_phase_plot.mp4'+' '+image_dir)
 	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_DZ_vs_dens_%03d.png '+implementation+'_'+name+'_DZ_vs_dens.mp4'],shell=True) 
-	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_DZ_vs_r_%03d.png '+implementation+'_'+name+'_DZ_vs_r.mp4'],shell=True) 
+	os.system('cp '+image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_dens.mp4'+' '+image_dir)
+	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_DZ_vs_r_%03d.png '+implementation+'_'+name+'_DZ_vs_r.mp4'],shell=True)
+	os.system('cp '+image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_r.mp4'+' '+image_dir) 
 	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_DZ_vs_Z_%03d.png '+implementation+'_'+name+'_DZ_vs_Z.mp4'],shell=True) 
+	os.system('cp '+image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_Z.mp4'+' '+image_dir) 

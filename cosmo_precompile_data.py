@@ -39,6 +39,7 @@ data_names = []
 for i,snap_dir in enumerate(snap_dirs):
 	implementation = implementations[i]
 	name = names[i]
+	print(name)
 	halo_dir = halo_dirs[i]
 
 	# Load in halohistory data for main halo. All values should be in code units
