@@ -51,7 +51,7 @@ for i,snap_dir in enumerate(snap_dirs):
 		rvir = halo_data['col13'][num-1]*H['time']/H['hubble']
 		center = np.array([xpos,ypos,zpos])
 
-		DZ_vs_r(G, H, center, rvir, bin_nums=50, time=True, foutname=image_dir+sub_dir+name+'_DZ_vs_r_%03d.png' % num, r_max = r_max)
+		DZ_vs_r([G], [H], [center], [rvir], bin_nums=50, time=True, foutname=image_dir+sub_dir+name+'_DZ_vs_r_%03d.png' % num)
 
 		coords = G['p']
 		# coordinates within a sphere of radius 5 kpc
@@ -60,9 +60,9 @@ for i,snap_dir in enumerate(snap_dirs):
 		# Make phase plot
 		phase_plot(G,H,time=True,mask=in_sphere,foutname=image_dir+sub_dir+name+"_phase_plot_%03d.png" % num)
 		# Make D/Z vs density plot
-		DZ_vs_dens(G,H,time=True,mask=in_sphere,foutname=image_dir+sub_dir+name+"_DZ_vs_dens_%03d.png" % num)
+		DZ_vs_dens([G],[H],time=True,mask_list=[in_sphere],foutname=image_dir+sub_dir+name+"_DZ_vs_dens_%03d.png" % num)
 		# Make D/Z vs Z plot
-		DZ_vs_Z(G,H,time=True,mask=in_sphere,Zmin=1E-4, Zmax=1e0,foutname=image_dir+sub_dir+name+"_DZ_vs_Z_%03d.png" % num)
+		DZ_vs_Z([G],[H],time=True,mask_list=[in_sphere],Zmin=1E-4, Zmax=1e0,foutname=image_dir+sub_dir+name+"_DZ_vs_Z_%03d.png" % num)
 		
 	# Create movie of images
 	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+name+'_phase_plot_%03d.png '+name+'_phase_plot.mp4'],shell=True) 

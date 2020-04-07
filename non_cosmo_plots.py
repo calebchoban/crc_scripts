@@ -55,7 +55,7 @@ for i,snap_dir in enumerate(snap_dirs):
 		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
 		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
 		center = np.average(coords, weights = G['m'], axis = 0)
-		DZ_vs_r(G, H, center, r_max_phys, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_r_%03d.png' % num,cosmological=cosmological)
+		DZ_vs_r([G], [H], [center], [r_max_phys], bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_r_%03d.png' % num,cosmological=cosmological)
 
 		# coordinates within a sphere of radius r_max_phys
 		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_phys,2.)
@@ -63,9 +63,9 @@ for i,snap_dir in enumerate(snap_dirs):
 		# Make phase plot
 		phase_plot(G,H,time=True,mask=in_sphere,foutname=image_dir+sub_dir+implementation+'_'+name+"_phase_plot_%03d.png" % num,cosmological=cosmological)
 		# Make D/Z vs density plot
-		DZ_vs_dens(G,H,time=True,mask=in_sphere,foutname=image_dir+sub_dir+implementation+'_'+name+"_DZ_vs_dens_%03d.png" % num,cosmological=cosmological)
+		DZ_vs_dens([G],[H],time=True,mask_list=[in_sphere],foutname=image_dir+sub_dir+implementation+'_'+name+"_DZ_vs_dens_%03d.png" % num,cosmological=cosmological)
 		# Make D/Z vs Z plot
-		DZ_vs_Z(G,H,time=True,mask=in_sphere,Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_'+name+"_DZ_vs_Z_%03d.png" % num,cosmological=cosmological)
+		DZ_vs_Z([G],[H],time=True,mask_list=[in_sphere],Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_'+name+"_DZ_vs_Z_%03d.png" % num,cosmological=cosmological)
 		
 	# Create movie of images
 	subprocess.call(['./movie_maker.sh ' + image_dir + sub_dir + ' ' + str(startnum) + ' 25 '+implementation+'_'+name+'_phase_plot_%03d.png '+implementation+'_'+name+'_phase_plot.mp4'],shell=True) 

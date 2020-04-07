@@ -344,7 +344,7 @@ def DZ_vs_Z(gas, header, mask_list=True, bin_nums=30, time=False, depletion=Fals
 
 
 
-def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, foutname='DZ_vs_r.png', std_bars=True, style='color'):
+def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=['fiducial'], foutname='DZ_vs_r.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius for multiple simulations/snapshots
 
