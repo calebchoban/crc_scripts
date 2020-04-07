@@ -13,9 +13,11 @@ from tasz import *
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
-colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
-linestyles = ['-','--',':','-.']
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
+Line_Colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
+Line_Styles = ['-','--',':','-.']
+Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
+
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
 
 
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
@@ -122,75 +124,96 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, 
 
 
 
-def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, foutname='DZ_vs_dens.png'):
+def DZ_vs_dens(gas, header, mask_list=True, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=["fiducial"], foutname='compare_DZ_vs_dens.png', std_bars=True, style='color'):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs density 
+	Plots the average dust-to-metals ratio (D/Z) vs density for multiple simulations
 
 	Parameters
 	----------
-	G : dict
-	    Snapshot gas data structure
-	H : dict
-		Snapshot header structure
-	mask : np.array, optional
-	    Mask for which particles to use in plot, default mask=True means all values are used
+	gas : array
+	    Array of snapshot gas data structure
+	header : array
+		Array of snapshot header structure
+	mask_list : np.array, optional
+	    Array of masks for which particles to use in plot, default mask=True means all values are used
 	bin_nums: int
 		Number of bins to use
 	time : bool, optional
 		Print time in corner of plot (useful for movies)
-	depletion: bool, optional
+	depletion : bool, optional
 		Was the simulation run with the DEPLETION option
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
 
 	Returns
 	-------
 	None
 	"""
 
-	# TODO : Replace standard deviation with WEIGHTED percentiles for the 16th and 84th precentile 
-	#        to better plot error in log space
-
-
-	if depletion:
-		nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
 	else:
-		nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1][mask])) / H_MASS
-	D = G['dz'][mask]
-	M = G['m'][mask]
-	if depletion:
-		DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask]+G['dz'][:,0][mask])
-	else:
-		DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask])
-
-	# Make bins for nH 
-	nH_bins = np.logspace(np.log10(nHmin),np.log10(nHmax),bin_nums)
-	nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
-	digitized = np.digitize(nH,nH_bins)
-	mean_DZ = np.zeros(bin_nums - 1)
-	# 16th and 84th percentiles
-	std_DZ = np.zeros([bin_nums - 1,2])
-
-	for i in range(1,len(nH_bins)):
-		if len(nH[digitized==i])==0:
-			mean_DZ[i-1] = np.nan
-			std_DZ[i-1,0] = np.nan; std_DZ[i-1,1] = np.nan;
-			continue
-		else:
-			weights = M[digitized == i]
-			values = DZ[digitized == i]
-			mean_DZ[i-1],std_DZ[i-1,0],std_DZ[i-1,1] = weighted_percentile(values, weights=weights)
-
-	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = small_num
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
 
 	ax=plt.figure()
-	# Now take the log value of the binned statistics
-	plt.plot(nH_vals, np.log10(mean_DZ))
-	plt.fill_between(nH_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
-	plt.xlabel(r'$n_H (cm^{-3})$')
-	plt.ylabel(r'Log D/Z Ratio')
-	plt.ylim([-3.0,0.])
-	plt.xlim([nHmin, nHmax])
-	plt.xscale('log')
+
+	for i in range(len(gas)):
+		G = gas[i]
+		H = header[i]
+		mask = mask_list[i]
+
+		if depletion:
+			nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS
+		else:
+			nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1][mask])) / H_MASS
+		D = G['dz'][mask]
+		M = G['m'][mask]
+		if depletion:
+			DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask]+G['dz'][:,0][mask])
+		else:
+			DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask])
+
+		# Make bins for nH 
+		nH_bins = np.logspace(np.log10(nHmin),np.log10(nHmax),bin_nums)
+		nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
+		digitized = np.digitize(nH,nH_bins)
+		mean_DZ = np.zeros(bin_nums - 1)
+		# 16th and 84th percentiles
+		std_DZ = np.zeros([bin_nums - 1,2])
+
+		for j in range(1,len(nH_bins)):
+			if len(nH[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		# Now take the log value of the binned statistics
+		plt.plot(nH_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			plt.fill_between(nH_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4, color=colors[i])
+
 	if time:
 		if cosmological:
 			z = H['redshift']
@@ -198,67 +221,109 @@ def DZ_vs_dens(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmol
 		else:
 			t = H['time']
 			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')			
+	
+	if labels!=None and len(gas)>1:
+		plt.legend(loc=4)
+	plt.xlabel(r'$n_H \, (cm^{-3})$')
+	plt.ylabel(r'Log D/Z Ratio')
+	plt.ylim([-3.0,0.])
+	plt.xlim([nHmin, nHmax])
+	plt.xscale('log')
 	plt.savefig(foutname)
 	plt.close()
 
 
 
-
-def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmological=True,Zmin=1E-4, Zmax=1e1, foutname='DZ_vs_Z.png'):
+def DZ_vs_Z(gas, header, mask_list=True, bin_nums=30, time=False, depletion=False, cosmological=True, Zmin=1E-4, Zmax=1e1, labels=['fiducial'], foutname='DZ_vs_Z.png', std_bars=True, style='color'):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles
+	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles for multiple simulations/snapshots
 
 	Parameters
 	----------
-	G : dict
-	    Snapshot gas data structure
-	H : dict
-		Snapshot header structure
-	mask : np.array, optional
-	    Mask for which particles to use in plot, default mask=True means all values are used
+	gas : array
+	    Array of snapshot gas data structure
+	header : array
+		Array of snapshot header structure
+	mask_list : np.array, optional
+	    Array of masks for which particles to use in plot, default mask=True means all values are used
 	bin_nums: int
 		Number of bins to use
 	time : bool, optional
 		Print time in corner of plot (useful for movies)
-	depletion: bool, optional
+	depletion : bool, optional
 		Was the simulation run with the DEPLETION option
-
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
 	Returns
 	-------
 	None
 	"""
-	solar_Z = 0.02
-	if depletion:
-		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
-		Z = (G['z'][:,0]+G['dz'][:,0])[mask]/solar_Z
-	else:
-		DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
-		Z = G['z'][:,0][mask]/solar_Z
-	M = G['m'][mask]
 
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	solar_Z = 0.02
+	ax=plt.figure()
 	Z_bins = np.logspace(np.log10(Zmin),np.log10(Zmax),bin_nums)
 	Z_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
-	digitized = np.digitize(Z,Z_bins)
-	mean_DZ = np.zeros(bin_nums-1)
-	# 16th and 84th percentiles
-	std_DZ = np.zeros([bin_nums - 1,2])
 
+	for i in range(len(gas)):
+		G = gas[i]
+		H = header[i]
+		mask = mask_list[i]
 
-	for i in range(1,len(Z_bins)):
-		if len(Z[digitized==i])==0:
-			mean_DZ[i-1] = np.nan
-			std_DZ[i-1,0] = np.nan; std_DZ[i-1,1] = np.nan;
-			continue
+		if depletion:
+			DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
+			Z = (G['z'][:,0]+G['dz'][:,0])[mask]/solar_Z
 		else:
-			weights = M[digitized == i]
-			values = DZ[digitized == i]
-			mean_DZ[i-1],std_DZ[i-1,0],std_DZ[i-1,1] = weighted_percentile(values, weights=weights)
-	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = small_num
+			DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
+			Z = G['z'][:,0][mask]/solar_Z
+		M = G['m'][mask]
 
-	ax=plt.figure()
-	plt.plot(Z_vals, np.log10(mean_DZ))
-	plt.fill_between(Z_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
+		digitized = np.digitize(Z,Z_bins)
+		mean_DZ = np.zeros(bin_nums-1)
+		# 16th and 84th percentiles
+		std_DZ = np.zeros([bin_nums - 1,2])
+
+
+		for j in range(1,len(Z_bins)):
+			if len(Z[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		plt.plot(Z_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			plt.fill_between(Z_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4, color=colors[i])
+
+
 	plt.xlabel(r'Metallicity $(Z_{\odot})$')
 	plt.ylabel("Log D/Z Ratio")
 	if time:
@@ -267,83 +332,119 @@ def DZ_vs_Z(G, H, mask=True, bin_nums=30, time=False, depletion=False, cosmologi
 			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
 		else:
 			t = H['time']
-			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')		
+			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')	
+
 	plt.xlim([Z_vals[0],Z_vals[-1]])
 	plt.xscale('log')
 	plt.ylim([-3.0,0.5])
+	if labels!=None and len(gas)>1:
+		plt.legend(loc=4)
 	plt.savefig(foutname)
 	plt.close()	
 
 
 
-
-def DZ_vs_r(G, H, center, r_max, bin_nums=50, time=False, depletion=False, cosmological=True,  foutname='DZ_vs_r.png'):
+def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, foutname='DZ_vs_r.png', std_bars=True, style='color'):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius
+	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius for multiple simulations/snapshots
 
 	Parameters
 	----------
-	G : dict
-	    Snapshot gas data structure
-	H : dict
-		Snapshot header structure
-	center: array
-		3-D coordinate of center of circle
-	r_max: double
-		maximum radius
-	bin_nums: int
+	gas : array
+	    Array of snapshot gas data structures
+	header : array
+		Array of snapshot header structures
+	center_list : array
+		array of 3-D coordinate of center of circles
+	r_max_list : array
+		array of maximum radii
+	bin_nums : int
 		Number of bins to use
-	time : bool, optional
+	time : bool
 		Print time in corner of plot (useful for movies)
 	depletion: bool, optional
 		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
 	foutname: str, optional
 		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
 
 	Returns
 	-------
 	None
 	"""	
 
-	if depletion:
-		DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
+
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
 	else:
-		DZ = G['dz'][:,0]/G['z'][:,0]
-	
-	r_bins = np.linspace(0, r_max, num=bin_nums)
-	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-	mean_DZ = np.zeros(bin_nums-1)
-	# 16th and 84th percentiles
-	std_DZ = np.zeros([bin_nums - 1,2])
-
-	coords = G['p']
-	M = G['m']
-	# Get only data of particles in sphere since those are the ones we care about
-	# Also gives a nice speed-up
-	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
-	M=M[in_sphere]
-	DZ=DZ[in_sphere]
-	coords=coords[in_sphere]
-
-	for i in range(bin_nums-1):
-		# find all coordinates within shell
-		r_min = r_bins[i]; r_max = r_bins[i+1];
-		in_shell = np.logical_and(np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.),
-									np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
-		weights = M[in_shell]
-		values = DZ[in_shell]
-		if len(values) > 0:
-			mean_DZ[i],std_DZ[i,0],std_DZ[i,1] = weighted_percentile(values, weights=weights)
-		else:
-			mean_DZ[i] = np.nan
-			std_DZ[i,0] = np.nan; std_DZ[i,1] = np.nan;
-		
-	# Replace zeros with small values since we are taking the log of the values
-	std_DZ[std_DZ == 0] = small_num
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
 
 	ax=plt.figure()
-	plt.plot(r_vals, np.log10(mean_DZ))
-	plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4)
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+
+		if depletion:
+			DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
+		else:
+			DZ = G['dz'][:,0]/G['z'][:,0]
+		
+		r_bins = np.linspace(0, r_max, num=bin_nums)
+		r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
+		mean_DZ = np.zeros(bin_nums-1)
+		# 16th and 84th percentiles
+		std_DZ = np.zeros([bin_nums - 1,2])
+
+		coords = G['p']
+		M = G['m']
+		# Get only data of particles in sphere since those are the ones we care about
+		# Also gives a nice speed-up
+		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
+		M=M[in_sphere]
+		DZ=DZ[in_sphere]
+		coords=coords[in_sphere]
+
+		for j in range(bin_nums-1):
+			# find all coordinates within shell
+			r_min = r_bins[j]; r_max = r_bins[j+1];
+			in_shell = np.logical_and(np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.),
+										np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
+			weights = M[in_shell]
+			values = DZ[in_shell]
+			if len(values) > 0:
+				mean_DZ[j],std_DZ[j,0],std_DZ[j,1] = weighted_percentile(values, weights=weights)
+			else:
+				mean_DZ[j] = np.nan
+				std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
+			
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		
+		plt.plot(r_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			plt.fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4, color=colors[i])
+
 	plt.xlabel("Radius (kpc)")
 	plt.ylabel("Log D/Z Ratio")
 	if time:
@@ -355,9 +456,10 @@ def DZ_vs_r(G, H, center, r_max, bin_nums=50, time=False, depletion=False, cosmo
 			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')		
 	plt.xlim([r_vals[0],r_vals[-1]])
 	plt.ylim([-3.0,0.])
+	if labels!=None and len(gas)>1:
+		plt.legend(loc=4)
 	plt.savefig(foutname)
 	plt.close()
-
 
 
 
@@ -371,7 +473,7 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 		Name of data file
 	datadir: str
 		Directory of data
-	foutname: str
+	foutname : str
 		Name of file to be saved
 
 	Returns
@@ -545,7 +647,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	for i,dataname in enumerate(datanames):
 
 		lines += [mlines.Line2D([], [], color='xkcd:black',
-                          linestyle=linestyles[i], label=labels[i])]
+                          linestyle=Line_Styles[i], label=labels[i])]
 
 		with open(data_dir+dataname, 'rb') as handle:
 			data = pickle.load(handle)
@@ -566,16 +668,16 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
 		mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
 		
-		axes[0,0].plot(time_data, np.log10(mean_DZ), color=colors[0], linestyle=linestyles[i])
+		axes[0,0].plot(time_data, np.log10(mean_DZ), color='xkcd:black', linestyle=Line_Styles[i])
 
 		for j in range(num_species):
-			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=colors[j], linestyle=linestyles[i])
+			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=Line_Colors[j], linestyle=Line_Styles[i])
 
 
 		for j in range(4):
-			axes[1,0].plot(time_data, mean_source[:,j], label=source_names[j], color=colors[j], linestyle=linestyles[i])
+			axes[1,0].plot(time_data, mean_source[:,j], label=source_names[j], color=Line_Colors[j], linestyle=Line_Styles[i])
 
-		axes[1,1].plot(time_data, mean_sil_to_C, color=colors[0], linestyle=linestyles[i])
+		axes[1,1].plot(time_data, mean_sil_to_C, color='xkcd:black', linestyle=Line_Styles[i])
 
 
 	axes[0,0].set_ylabel(r'Log D/Z Ratio')
@@ -588,7 +690,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	axes[0,1].set_xscale('log')
 	spec_lines = []
 	for i in range(num_species):
-		spec_lines += [mlines.Line2D([], [], color=colors[i], label=species_names[i])]
+		spec_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=species_names[i])]
 	axes[0,1].legend(handles=spec_lines,loc=4)
 
 	axes[1,0].set_ylabel(r'Source Mass Fraction')
@@ -597,7 +699,7 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	axes[1,0].set_xscale('log')
 	source_lines = []
 	for i in range(4):
-		source_lines += [mlines.Line2D([], [], color=colors[i], label=source_names[i])]
+		source_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=source_names[i])]
 	axes[1,0].legend(handles=source_lines, loc=4)
 
 	axes[1,1].set_ylabel(r'Silicates to Carbon Ratio')
@@ -762,12 +864,12 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 
 			elif implementation == 'elemental':
 				# Need to mask nan and inf values for average to work
-				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
+				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 				spec_frac[i,0] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
 				spec_frac[i,0][spec_frac[i,0]==0] = small_num
 
-				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
+				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 				spec_frac[i,1] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
 				spec_frac[i,1][spec_frac[i,1]==0] = small_num

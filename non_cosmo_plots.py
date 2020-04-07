@@ -57,9 +57,8 @@ for i,snap_dir in enumerate(snap_dirs):
 		center = np.average(coords, weights = G['m'], axis = 0)
 		DZ_vs_r(G, H, center, r_max_phys, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_'+name+'_DZ_vs_r_%03d.png' % num,cosmological=cosmological)
 
-		# coordinates within a sphere of radius 5 kpc
-		r_max_code = r_max_phys / H['hubble'] # convert from kpc to code units
-		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_code,2.)
+		# coordinates within a sphere of radius r_max_phys
+		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_phys,2.)
 
 		# Make phase plot
 		phase_plot(G,H,time=True,mask=in_sphere,foutname=image_dir+sub_dir+implementation+'_'+name+"_phase_plot_%03d.png" % num,cosmological=cosmological)
