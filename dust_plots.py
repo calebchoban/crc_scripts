@@ -124,7 +124,7 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, 
 
 
 
-def DZ_vs_dens(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=["fiducial"], foutname='compare_DZ_vs_dens.png', std_bars=True, style='color'):
+def DZ_vs_dens(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=None, foutname='compare_DZ_vs_dens.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs density for multiple simulations
 
@@ -175,8 +175,8 @@ def DZ_vs_dens(gas, header, center_list, r_max_list, bin_nums=30, time=False, de
 	for i in range(len(gas)):
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
-		mean_DZ,std_DZ,nH_vals = calc_DZ_vs_param(G, center, r_max, 'density', \
-			depletion=depletion, cosmological=cosmological, param_min=nHmin, param_max=nHmax)
+		mean_DZ,std_DZ,nH_vals = calc_DZ_vs_param(G,center, r_max, 'density', \
+			depletion=depletion, param_min=nHmin, param_max=nHmax)
 
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
@@ -206,7 +206,7 @@ def DZ_vs_dens(gas, header, center_list, r_max_list, bin_nums=30, time=False, de
 
 
 
-def DZ_vs_Z(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, Zmin=1E-4, Zmax=1e1, labels=['fiducial'], foutname='DZ_vs_Z.png', std_bars=True, style='color'):
+def DZ_vs_Z(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, Zmin=1E-4, Zmax=1e1, labels=None, foutname='DZ_vs_Z.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles for multiple simulations/snapshots
 
@@ -262,7 +262,7 @@ def DZ_vs_Z(gas, header, center_list, r_max_list, bin_nums=30, time=False, deple
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
 		mean_DZ,std_DZ,Z_vals = calc_DZ_vs_param(G, center, r_max, 'metallicity', \
-			depletion=depletion, cosmological=cosmological, param_min=Zmin, param_max=Zmax)
+			depletion=depletion, param_min=Zmin, param_max=Zmax)
 
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
@@ -292,7 +292,7 @@ def DZ_vs_Z(gas, header, center_list, r_max_list, bin_nums=30, time=False, deple
 
 
 
-def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=['fiducial'], foutname='DZ_vs_r.png', std_bars=True, style='color'):
+def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, foutname='DZ_vs_r.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius for multiple simulations/snapshots
 
@@ -352,7 +352,7 @@ def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, deple
 	for i in range(len(gas)):
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
-		mean_DZ,std_DZ,r_vals = calc_DZ_vs_param(G, center, r_max, 'radius', depletion=depletion, cosmological=cosmological)
+		mean_DZ,std_DZ,r_vals = calc_DZ_vs_param(G, center, r_max, 'radius', depletion=depletion)
 			
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
@@ -379,7 +379,7 @@ def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, deple
 
 
 
-def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, cosmological=True, param_min=None, param_max=None):
+def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, param_min=None, param_max=None):
 	"""
 	Calculate the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
 
@@ -395,8 +395,6 @@ def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, cosm
 		Number of bins to use
 	depletion : bool, optional
 		Was the simulation run with the DEPLETION option
-	cosmological : bool
-		Is the simulation cosmological
 	Returns
 	-------
 	mean_DZ : array
@@ -425,9 +423,9 @@ def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, cosm
 	# Get D/Z values over number density of Hydrogen (nH)
 	if param == 'density':
 		if depletion:
-			nH = np.log10(G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1]+G['dz'][:,0][in_sphere])) / H_MASS)
+			nH = G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1]+G['dz'][:,0][in_sphere])) / H_MASS
 		else:
-			nH = np.log10(G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1][in_sphere])) / H_MASS)
+			nH = G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1][in_sphere])) / H_MASS
 
 		# Make bins for nH 
 		nH_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
@@ -489,6 +487,134 @@ def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, cosm
 		return None,None,None
 
 	return mean_DZ, std_DZ, param_vals
+
+
+
+def DZ_vs_all(gas, header, center_list, r_max_list, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
+			  foutname='DZ_vs_all.png', std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E-4, Zmax=1E1):
+	"""
+	Plots the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	gas : array
+	    Array of snapshot gas data structures
+	header : array
+		Array of snapshot header structures
+	center_list : array
+		array of 3-D coordinate of center of circles
+	r_max_list : array
+		array of maximum radii
+	bin_nums : int
+		Number of bins to use
+	time : bool
+		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+	"""	
+
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	large_font=26
+	small_font=20
+	fig,axes = plt.subplots(1, 3, figsize=(36,10))
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+
+		mean_DZ,std_DZ,r_vals = calc_DZ_vs_param(G, center, r_max, 'radius', depletion=depletion)
+			
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		axes[0].plot(r_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			axes[0].fill_between(r_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4, color=colors[i])
+
+
+		mean_DZ,std_DZ,nH_vals = calc_DZ_vs_param(G, center, r_max, 'density', depletion=depletion, param_min=nHmin, param_max=nHmax)
+			
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		axes[1].plot(nH_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			axes[1].fill_between(nH_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4, color=colors[i])
+
+		mean_DZ,std_DZ,Z_vals = calc_DZ_vs_param(G, center, r_max, 'metallicity', depletion=depletion, param_min=Zmin, param_max=Zmax)
+			
+		# Replace zeros with small values since we are taking the log of the values
+		std_DZ[std_DZ == 0] = small_num
+
+		axes[2].plot(Z_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			axes[2].fill_between(Z_vals, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]), alpha = 0.4, color=colors[i])
+
+	axes[0].set_ylabel(r'Log D/Z Ratio',fontsize = large_font)
+	axes[0].set_xlabel("Radius (kpc)",fontsize = large_font)
+	axes[0].tick_params(axis='both', which='major', labelsize=small_font)
+	axes[0].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[0].set_ylim([-2.0,0.])
+	axes[0].set_xlim([0,np.max(r_max_list)])
+
+
+	axes[1].set_ylabel(r'Log D/Z Ratio',fontsize = large_font)
+	axes[1].set_xlabel(r'$n_H \, (cm^{-3})$',fontsize = large_font)
+	axes[1].tick_params(axis='both', which='major', labelsize=small_font)
+	axes[1].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[1].set_ylim([-2.0,0.])
+	axes[1].set_xlim([nHmin,nHmax])
+	axes[1].set_xscale('log')
+
+	axes[2].set_ylabel(r'Log D/Z Ratio',fontsize = large_font)
+	axes[2].set_xlabel(r'Metallicity $(Z_{\odot})$',fontsize = large_font)
+	axes[2].tick_params(axis='both', which='major', labelsize=small_font)
+	axes[2].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[2].set_ylim([-2.0,0.])
+	axes[2].set_xlim([Zmin,Zmax])
+	axes[2].set_xscale('log')
+
+	if time:
+		if cosmological:
+			z = H['redshift']
+			axes[0].text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = large_font, ha = 'right', transform=axes[0].transAxes)
+		else:
+			t = H['time']
+			axes[0].text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = large_font, ha = 'right', transform=axes[0].transAxes)		
+	if labels!=None and len(gas)>1:
+		axes[0].legend(loc=0, fontsize=small_font)
+	plt.savefig(foutname)
+	plt.close()	
 
 
 def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True):

@@ -50,24 +50,27 @@ for i, num in enumerate(snaps):
 		G = readsnap(snap_dir, num, 0, cosmological=cosmological)
 		Gas_snaps += [G]
 
+		# Since this is a shallow copy, this fixes G['p'] as well
 		coords = G['p']
 		# Recenter coords at center of periodic box
 		boxsize = H['boxsize']
 		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
+		# This also changes G['p'] as well
 		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
 		center = np.average(coords, weights = G['m'], axis = 0)
 		centers += [center]
 		
-
 		# coordinates within a sphere of radius r_max_phys
 		r_maxes += [r_max_phys]
-		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max_phys,2.)
-		masks += [in_sphere]
+
 
 	# Make D/Z vs r plot
-	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_DZ_vs_r_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_DZ_vs_r_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
 	# Make D/Z vs density plot
-	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, time=True, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_dens_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, time=True, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_dens_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
 	# Make D/Z vs Z plot
-	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, time=True, Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_Z_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, time=True, Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_Z_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
+
+	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, cosmological=cosmological, labels=labels, \
+			  foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1)
 			
