@@ -67,7 +67,7 @@ for i, num in enumerate(snaps):
 	# Make D/Z vs r plot
 	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_DZ_vs_r_%03d.png' % num,labels=labels,cosmological=cosmological)
 	# Make D/Z vs density plot
-	DZ_vs_dens(Gas_snaps,Headers,time=True,mask_list=masks,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_dens_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, time=True, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_dens_%03d.png' % num,labels=labels,cosmological=cosmological)
 	# Make D/Z vs Z plot
-	DZ_vs_Z(Gas_snaps,Headers,time=True,mask_list=masks,Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_Z_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, time=True, Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_Z_%03d.png' % num,labels=labels,cosmological=cosmological)
 			

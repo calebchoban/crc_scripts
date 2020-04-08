@@ -124,7 +124,7 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, 
 
 
 
-def DZ_vs_dens(gas, header, mask_list=True, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=["fiducial"], foutname='compare_DZ_vs_dens.png', std_bars=True, style='color'):
+def DZ_vs_dens(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=["fiducial"], foutname='compare_DZ_vs_dens.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs density for multiple simulations
 
@@ -173,38 +173,10 @@ def DZ_vs_dens(gas, header, mask_list=True, bin_nums=30, time=False, depletion=F
 	ax=plt.figure()
 
 	for i in range(len(gas)):
-		G = gas[i]
-		H = header[i]
-		mask = mask_list[i]
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
-		if depletion:
-			nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS
-		else:
-			nH = G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1][mask])) / H_MASS
-		D = G['dz'][mask]
-		M = G['m'][mask]
-		if depletion:
-			DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask]+G['dz'][:,0][mask])
-		else:
-			DZ = G['dz'][:,0][mask]/(G['z'][:,0][mask])
-
-		# Make bins for nH 
-		nH_bins = np.logspace(np.log10(nHmin),np.log10(nHmax),bin_nums)
-		nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
-		digitized = np.digitize(nH,nH_bins)
-		mean_DZ = np.zeros(bin_nums - 1)
-		# 16th and 84th percentiles
-		std_DZ = np.zeros([bin_nums - 1,2])
-
-		for j in range(1,len(nH_bins)):
-			if len(nH[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+		mean_DZ,std_DZ,nH_vals = calc_DZ_vs_param(G, center, r_max, 'density', \
+			depletion=depletion, cosmological=cosmological, param_min=nHmin, param_max=nHmax)
 
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
@@ -234,7 +206,7 @@ def DZ_vs_dens(gas, header, mask_list=True, bin_nums=30, time=False, depletion=F
 
 
 
-def DZ_vs_Z(gas, header, mask_list=True, bin_nums=30, time=False, depletion=False, cosmological=True, Zmin=1E-4, Zmax=1e1, labels=['fiducial'], foutname='DZ_vs_Z.png', std_bars=True, style='color'):
+def DZ_vs_Z(gas, header, center_list, r_max_list, bin_nums=30, time=False, depletion=False, cosmological=True, Zmin=1E-4, Zmax=1e1, labels=['fiducial'], foutname='DZ_vs_Z.png', std_bars=True, style='color'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs Z for masked particles for multiple simulations/snapshots
 
@@ -283,39 +255,15 @@ def DZ_vs_Z(gas, header, mask_list=True, bin_nums=30, time=False, depletion=Fals
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
 
-	solar_Z = 0.02
+	
 	ax=plt.figure()
-	Z_bins = np.logspace(np.log10(Zmin),np.log10(Zmax),bin_nums)
-	Z_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
 
 	for i in range(len(gas)):
-		G = gas[i]
-		H = header[i]
-		mask = mask_list[i]
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
-		if depletion:
-			DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[mask]
-			Z = (G['z'][:,0]+G['dz'][:,0])[mask]/solar_Z
-		else:
-			DZ = (G['dz'][:,0]/G['z'][:,0])[mask]
-			Z = G['z'][:,0][mask]/solar_Z
-		M = G['m'][mask]
+		mean_DZ,std_DZ,Z_vals = calc_DZ_vs_param(G, center, r_max, 'metallicity', \
+			depletion=depletion, cosmological=cosmological, param_min=Zmin, param_max=Zmax)
 
-		digitized = np.digitize(Z,Z_bins)
-		mean_DZ = np.zeros(bin_nums-1)
-		# 16th and 84th percentiles
-		std_DZ = np.zeros([bin_nums - 1,2])
-
-
-		for j in range(1,len(Z_bins)):
-			if len(Z[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
 
@@ -404,42 +352,10 @@ def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, deple
 	for i in range(len(gas)):
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
 
-		if depletion:
-			DZ = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
-		else:
-			DZ = G['dz'][:,0]/G['z'][:,0]
-		
-		r_bins = np.linspace(0, r_max, num=bin_nums)
-		r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-		mean_DZ = np.zeros(bin_nums-1)
-		# 16th and 84th percentiles
-		std_DZ = np.zeros([bin_nums - 1,2])
-
-		coords = G['p']
-		M = G['m']
-		# Get only data of particles in sphere since those are the ones we care about
-		# Also gives a nice speed-up
-		in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
-		M=M[in_sphere]
-		DZ=DZ[in_sphere]
-		coords=coords[in_sphere]
-
-		for j in range(bin_nums-1):
-			# find all coordinates within shell
-			r_min = r_bins[j]; r_max = r_bins[j+1];
-			in_shell = np.logical_and(np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.),
-										np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
-			weights = M[in_shell]
-			values = DZ[in_shell]
-			if len(values) > 0:
-				mean_DZ[j],std_DZ[j,0],std_DZ[j,1] = weighted_percentile(values, weights=weights)
-			else:
-				mean_DZ[j] = np.nan
-				std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
+		mean_DZ,std_DZ,r_vals = calc_DZ_vs_param(G, center, r_max, 'radius', depletion=depletion, cosmological=cosmological)
 			
 		# Replace zeros with small values since we are taking the log of the values
 		std_DZ[std_DZ == 0] = small_num
-
 		
 		plt.plot(r_vals, np.log10(mean_DZ), label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
 		if std_bars:
@@ -461,6 +377,118 @@ def DZ_vs_r(gas, header, center_list, r_max_list, bin_nums=50, time=False, deple
 	plt.savefig(foutname)
 	plt.close()
 
+
+
+def calc_DZ_vs_param(G, center, r_max, param, bin_nums=50, depletion=False, cosmological=True, param_min=None, param_max=None):
+	"""
+	Calculate the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	G : dict
+	    Snapshot gas data structure
+	center : array
+		33-D coordinate of center of circle
+	r_max : double
+		maximum radii of gas particles to use
+	bin_nums : int
+		Number of bins to use
+	depletion : bool, optional
+		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	Returns
+	-------
+	mean_DZ : array
+		Array of mean D/Z values vs parameter given
+	std_DZ : array
+		Array of 16th and 84th percentiles D/Z values
+	param_vals : array
+		Parameter values D/Z values are taken over
+	"""	
+
+	coords = G['p']
+	# Get only data of particles in sphere since those are the ones we care about
+	# Also gives a nice speed-up
+	in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
+	M = G['m'][in_sphere]
+	coords = coords[in_sphere]
+	if depletion:
+		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_sphere]
+	else:
+		DZ = (G['dz'][:,0]/G['z'][:,0])[in_sphere]
+
+	mean_DZ = np.zeros(bin_nums - 1)
+	# 16th and 84th percentiles
+	std_DZ = np.zeros([bin_nums - 1,2])
+
+	# Get D/Z values over number density of Hydrogen (nH)
+	if param == 'density':
+		if depletion:
+			nH = np.log10(G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1]+G['dz'][:,0][in_sphere])) / H_MASS)
+		else:
+			nH = np.log10(G['rho'][in_sphere]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_sphere]+G['z'][:,1][in_sphere])) / H_MASS)
+
+		# Make bins for nH 
+		nH_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
+		param_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
+		digitized = np.digitize(nH,nH_bins)
+
+		for j in range(1,len(nH_bins)):
+			if len(nH[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+
+	# Get D/Z valus over radius of galaxy from the center
+	elif param == 'radius':
+		r_bins = np.linspace(0, r_max, num=bin_nums)
+		param_vals = (r_bins[1:] + r_bins[:-1]) / 2.
+
+		for j in range(bin_nums-1):
+			# find all coordinates within shell
+			r_min = r_bins[j]; r_max = r_bins[j+1];
+			in_shell = np.logical_and(np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.),
+										np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) > np.power(r_min,2.))
+			weights = M[in_shell]
+			values = DZ[in_shell]
+			if len(values) > 0:
+				mean_DZ[j],std_DZ[j,0],std_DZ[j,1] = weighted_percentile(values, weights=weights)
+			else:
+				mean_DZ[j] = np.nan
+				std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
+
+	# Get D/Z values vs total metallicty of gas
+	elif param == 'metallicity':
+		solar_Z = 0.02
+		if depletion:
+			Z = (G['z'][:,0]+G['dz'][:,0])[in_sphere]/solar_Z
+		else:
+			Z = G['z'][:,0][in_sphere]/solar_Z
+
+		Z_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
+		param_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
+		digitized = np.digitize(Z,Z_bins)
+
+		for j in range(1,len(Z_bins)):
+			if len(Z[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+	
+	else:
+		print("Parameter given to calc_DZ_vs_param is not supported:",param)
+		return None,None,None
+
+	return mean_DZ, std_DZ, param_vals
 
 
 def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True):
