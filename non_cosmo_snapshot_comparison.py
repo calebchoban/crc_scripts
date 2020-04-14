@@ -33,14 +33,16 @@ except:
 
 
 # List of snapshots to compare
-snaps = [100,200,300]
+snaps = [300]
 
-# Maximum radius used for getting data
+# Maximum radius, disk, height, and disk orientation used for getting data
 r_max_phys = 20 # kpc
+disk_height = 2 # kpc
+Lz_hat = [0.,0.,1.] # direction of disk
 
 for i, num in enumerate(snaps):
 	print(num)
-	Gas_snaps = []; Headers = []; masks = []; centers = []; r_maxes = [];
+	Gas_snaps = []; Headers = []; masks = []; centers = []; r_maxes = []; Lz_hats = []; disk_heights = [];
 	for j,snap_dir in enumerate(snap_dirs):
 		name = names[j]
 		print(name)
@@ -59,18 +61,35 @@ for i, num in enumerate(snaps):
 		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
 		center = np.average(coords, weights = G['m'], axis = 0)
 		centers += [center]
-		
-		# coordinates within a sphere of radius r_max_phys
+
 		r_maxes += [r_max_phys]
+		disk_heights += [disk_height]
+		Lz_hats += [Lz_hat]
 
-
+	"""
 	# Make D/Z vs r plot
-	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, bin_nums=50, time=True, foutname=image_dir+sub_dir+implementation+'_DZ_vs_r_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, \
+		    foutname=image_dir+sub_dir+'disk_'+implementation+'_DZ_vs_r_snapshot_%03d.png' % num,labels=labels, \
+		    cosmological=cosmological, log=False)
 	# Make D/Z vs density plot
-	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, time=True, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_dens_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, time=True, \
+		       foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_dens_snapshot_%03d.png' % num,labels=labels, \
+		       cosmological=cosmological, log=False)
 	# Make D/Z vs Z plot
-	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, time=True, Zmin=1E0, Zmax=1e1,foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_Z_snapshot_%03d.png' % num,labels=labels,cosmological=cosmological)
+	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, time=True, Zmin=1E0, Zmax=1e1, \
+		    foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_Z_snapshot_%03d.png' % num,labels=labels, \
+		    cosmological=cosmological, log=False)
+	"""
+	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
+		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
+	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
+		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'log_disk_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=True)
+	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, \
+		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'sphere_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
+	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, \
+		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'log_sphere_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=True)
 
-	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, cosmological=cosmological, labels=labels, \
-			  foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1)
-			
