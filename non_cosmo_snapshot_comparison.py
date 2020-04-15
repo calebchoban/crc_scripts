@@ -81,15 +81,6 @@ for i, num in enumerate(snaps):
 		    cosmological=cosmological, log=False)
 	"""
 	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
-		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
 		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
-	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
-		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'log_disk_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
-		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=True)
-	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, \
-		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'sphere_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
-		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
-	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, bin_nums=50, time=True, depletion=False, \
-		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+'log_sphere_'+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
-		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=True)
 

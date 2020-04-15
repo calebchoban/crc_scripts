@@ -19,6 +19,10 @@ Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
 
+# Large and small font sizes to be used for axes labels and legends
+Large_Font=26
+Small_Font=20
+
 
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
@@ -116,10 +120,10 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, 
 	if time:
 		if cosmological:
 			z = H['redshift']
-			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right')
+			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
 		else:
 			t = H['time']
-			ax.text(.75, .9, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right')	
+			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right', transform=axes[0].transAxes)	
 	plt.savefig(foutname)
 	plt.close()
 
@@ -200,13 +204,13 @@ def DZ_vs_dens(gas, header, center_list, r_max_list,  Lz_list=None, height_list=
 	if time:
 		if cosmological:
 			z = H['redshift']
-			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
 		else:
 			t = H['time']
-			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')			
+			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)			
 	
 	if labels!=None and len(gas)>1:
-		plt.legend(loc=4)
+		plt.legend(loc=4, frameon=False)
 	plt.xlabel(r'$n_H \, (cm^{-3})$')
 	if log:
 		y_label = "Log D/Z Ratio"
@@ -314,10 +318,10 @@ def DZ_vs_Z(gas, header, center_list, r_max_list, Lz_list=None, height_list=None
 	if time:
 		if cosmological:
 			z = H['redshift']
-			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
 		else:
 			t = H['time']
-			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')	
+			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)	
 
 	plt.xlim([Z_vals[0],Z_vals[-1]])
 	plt.xscale('log')
@@ -329,7 +333,7 @@ def DZ_vs_Z(gas, header, center_list, r_max_list, Lz_list=None, height_list=None
 		DZ_max = 1.0
 	plt.ylim([DZ_min,DZ_max])
 	if labels!=None and len(gas)>1:
-		plt.legend(loc=4)
+		plt.legend(loc=4, frameon=False)
 	plt.savefig(foutname)
 	plt.close()	
 
@@ -426,10 +430,10 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 	if time:
 		if cosmological:
 			z = H['redshift']
-			ax.text(.85, .825, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right')
+			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
 		else:
 			t = H['time']
-			ax.text(.85, .825, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right')		
+			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)		
 	plt.xlim([r_vals[0],r_vals[-1]])
 	if log:
 		DZ_min = -1.0
@@ -439,7 +443,7 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 		DZ_max = 1.0
 	plt.ylim([DZ_min,DZ_max])
 	if labels!=None and len(gas)>1:
-		plt.legend(loc=4)
+		plt.legend(loc=4, frameon=False)
 	plt.savefig(foutname)
 	plt.close()
 
@@ -494,7 +498,6 @@ def calc_DZ_vs_param(param, G, center, r_max, Lz_hat=None, disk_height=5, bin_nu
 	# Get particles in sphere otherwise
 	else:
 		in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-		#in_galaxy = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
 
 	M = G['m'][in_galaxy]
 	coords = coords[in_galaxy]
@@ -651,8 +654,6 @@ def DZ_vs_all(gas, header, center_list, r_max_list, Lz_list=None, height_list=No
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
 
-	large_font=26
-	small_font=20
 	fig,axes = plt.subplots(1, 3, figsize=(36,10))
 
 	for i in range(len(gas)):
@@ -701,20 +702,20 @@ def DZ_vs_all(gas, header, center_list, r_max_list, Lz_list=None, height_list=No
 		if std_bars:
 			axes[2].fill_between(Z_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[i])
 
-	axes[0].set_xlabel("Radius (kpc)",fontsize = large_font)
-	axes[0].tick_params(axis='both', which='major', labelsize=small_font)
-	axes[0].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[0].set_xlabel("Radius (kpc)",fontsize = Large_Font)
+	axes[0].tick_params(axis='both', which='major', labelsize=Small_Font)
+	axes[0].tick_params(axis='both', which='minor', labelsize=Small_Font)
 	axes[0].set_xlim([0,np.max(r_max_list)])
 
-	axes[1].set_xlabel(r'$n_H \, (cm^{-3})$',fontsize = large_font)
-	axes[1].tick_params(axis='both', which='major', labelsize=small_font)
-	axes[1].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[1].set_xlabel(r'$n_H \, (cm^{-3})$',fontsize = Large_Font)
+	axes[1].tick_params(axis='both', which='major', labelsize=Small_Font)
+	axes[1].tick_params(axis='both', which='minor', labelsize=Small_Font)
 	axes[1].set_xlim([nHmin,nHmax])
 	axes[1].set_xscale('log')
 
-	axes[2].set_xlabel(r'Metallicity $(Z_{\odot})$',fontsize = large_font)
-	axes[2].tick_params(axis='both', which='major', labelsize=small_font)
-	axes[2].tick_params(axis='both', which='minor', labelsize=small_font)
+	axes[2].set_xlabel(r'Metallicity $(Z_{\odot})$',fontsize = Large_Font)
+	axes[2].tick_params(axis='both', which='major', labelsize=Small_Font)
+	axes[2].tick_params(axis='both', which='minor', labelsize=Small_Font)
 	axes[2].set_xlim([Zmin,Zmax])
 	axes[2].set_xscale('log')
 
@@ -723,9 +724,9 @@ def DZ_vs_all(gas, header, center_list, r_max_list, Lz_list=None, height_list=No
 		y_label = "Log D/Z Ratio"
 	else:
 		y_label = "D/Z Ratio"
-	axes[0].set_ylabel(y_label,fontsize = large_font)
-	axes[1].set_ylabel(y_label,fontsize = large_font)
-	axes[2].set_ylabel(y_label,fontsize = large_font)
+	axes[0].set_ylabel(y_label,fontsize = Large_Font)
+	axes[1].set_ylabel(y_label,fontsize = Large_Font)
+	axes[2].set_ylabel(y_label,fontsize = Large_Font)
 
 	# Set y limits
 	if log:
@@ -742,17 +743,17 @@ def DZ_vs_all(gas, header, center_list, r_max_list, Lz_list=None, height_list=No
 	if time:
 		if cosmological:
 			z = H['redshift']
-			axes[0].text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = large_font, ha = 'right', transform=axes[0].transAxes)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)
 		else:
 			t = H['time']
-			axes[0].text(.95, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = large_font, ha = 'right', transform=axes[0].transAxes)		
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)		
 	if labels!=None and len(gas)>1:
-		axes[0].legend(loc=0, fontsize=small_font)
+		axes[0].legend(loc=0, fontsize=Small_Font, frameon=False)
 	plt.savefig(foutname)
 	plt.close()	
 
 
-def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True):
+def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True, log=True):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
 
@@ -783,26 +784,45 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 
 	mean_DZ = data['DZ_ratio'][:,0]
 	std_DZ = data['DZ_ratio'][:,1:]
-	# Replace zeros in with small numbers
-	std_DZ[std_DZ==0.] = small_num
+	if log:
+		# Replace zeros in with small numbers
+		std_DZ[std_DZ==0.] = small_num
+		std_DZ = np.log10(std_DZ)
+		mean_DZ = np.log10(mean_DZ)
 
 	ax=plt.figure()
-	plt.plot(time_data, np.log10(mean_DZ))
-	plt.fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
-	plt.ylabel(r'Log D/Z Ratio')
-	plt.ylim([-3.0,0.])
+	plt.plot(time_data, mean_DZ)
+	plt.fill_between(time_data, std_DZ[:,0], std_DZ[:,1],alpha = 0.4)
+
+	# Set y-axis label
+	if log:
+		y_label = "Log D/Z Ratio"
+	else:
+		y_label = "D/Z Ratio"
+	plt.ylabel(y_label,fontsize = Large_Font)
+
+	# Set y limits
+	if log:
+		DZ_min = -1.0
+		DZ_max = 0.0
+	else:
+		DZ_min = 0.0
+		DZ_max = 1.0
+
+	plt.ylim([DZ_min,DZ_max])
+
 	if time or not cosmological:
-		plt.xlabel('t (Gyr)')
+		plt.xlabel('t (Gyr)',fontsize = Large_Font)
 		plt.xscale('log')
 	else:
-		plt.xlabel('z')
+		plt.xlabel('z',fontsize = Large_Font)
 		plt.gca().invert_xaxis()
 		plt.xscale('log')
 
 	plt.savefig(foutname)
 	plt.close()
 
-def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, cosmological=True):
+def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, cosmological=True, log=True):
 	"""
 	Plots all time averaged data vs time from precompiled data
 
@@ -845,61 +865,91 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
 	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
 
+	if log:
+		# Replace zeros in with small numbers
+		std_DZ[std_DZ==0.] = small_num;
+		std_DZ = np.log10(std_DZ); 
+		mean_DZ = np.log10(mean_DZ);
+
 	fig,axes = plt.subplots(2, 3, sharex='all', figsize=(24,12))
 
-	axes[0,0].plot(time_data, np.log10(mean_DZ))
-	axes[0,0].fill_between(time_data, np.log10(std_DZ[:,0]), np.log10(std_DZ[:,1]),alpha = 0.4)
-	axes[0,0].set_ylabel(r'Log D/Z Ratio')
-	axes[0,0].set_ylim([-3.0,0.])
+	axes[0,0].plot(time_data, mean_DZ)
+	axes[0,0].set_xlim([time_data[1],time_data[-1]])
+	axes[0,0].fill_between(time_data, std_DZ[:,0], std_DZ[:,1],alpha = 0.4)
 	axes[0,0].set_xscale('log')
 
 	axes[0,1].plot(time_data, sfr)
-	axes[0,1].set_ylabel(r'SFR $(M_{\odot}/yr)$')
+	axes[0,1].set_xlim([time_data[1],time_data[-1]])
+	axes[0,1].set_ylabel(r'SFR $(M_{\odot}/yr)$',fontsize = Large_Font)
 	axes[0,1].set_ylim([0.0001,0.1])
 	axes[0,1].set_xscale('log')
 	axes[0,1].set_yscale('log')
 
 
 	axes[0,2].plot(time_data, np.log10(mean_Z))
-	axes[0,2].fill_between(time_data, np.log10(std_Z[:,0]), np.log10(std_Z[:,1]),alpha = 0.4)
-	axes[0,2].set_ylabel(r'Log Z $(Z_{\odot})$')
-	axes[0,2].set_ylim([np.log10(1E-2),1])
+	axes[0,02].set_xlim([time_data[1],time_data[-1]])
+	axes[0,2].fill_between(time_data, std_Z[:,0], std_Z[:,1],alpha = 0.4)
 	axes[0,2].set_xscale('log')
+	axes[0,2].set_ylim([-2.,1.])
+	axes[0,2].set_ylabel(r'Log Z $(Z_{\odot})$',fontsize = Large_Font)
 
 	for i in range(num_species):
 		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
 		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
-	axes[1,0].set_ylabel(r'Species Mass Fraction')
-	axes[1,0].set_ylim([1E-3,1])
-	axes[1,0].set_yscale('log')
+	axes[1,0].set_xlim([time_data[1],time_data[-1]])
+	axes[1,0].set_ylabel(r'Species Mass Fraction',fontsize = Large_Font)
+	axes[1,0].set_ylim([0,1])
 	axes[1,0].set_xscale('log')
-	axes[1,0].legend(loc=4)
+	axes[1,0].legend(loc=0, fontsize=Small_Font, frameon=False)
 
 	for i in range(4):
 		axes[1,1].plot(time_data, mean_source[:,i], label=source_names[i])
 		axes[1,1].fill_between(time_data, std_source[:,i,0], std_source[:,i,1],alpha = 0.4)
-	axes[1,1].set_ylabel(r'Source Mass Fraction')
-	axes[1,1].set_ylim([1E-2,1])
+	axes[1,1].set_xlim([time_data[1],time_data[-1]])
+	axes[1,1].set_ylabel(r'Source Mass Fraction',fontsize = Large_Font)
+	axes[1,1].set_ylim([1E-2,1.1])
 	axes[1,1].set_yscale('log')
 	axes[1,1].set_xscale('log')
-	axes[1,1].legend(loc=4)
+	axes[1,1].legend(loc=0, fontsize=Small_Font, frameon=False)
 
 	axes[1,2].plot(time_data, mean_sil_to_C)
 	axes[1,2].fill_between(time_data, std_sil_to_C[:,0], std_sil_to_C[:,1],alpha = 0.4)
-	axes[1,2].set_ylabel(r'Silicates to Carbon Ratio')
-	axes[1,2].set_ylim([1E-2,1E1])
-	axes[1,2].set_yscale('log')
+	axes[1,2].set_xlim([time_data[1],time_data[-1]])
+	axes[1,2].set_ylabel(r'Silicates to Carbon Ratio',fontsize = Large_Font)
+	axes[1,2].set_ylim([0,5])
 	axes[1,2].set_xscale('log')
+
+	# Set tick size
+	for ax in axes.flatten():
+		ax.tick_params(axis='both', which='major', labelsize=Small_Font)
+		ax.tick_params(axis='both', which='minor', labelsize=Small_Font)
+
+
+	# Set y-axis label for D/Z and Z
+	if log:
+		axes[0,0].set_ylabel(r'Log D/Z Ratio',fontsize = Large_Font)	
+	else:
+		axes[0,0].set_ylabel(r'D/Z Ratio',fontsize = Large_Font)
+
+	# Set y limits
+	if log:
+		val_min = -1.0
+		val_max = 0.0
+	else:
+		val_min = 0.0
+		val_max = 1.0
+
+	axes[0,0].set_ylim([val_min,val_max])
 
 
 	if time or not cosmological:
-		axes[1,0].set_xlabel('t (Gyr)')
-		axes[1,1].set_xlabel('t (Gyr)')
-		axes[1,2].set_xlabel('t (Gyr)')
+		axes[1,0].set_xlabel('t (Gyr)',fontsize = Large_Font)
+		axes[1,1].set_xlabel('t (Gyr)',fontsize = Large_Font)
+		axes[1,2].set_xlabel('t (Gyr)',fontsize = Large_Font)
 	else:
-		axes[1,0].set_xlabel('z')
-		axes[1,1].set_xlabel('z')
-		axes[1,2].set_xlabel('z')
+		axes[1,0].set_xlabel('z',fontsize = Large_Font)
+		axes[1,1].set_xlabel('z',fontsize = Large_Font)
+		axes[1,2].set_xlabel('z',fontsize = Large_Font)
 		plt.gca().invert_xaxis()
 		
 
@@ -910,7 +960,7 @@ def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_dat
 
 	
 def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='compare_runs_vs_time.png', \
-	                     labels=["fiducial"], time=False, cosmological=True):
+	                     labels=["fiducial"], time=False, cosmological=True, log=True):
 	"""
 	Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
@@ -957,8 +1007,15 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
 		mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
 		mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
+
+		# If plotting log of D/Z
+		if log:
+			# Replace zeros in with small numbers
+			std_DZ[std_DZ==0.] = small_num; 
+			std_DZ = np.log10(std_DZ);
+			mean_DZ = np.log10(mean_DZ);	
 		
-		axes[0,0].plot(time_data, np.log10(mean_DZ), color='xkcd:black', linestyle=Line_Styles[i])
+		axes[0,0].plot(time_data, mean_DZ, color='xkcd:black', linestyle=Line_Styles[i])
 
 		for j in range(num_species):
 			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=Line_Colors[j], linestyle=Line_Styles[i])
@@ -970,57 +1027,83 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 		axes[1,1].plot(time_data, mean_sil_to_C, color='xkcd:black', linestyle=Line_Styles[i])
 
 
-	axes[0,0].set_ylabel(r'Log D/Z Ratio')
-	axes[0,0].set_ylim([-3.0,0.])
+	# Set y-axis label
+	if log:
+		y_label = "Log D/Z Ratio"
+	else:
+		y_label = "D/Z Ratio"
+
+	# Set y limits
+	if log:
+		DZ_min = -1.0
+		DZ_max = 0.0
+	else:
+		DZ_max = 1.0
+		DZ_min = 0.0
+
+	axes[0,0].set_xlim([time_data[1],time_data[-1]])
+	axes[0,0].set_ylabel(y_label,fontsize = Large_Font)
+	axes[0,0].set_ylim([DZ_min,DZ_max])
 	axes[0,0].set_xscale('log')
 
-	axes[0,1].set_ylabel(r'Species Mass Fraction')
-	axes[0,1].set_ylim([1E-3,1])
-	axes[0,1].set_yscale('log')
+	axes[0,1].set_xlim([time_data[1],time_data[-1]])
+	axes[0,1].set_ylabel(r'Species Mass Fraction',fontsize = Large_Font)
+	axes[0,1].set_ylim([0,1])
 	axes[0,1].set_xscale('log')
 	spec_lines = []
 	for i in range(num_species):
 		spec_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=species_names[i])]
-	axes[0,1].legend(handles=spec_lines,loc=4)
+	axes[0,1].legend(handles=spec_lines,loc=0, frameon=False)
 
-	axes[1,0].set_ylabel(r'Source Mass Fraction')
-	axes[1,0].set_ylim([1E-2,1])
+	axes[1,0].set_xlim([time_data[1],time_data[-1]])
+	axes[1,0].set_ylabel(r'Source Mass Fraction',fontsize = Large_Font)
+	axes[1,0].set_ylim([1E-2,1.1])
 	axes[1,0].set_yscale('log')
 	axes[1,0].set_xscale('log')
 	source_lines = []
 	for i in range(4):
 		source_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=source_names[i])]
-	axes[1,0].legend(handles=source_lines, loc=4)
+	axes[1,0].legend(handles=source_lines, loc=0, frameon=False)
 
-	axes[1,1].set_ylabel(r'Silicates to Carbon Ratio')
-	axes[1,1].set_ylim([1E-2,1E1])
-	axes[1,1].set_yscale('log')
+	axes[1,1].set_xlim([time_data[1],time_data[-1]])
+	axes[1,1].set_ylabel(r'Silicates to Carbon Ratio',fontsize = Large_Font)
+	axes[1,1].set_ylim([0,5])
 	axes[1,1].set_xscale('log')
 
 
 	if time or not cosmological:
-		axes[1,0].set_xlabel('t (Gyr)')
-		axes[1,1].set_xlabel('t (Gyr)')
+		axes[1,0].set_xlabel('t (Gyr)',fontsize = Large_Font)
+		axes[1,1].set_xlabel('t (Gyr)',fontsize = Large_Font)
 	else:
-		axes[1,0].set_xlabel('z')
-		axes[1,1].set_xlabel('z')
+		axes[1,0].set_xlabel('z',fontsize = Large_Font)
+		axes[1,1].set_xlabel('z',fontsize = Large_Font)
 		plt.gca().invert_xaxis()
 
+	# Set tick size
+	for ax in axes.flatten():
+		ax.tick_params(axis='both', which='major', labelsize=Small_Font)
+		ax.tick_params(axis='both', which='minor', labelsize=Small_Font)
+
+	
 	# Create the legend for the different runs
+	axes[0,0].legend(handles=lines, loc=0, frameon=False)
+
+	"""
 	fig.legend(handles=lines,   		# The line objects
            loc="upper center",  		# Position of legend
            borderaxespad=0.1,   		# Small spacing around legend box
            ncol=len(lines),    			# Make the legend stretch horizontally across the plot
            fontsize=24,
-           bbox_to_anchor=(0.5, .95)) 	# Pin the legend to just above the plots
-
+           bbox_to_anchor=(0.5, .95), 	# Pin the legend to just above the plots
+		   frameon=False)
+	"""
 	plt.savefig(foutname)
 	plt.close()
 
 
 def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., \
-                      r_max = None, overwrite=False, cosmological=True, startnum=0, endnum=600, implementation='species', \
-                      depletion=False):
+                      r_max = None, Lz_hat = None, disk_height = None, overwrite=False, cosmological=True, startnum=0, \
+                      endnum=600, implementation='species', depletion=False):
 	"""
 	Compiles all the dust data needed for time evolution plots from all of the snapshots 
 	into a small file.
@@ -1086,6 +1169,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 
 			if mask:
 				coords = G['p']
+				center = np.zeros(3)
 				if cosmological:
 					halo_data = Table.read(halo_dir,format='ascii')
 					# Convert to physical units
@@ -1093,34 +1177,72 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 					ypos =  halo_data['col8'][num-1]*H['time']/H['hubble']
 					zpos =  halo_data['col9'][num-1]*H['time']/H['hubble']
 					rvir = halo_data['col13'][num-1]*H['time']/H['hubble']
+					
+					#TODO : Add ability to only look at particles in disk using angular momentum vector from
+					# halo file
+					
 					center = np.array([xpos,ypos,zpos])
+					coords -= center
 					if r_max == None:
 						print("Using AHF halo as spherical mask with radius of ",str(Rvir_frac)," * Rvir.")
 						r_max = rvir*Rvir_frac
 					else:
 						print("Using AHF halo as spherical mask with radius of ",str(r_max)," kpc.")
 
+					in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
 				else:
 					if r_max == None:
-						print("Must give maximum radius r_max for noncosmological simulations!")
+						print("Must give maximum radius r_max for non-cosmological simulations!")
 						return
 					# Recenter coords at center of periodic box
 					boxsize = H['boxsize']
 					mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
 					coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2;
 					center = np.average(coords, weights = G['m'], axis = 0)
+					coords -= center
+					# Check if mask should be sphere or disk if Lz_hat is given it's a disk
+					if Lz_hat != None:
+						zmag = np.dot(coords,Lz_hat)
+						r_z = np.zeros(np.shape(coords))
+						r_z[:,0] = zmag*Lz_hat[0]
+						r_z[:,1] = zmag*Lz_hat[1]
+						r_z[:,2] = zmag*Lz_hat[2]
+						r_s = np.subtract(coords,r_z)
+						smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+						in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+					# Get particles in sphere otherwise
+					else:
+						in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
 
-				# Keep data for gas and star particles with coordinates within a sphere of radius r_max
-				in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
 				for key in G.keys():
 					if key != 'k':
-						G[key] = G[key][in_sphere]
+						G[key] = G[key][in_galaxy]
 				# Check if there are any star particles
 				if S['k']!=-1:
 					coords = S['p']
-					in_sphere = np.power(coords[:,0] - center[0],2.) + np.power(coords[:,1] - center[1],2.) + np.power(coords[:,2] - center[2],2.) <= np.power(r_max,2.)
-					S['age'] = S['age'][in_sphere]
-					S['m'] = S['m'][in_sphere]
+					if not cosmological:
+						boxsize = H['boxsize']
+						mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
+						coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2;
+
+					coords -= center
+
+					# Check if mask should be sphere or disk if Lz_hat is given it's a disk
+					if Lz_hat != None:
+						zmag = np.dot(coords,Lz_hat)
+						r_z = np.zeros(np.shape(coords))
+						r_z[:,0] = zmag*Lz_hat[0]
+						r_z[:,1] = zmag*Lz_hat[1]
+						r_z[:,2] = zmag*Lz_hat[2]
+						r_s = np.subtract(coords,r_z)
+						smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+						in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+					# Get particles in sphere otherwise
+					else:
+						in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+					S['age'] = S['age'][in_galaxy]
+					S['m'] = S['m'][in_galaxy]
 
 			M = G['m']
 			omeganot = H['omega0']
