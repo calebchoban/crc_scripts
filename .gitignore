@@ -1,6 +1,7 @@
 images/
 halos/
 data/
+utils/
 
 *.pyc
 *.e

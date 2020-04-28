@@ -3,6 +3,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 plt.switch_backend('agg')
+from scipy.stats import binned_statistic_2d
 import pickle
 import os
 from readsnap import readsnap
@@ -36,6 +37,32 @@ H_MASS 						= 1.67E-24 # grams
 
 # Small number used to plot zeros on log graph
 small_num = 1E-7
+
+
+def set_labels(axis, xlabel, ylabel):
+	"""
+	Sets the labels and ticks for the given axis.
+
+	Parameters
+	----------
+	axis : Matplotlib axis
+	    Axis of plot
+	xlabel : array-like
+	    X axis label
+	ylabel : array-like, optional
+	    Y axis label
+
+	Returns
+	-------
+	None
+	"""
+	axis.set_xlabel(xlabel, fontsize = Large_Font)
+	axis.set_ylabel(ylabel, fontsize = Large_Font)
+	axis.minorticks_on()
+	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
+	axis.tick_params(axis='both', which='major', labelsize=Small_Font)
+	axis.tick_params(axis='both', which='minor', labelsize=Small_Font)	
+
 
 def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	"""
@@ -77,19 +104,162 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 
 
 
-def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, nHmin=1E-6, nHmax=1E3, Tmin=1E1, Tmax=1E8, \
-               numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, foutname='phase_plot.png'):
+def accretion_analysis_plot(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, \
+	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='accretion_analysis.png',  style='color', implementation='species'):
+	"""
+	Makes multiple plots for analyzing gas-dust accretion such as gas temperature distribution, instantaneous dust growth, and growth timescales
+
+	Parameters
+	----------
+	gas : array
+	    Array of snapshot gas data structure
+	header : array
+		Array of snapshot header structure
+	bin_nums: int
+		Number of bins to use
+	time : bool, optional
+		Print time in corner of plot (useful for movies)
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+	"""
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	ax=plt.figure()
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		if Lz_list != None:
+			Lz_hat = Lz_list[i]; disk_height = height_list[i];
+		else:
+			Lz_hat = None; disk_height = None;
+
+		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+		coords -= center
+		# Get only data of particles in sphere/disk since those are the ones we care about
+		# Also gives a nice speed-up
+		# Get paticles in disk
+		if Lz_hat != None:
+			zmag = np.dot(coords,Lz_hat)
+			r_z = np.zeros(np.shape(coords))
+			r_z[:,0] = zmag*Lz_hat[0]
+			r_z[:,1] = zmag*Lz_hat[1]
+			r_z[:,2] = zmag*Lz_hat[2]
+			r_s = np.subtract(coords,r_z)
+			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+		# Get particles in sphere otherwise
+		else:
+			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+
+		T = gas_temp.gas_temperature(G)
+		T = T[in_galaxy]
+		M = G['m'][in_galaxy]
+
+		if depletion:
+			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1]+G['dz'][:,0][in_galaxy])) / H_MASS
+		else:
+			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
+
+
+		if depletion:
+			DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
+		else:
+			DZ = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
+
+		if implementation == 'species':
+			t_ref = 4.24E6; sil_dust_mass = 143.78; Mg_mass = 24.305; Mg_in_sil = 1.06;
+			n_Mg = G['z'][:,6][in_galaxy] * G['rho'][in_galaxy]*UnitDensity_in_cgs/(Mg_mass*H_MASS);
+			Mg_DZ = G['dz'][:,6][in_galaxy]/G['z'][:,6][in_galaxy]
+			Md = G['dz'][:,6][in_galaxy]*M*1E10
+			growth_time = t_ref * Mg_in_sil * np.sqrt(Mg_mass) / sil_dust_mass * (3.13/3) * (1E-2/(n_Mg)) * np.power(300/T,0.5)
+			dust_prod = (1.-Mg_DZ)*Md/growth_time
+			dust_prod *= sil_dust_mass / Mg_mass
+		else:
+			t_ref = 0.2; T_ref = 20; nH_ref = 1.;
+			growth_time = t_ref * (nH_ref/nH) * np.power(T_ref/T,0.5)
+			Mg_DZ = G['dz'][:,6][in_galaxy]/G['z'][:,6][in_galaxy]
+			Md = G['dz'][:,6][in_galaxy]*M*1E10
+			dust_prod = (1.-Mg_DZ)*Md/growth_time
+		dust_prod[dust_prod<0] = 0 
+		# No dust growth if no dust
+		dust_prod[G['dz'][:,6][in_galaxy]==0] = 0;
+
+		fig,axes = plt.subplots(1, 3, figsize=(36,10))
+
+
+		hot_gas = T>Tcut
+		axes[0].hist(np.log10(nH), bin_nums, weights=dust_prod, range=[np.log10(1E-2),np.log10(1E3)], histtype='step', cumulative=True, label="All Gas", color=colors[0], \
+			         linewidth=linewidths[0])
+		axes[0].hist(np.log10(nH[np.logical_not(hot_gas)]), bin_nums, weights=dust_prod[np.logical_not(hot_gas)], range=[np.log10(1E-2),np.log10(1E3)], histtype='step', \
+			         cumulative=True, label="T < %i K" % Tcut, color=colors[1],linewidth=linewidths[0])
+		axes[0].hist(np.log10(nH[hot_gas]), bin_nums, weights=dust_prod[hot_gas], range=[np.log10(1E-2),np.log10(1E3)], histtype='step', cumulative=True, \
+			         label="T > %i K" % Tcut, color=colors[2],linewidth=linewidths[0])
+		axes[0].legend(loc=2)
+		xlabel = r'Log $n_H$ (cm$^{-3}$)'; ylabel = r'Cumulative Inst. Dust Prod. $(M_{\odot,sil}/yr)$'
+		set_labels(axes[0],xlabel,ylabel)
+
+		nH_lims = [0.1,1,10,100]
+		names = [r'$n_H>0.1$ cm$^{-3}$ ',r'$n_H>1$ cm$^{-3}$    ',r'$n_H>10$ cm$^{-3}$  ',r'$n_H>100$ cm$^{-3}$']
+		for j,nH_lim in enumerate(nH_lims):
+			mask = nH>=nH_lim
+			frac = 1.0*len(nH[mask])/len(nH)
+			names[j] += r' $f_{gas}$ = %.2g' % frac
+			axes[1].hist(np.log10(T[mask]), bin_nums, range=[np.log10(Tmin),np.log10(Tmax)], density=True, histtype='step', cumulative=True, label=names[j], \
+				       linestyle=linestyles[j], color=colors[j], linewidth=linewidths[0], weights = M[mask])
+			axes[1].axvline(x=np.log10(Tcut))
+		xlabel = r'Log T (K)'; ylabel = "Fraction of Gas < T"
+		set_labels(axes[1],xlabel,ylabel)	
+		axes[1].legend(loc=2)
+
+
+		axes[2].hist(np.log10(growth_time/1E9), bin_nums, weights=M, range=[np.log10(1E-6),np.log10(1E1)], histtype='step', cumulative=True, density=True, \
+					 linewidth=linewidths[0], color=colors[0], label='All Gas')
+		axes[2].hist(np.log10(growth_time[np.logical_not(hot_gas)]/1E9), bin_nums, weights=M[np.logical_not(hot_gas)], range=[np.log10(1E-6),np.log10(1E1)], histtype='step', cumulative=True, density=True, \
+					 linewidth=linewidths[0], color=colors[1], label="T < %i K" % Tcut)
+		axes[2].hist(np.log10(growth_time[hot_gas]/1E9), bin_nums, weights=M[hot_gas], range=[np.log10(1E-6),np.log10(1E1)], histtype='step', cumulative=True, density=True, \
+					 linewidth=linewidths[0], color=colors[2], label="T > %i K" % Tcut)
+		xlabel =r' $\tau_{grow}$ (Gyr)'; ylabel = r'Fraction of Gas < $\tau_{grow}$'
+		set_labels(axes[2],xlabel,ylabel)	
+		axes[2].legend(loc=2)
+		
+		plt.savefig(labels[i]+'_'+foutname)
+		plt.close()
+
+
+def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, cosmological=True, \
+			   nHmin=1E-3, nHmax=1E3, Tmin=1E1, Tmax=1E5, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, labels =None, log=False, foutname='phase_plot.png'):
 	"""
 	Plots the temperate-density has phase
 
 	Parameters
 	----------
-	G : dict
-	    Snapshot gas data structure
-	H : dict
-		Snapshot header structure
-	mask : np.array, optional
-		Mask for which particles to use in plot, default mask=True means all values are used
+	param: string
+		What parameterto bin 2d-historgram over
+	gas : array
+	    Array of snapshot gas data structure
+	header : array
+		Array of snapshot header structure
 	bin_nums: int
 		Number of bins to use
 	depletion: bool, optional
@@ -99,33 +269,80 @@ def phase_plot(G, H, mask=True, time=False, depletion=False, cosmological=True, 
 	-------
 	None
 	"""
-	if depletion:
-		nH = np.log10(G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1]+G['dz'][:,0][mask])) / H_MASS)
-	else:
-		nH = np.log10(G['rho'][mask]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][mask]+G['z'][:,1][mask])) / H_MASS)
-	T = np.log10(gas_temp.gas_temperature(G))
-	T = T[mask]
-	M = G['m'][mask]
 
-	ax = plt.figure()
-	plt.subplot(111, facecolor='xkcd:black')
-	plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), weights=M, vmin=vmin, vmax=vmax) 
-	cbar = plt.colorbar()
-	cbar.ax.set_ylabel(r'Mass in pixel $(10^{10} M_{\odot}/h)$')
-
-
-	plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$') 
-	plt.ylabel(r'log T (K)')
-	plt.tight_layout()
-	if time:
-		if cosmological:
-			z = H['redshift']
-			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		if Lz_list != None:
+			Lz_hat = Lz_list[i]; disk_height = height_list[i];
 		else:
-			t = H['time']
-			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right', transform=axes[0].transAxes)	
-	plt.savefig(foutname)
-	plt.close()
+			Lz_hat = None; disk_height = None;
+
+		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+		coords -= center
+		# Get only data of particles in sphere/disk since those are the ones we care about
+		# Also gives a nice speed-up
+		# Get paticles in disk
+		if Lz_hat != None:
+			zmag = np.dot(coords,Lz_hat)
+			r_z = np.zeros(np.shape(coords))
+			r_z[:,0] = zmag*Lz_hat[0]
+			r_z[:,1] = zmag*Lz_hat[1]
+			r_z[:,2] = zmag*Lz_hat[2]
+			r_s = np.subtract(coords,r_z)
+			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+		# Get particles in sphere otherwise
+		else:
+			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+		if param == 'DZ':
+			if depletion:
+				values = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
+			else:
+				values = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
+			bar_label = 'D/Z Ratio in Pixel'
+		else:
+			print("Parameter given to binned_phase_plot is not supported:",param)
+			return
+
+		if depletion:
+			nH = np.log10(G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1]+G['dz'][:,0])) / H_MASS)[in_galaxy]
+		else:
+			nH = np.log10(G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1])) / H_MASS)[in_galaxy]
+		T = np.log10(gas_temp.gas_temperature(G))
+		T = T[in_galaxy]
+		M = G['m'][in_galaxy]
+
+		# Bin data across nH and T parameter space
+		nH_bins = np.linspace(np.log10(nHmin), np.log10(nHmax), numbins)
+		T_bins = np.linspace(np.log10(Tmin), np.log10(Tmax), numbins)
+		ret = binned_statistic_2d(nH, T, values, statistic=np.mean, bins=[nH_bins, T_bins])
+
+		fig = plt.figure()
+		ax = plt.gca()
+		plt.subplot(111, facecolor='xkcd:black')
+		if log:
+			plt.imshow(ret.statistic.T, origin='bottom', cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), vmin=vmin, vmax=vmax, extent=[np.log10(nHmin),np.log10(nHmax),np.log10(Tmin),np.log10(Tmax)])
+			#plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), weights=weight, vmin=vmin, vmax=vmax) 
+		else:
+			plt.imshow(ret.statistic.T, origin='bottom', cmap=plt.get_cmap(thecmap), vmin=vmin, vmax=vmax, extent=[np.log10(nHmin),np.log10(nHmax),np.log10(Tmin),np.log10(Tmax)])
+			#plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), weights=weight, vmin=vmin, vmax=vmax) 
+		cbar = plt.colorbar()
+		cbar.ax.set_ylabel(bar_label, fontsize=Large_Font)
+
+
+		plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$', fontsize=Large_Font) 
+		plt.ylabel(r'log T (K)', fontsize=Large_Font)
+		plt.tight_layout()
+		if time:
+			if cosmological:
+				z = H['redshift']
+				ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right', transform=ax.transAxes)
+			else:
+				t = H['time']
+				ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right', transform=ax.transAxes)	
+		plt.savefig(labels[i]+'_'+foutname)
+		plt.close()
 
 
 
