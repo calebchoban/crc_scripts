@@ -34,9 +34,11 @@ UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
 UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 2)
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.67E-24 # grams
-
+SOLAR_Z						= 0.02
+	
 # Small number used to plot zeros on log graph
 small_num = 1E-7
+EPSILON = 1E-7
 
 
 def set_labels(axis, xlabel, ylabel):
@@ -101,6 +103,203 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	# Get the value of a at the given percentiles
 	values=np.interp(percentiles, p, a_sort)
 	return values
+
+
+def surface_dens_vs_radius(gas, header, center_list, r_max_list,  Lz_list, height_list, bin_nums=50, time=False, \
+	        depletion=False, cosmological=True, labels=None, foutname='surface_density_vs_r.png', style='color', log=True):
+	"""
+	Plots the dust surface density vs radius for multiple simulations
+
+	Parameters
+	----------
+	gas : array
+	    Array of snapshot gas data structures
+	header : array
+		Array of snapshot header structures
+	center_list : array
+		array of 3-D coordinate of center of circles
+	r_max_list : array
+		array of maximum radii
+	bin_nums : int
+		Number of bins to use
+	time : bool
+		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	log : boolean
+		Plot log of D/Z
+
+	Returns
+	-------
+	None
+	"""	
+
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	plt.figure()
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		Lz_hat = Lz_list[i]; disk_height = height_list[i];
+
+		surface_dens = np.zeros(bin_nums - 1)
+
+		r_bins = np.linspace(0, r_max, num=bin_nums)
+		r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
+
+		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+		coords -= center
+		M = G['m']
+
+		for j in range(bin_nums-1):
+			# find all coordinates within shell
+			r_min = r_bins[j]; r_max = r_bins[j+1];
+
+			area = np.pi*(np.power(r_max*1E3,2)-np.power(r_min*1E3,2))
+
+			# If disk get particles in annulus
+			zmag = np.dot(coords,Lz_hat)
+			r_z = np.zeros(np.shape(coords))
+			r_z[:,0] = zmag*Lz_hat[0]
+			r_z[:,1] = zmag*Lz_hat[1]
+			r_z[:,2] = zmag*Lz_hat[2]
+			r_s = np.subtract(coords,r_z)
+			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+			in_shell = np.where((np.abs(zmag) <= disk_height) & (smag <= r_max) & (smag > r_min))
+
+			mass = G['dz'][in_shell,0]*M[in_shell]*1E10
+			surface_dens[j] = np.sum(mass)/area
+
+		# Replace zeros with small values since we are taking the log of the values
+		if log:
+			surface_dens[surface_dens == 0] = EPSILON
+			surface_dens = np.log10(surface_dens)
+		
+		plt.plot(r_vals, surface_dens, label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+
+	x_label = "Radius (kpc)"
+	if log:
+		y_label = r'Log $\Sigma_{dust}$ (M$_{\odot}$ pc$^{-2}$)'
+	else:
+		y_label = r'$\Sigma_{dust}$ (M$_{\odot}$ pc$^{-2}$)'
+	
+	axis = plt.gca()
+	set_labels(axis, x_label, y_label)
+	plt.tight_layout()
+	
+	if time:
+		if cosmological:
+			z = H['redshift']
+			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
+		else:
+			t = H['time']
+			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)		
+	plt.xlim([r_vals[0],r_vals[-1]])
+
+
+	obs_r, obs_dens = Dwek_2014_M31_dust_dens_vs_radius()
+	if log:
+		obs_dens = np.log10(obs_dens)
+
+	plt.scatter(obs_r, obs_dens, label = 'Dwek (2014)', marker='o', color='xkcd:black', facecolors='none')
+
+	# Plot relation from Menard (2010)
+	r_set = 2.5
+	r_indx = np.argmin(np.abs(r_vals-r_set))
+	plt.plot(r_vals, surface_dens[r_indx] + np.log10(np.power(r_vals/ r_vals[r_indx],-0.8)),  label = 'Menard (2010)', color='xkcd:black', linestyle='--')
+
+
+	if labels!=None and len(gas)>1:
+		plt.legend(loc=0, frameon=False)
+	plt.savefig(foutname)
+	plt.close()
+
+
+
+def calc_H_fracs(G):
+	# Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
+
+
+	Z = G['z'][:,0] #metal mass (everything not H, He)
+	# dust mean mass per H nucleus
+	mu_H = 2.3E-24 # grams
+	# standard effective number of particle kernel neighbors defined in parameters file
+	N_ngb = 32.
+	# Gas softening length
+	hsml = G['h']
+
+	sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
+
+	#  dust optical depth 
+	tau = np.multiply(sobColDens,Z)*1/(mu_H*SOLAR_Z) * 10**(-21) #c m^2
+	tau[tau==0]=EPSILON #avoid divide by 0
+
+	chi = 3.1 * (1+3.1*np.power(Z/SOLAR_Z,0.365)) / 4.1 # Approximation
+
+	s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6 *tau) )
+	s[s==-4.] = -4.+EPSILON # Avoid divide by zero
+	fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
+	fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0
+
+	fHe = G['z'][:,1]
+	fMetals = G['z'][:,0]
+
+	# NH1 = Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is HI / Mass_HI
+	NH1 =  Gmas * (1. - fHe - fMetals) * (G['nh']) * (1. - fH2) / H_MASS
+	# NH2=  Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is H2 / Mass_HI
+	NH2 =  Gmas * (1. - fHe - fMetals) * (G['nh']) * fH2 / H_MASS #Gives Number of Hydrogen ATOMS in molecules
+	#NHion=Mass * Fraction of Hydrogen * Fraction of Ionized Hydrogen / Mass 
+	NHion= Gmas * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
+
+	return NH1,NH2,NHion	
+
+
+
+def Dwek_2014_M31_dust_dens_vs_radius():
+	"""
+	Gives the dust surface density (M_sun pc^-2) vs radius (kpc) from galactic center for M31 (Andromeda) determined by Dwek et al. (2014)
+	"""
+	radius = np.array([3.2487e-1,1.0161e+0,1.7033e+0,2.3469e+0,3.0348e+0,3.6811e+0,4.3691e+0,5.0136e+0,5.7446e+0,6.3579e+0,7.0488e+0, \
+		     7.7346e+0,8.4225e+0,9.1109e+0,9.7594e+0,1.0408e+1,1.1098e+1,1.1791e+1,1.2446e+1,1.3140e+1,1.3832e+1,1.4484e+1,1.5176e+1, \
+		     1.5873e+1,1.6527e+1,1.7222e+1,1.7873e+1,1.8568e+1,1.9262e+1,1.9917e+1,2.0610e+1,2.1304e+1,2.1959e+1,2.2656e+1,2.3349e+1, \
+		     2.4003e+1,2.4697e+1])
+
+	surface_dens = np.array([9.1852e+3,9.1114e+3,1.1216e+4,1.6233e+4,1.9227e+4,2.4036e+4,2.8250e+4,3.9040e+4,4.0559e+4,3.3438e+4,3.3685e+4, \
+				   4.4789e+4,5.3049e+4,6.1396e+4,6.7845e+4,7.6727e+4,7.7891e+4,7.2086e+4,5.5874e+4,4.8244e+4,4.4648e+4,4.1964e+4,3.8538e+4, \
+				   2.8963e+4,2.3695e+4,1.9087e+4,1.8078e+4,1.5136e+4,1.2770e+4,1.0130e+4,9.0899e+3,7.7883e+3,5.9904e+3,4.3654e+3,3.8873e+3, \
+				   3.1557e+3,2.7038e+3])
+
+	# Covert to correct units a
+	kpc_to_pc = 1E3;
+	surface_dens /= (kpc_to_pc * kpc_to_pc)
+
+	return radius, surface_dens
 
 
 
@@ -245,6 +444,13 @@ def accretion_analysis_plot(gas, header, center_list, r_max_list,  Lz_list=None,
 		
 		plt.savefig(labels[i]+'_'+foutname)
 		plt.close()
+
+
+
+
+
+
+
 
 
 def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, cosmological=True, \

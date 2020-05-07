@@ -13,16 +13,11 @@ labels = ['Fiducial','Elem. Creation Eff.','Enhanced Acc.','Enhanced O']
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
 
-labels = ['1000K Cutoff','No Temp. Cutoff']
-
-names = ['1000K_cutoff', 'no_temp_cutoff']
-snap_dirs = [main_dir + i + '/output/' for i in names] 
-
 implementation = 'species'
 
 cosmological = False
 
-Tcut = 1000
+Tcut = 300
 
 # First create ouput directory if needed
 try:
@@ -43,7 +38,7 @@ except:
 snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
-r_max_phys = 10 # kpc
+r_max_phys = 20 # kpc
 disk_height = 2 # kpc
 Lz_hat = [0.,0.,1.] # direction of disk
 
@@ -87,15 +82,18 @@ for i, num in enumerate(snaps):
 		    foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_Z_snapshot_%03d.png' % num,labels=labels, \
 		    cosmological=cosmological, log=False)
 	"""
-	DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
-		      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
-		      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
+	#DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
+	#	      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
+	#	      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
 	#temp_dist(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
 	#           cosmological=cosmological, Tmin=1, Tmax=1E6, labels=labels, foutname='compare_temp_dist.png',  style='color')
 
-	accretion_analysis_plot(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
-           cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=names, implementation=implementation)
-	binned_phase_plot('DZ', Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=True, \
-           cosmological=cosmological, Tmin=1, Tmax=1E5, labels=names, vmin=0, vmax=0.45)
+	#accretion_analysis_plot(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
+    #       cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementation)
+	#binned_phase_plot('DZ', Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=True, \
+    #       cosmological=cosmological, Tmin=1, Tmax=1E5, labels=labels, vmin=0, vmax=0.45)
+
+	surface_dens_vs_radius(Gas_snaps, Headers, centers, r_maxes, Lz_hats, disk_heights, bin_nums=100, time=False, \
+          cosmological=cosmological, labels=labels, foutname=implementation+'_dust_surface_dens_vs_r_snapshot_%03d.png' % num)
 
 
