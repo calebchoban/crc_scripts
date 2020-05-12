@@ -229,12 +229,6 @@ def surface_dens_vs_radius(gas, header, center_list, r_max_list,  Lz_list, heigh
 
 	plt.scatter(obs_r, obs_dens, label = 'Dwek (2014)', marker='o', color='xkcd:black', facecolors='none')
 
-	# Plot relation from Menard (2010)
-	r_set = 2.5
-	r_indx = np.argmin(np.abs(r_vals-r_set))
-	plt.plot(r_vals, surface_dens[r_indx] + np.log10(np.power(r_vals/ r_vals[r_indx],-0.8)),  label = 'Menard (2010)', color='xkcd:black', linestyle='--')
-
-
 	if labels!=None and len(gas)>1:
 		plt.legend(loc=0, frameon=False)
 	plt.savefig(foutname)

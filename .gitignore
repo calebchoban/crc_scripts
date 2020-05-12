@@ -7,6 +7,7 @@ utils/
 *.e
 *.o
 *.hdf5
+*.csv
 
 *.png
 *.pdf
