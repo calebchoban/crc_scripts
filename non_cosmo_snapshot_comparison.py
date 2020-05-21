@@ -68,11 +68,17 @@ for i, num in enumerate(snaps):
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
-	"""
 	# Make D/Z vs r plot
-	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, \
+	DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=False, \
 		    foutname=image_dir+sub_dir+'disk_'+implementation+'_DZ_vs_r_snapshot_%03d.png' % num,labels=labels, \
-		    cosmological=cosmological, log=False)
+		    cosmological=cosmological, log=False, observation=True)
+	DZ_vs_fH2(Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, bin_nums=50, time=False, \
+	        depletion=False, cosmological=True, labels=labels, foutname=image_dir+sub_dir+'disk_'+implementation+'_DZ_vs_fH2_snapshot_%03d.png' % num, \
+	        std_bars=True, style='color', log=False, observation=True, fH2_min=1E-2, fH2_max=1)
+	nH_vs_fH2(Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, foutname='nH_vs_fH2.png', labels=labels)
+	DZ_pixel_bin('fH2', Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, num_bins=100, observation=True, \
+				 labels=labels, foutname='DZ_pixel_bin_vs_fH2.png')
+	"""
 	# Make D/Z vs density plot
 	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, time=True, \
 		       foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_dens_snapshot_%03d.png' % num,labels=labels, \
@@ -93,7 +99,6 @@ for i, num in enumerate(snaps):
 	#binned_phase_plot('DZ', Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=True, \
     #       cosmological=cosmological, Tmin=1, Tmax=1E5, labels=labels, vmin=0, vmax=0.45)
 
-	surface_dens_vs_radius(Gas_snaps, Headers, centers, r_maxes, Lz_hats, disk_heights, bin_nums=100, time=False, \
-          cosmological=cosmological, labels=labels, foutname=implementation+'_dust_surface_dens_vs_r_snapshot_%03d.png' % num)
-
+	#surface_dens_vs_radius(Gas_snaps, Headers, centers, r_maxes, Lz_hats, disk_heights, bin_nums=100, time=False, \
+    #      cosmological=cosmological, labels=labels, foutname=implementation+'_dust_surface_dens_vs_r_snapshot_%03d.png' % num)
 

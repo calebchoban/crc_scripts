@@ -10,12 +10,14 @@ from readsnap import readsnap
 from astropy.table import Table
 import gas_temperature as gas_temp
 from tasz import *
+import observations
 
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
 Line_Colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
 Line_Styles = ['-','--',':','-.']
+Marker_Style = ['o','^','X','s','*']
 Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
@@ -235,6 +237,77 @@ def surface_dens_vs_radius(gas, header, center_list, r_max_list,  Lz_list, heigh
 	plt.close()
 
 
+def DZ_pixel_bin(param, gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, num_bins=200, observation=True, \
+				 labels=None, foutname='DZ_pixel_bin.png', style='color'):
+	"""
+	Pixel bins given parameter from 2D face-on image of galaxy 
+	"""
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	plt.figure()
+	axis=plt.gca()
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		if Lz_list != None:
+			Lz_hat = Lz_list[i]; disk_height = height_list[i];
+		else:
+			Lz_hat = None; disk_height = None;
+
+		x=G['p'][:,0]-center[0]; y=G['p'][:,1]-center[1];
+		x_bins = np.linspace(-r_max, r_max, num_bins)
+		y_bins = np.linspace(-r_max,r_max, num_bins)
+		D_mass=G['dz'][:,0]*G['m']; Z_mass=G['z'][:,0]*G['m']
+		if param=='fH2':
+			NH1,NHion,NH2=calc_H_fracs(G)
+			ret = binned_statistic_2d(x, y, [NH1,NH2], statistic=np.sum, bins=[x_bins,y_bins]).statistic
+
+			NH1_binned = ret[0].flatten(); NH2_binned = ret[1].flatten();
+			fH2_binned = NH2_binned/(NH2_binned+NH1_binned)
+			fH2_binned[np.isnan(fH2_binned)] = 0.
+			ret = binned_statistic_2d(x, y, [D_mass,Z_mass], statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			D_binned = ret[0].flatten(); Z_binned = ret[1].flatten();
+			DZ_binned = D_binned/Z_binned
+
+			plt.scatter(fH2_binned,DZ_binned, c=colors[i], label=labels[i], s=6)
+
+	if observation:
+		data = observations.Chiang_2020_DZ_vs_fH2()
+		for i, gal_name in enumerate(data.keys()):
+			fH2_vals = data[gal_name][0]; DZ_vals = data[gal_name][1];
+			plt.scatter(fH2_vals, DZ_vals, label=gal_name, c='xkcd:grey', marker=Marker_Style[i], s=5)
+
+
+	plt.xscale('log')
+	plt.xlim([0.01,1])
+ 	plt.ylim([0,1.0])
+	if labels!=None and len(gas)>1:
+		if observation:
+			plt.legend(loc=0, frameon=False, ncol=2)
+		else:
+			plt.legend(loc=0, frameon=False)	
+	xlabel = r'$f_{H2}$'; ylabel="D/Z Ratio"
+	set_labels(axis, xlabel, ylabel)
+	plt.savefig(foutname)
+	plt.close()
+
+
+
+
 
 def calc_H_fracs(G):
 	# Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
@@ -242,16 +315,17 @@ def calc_H_fracs(G):
 
 	Z = G['z'][:,0] #metal mass (everything not H, He)
 	# dust mean mass per H nucleus
-	mu_H = 2.3E-24 # grams
+	mu_H = 2.3E-24# grams
 	# standard effective number of particle kernel neighbors defined in parameters file
 	N_ngb = 32.
 	# Gas softening length
-	hsml = G['h']
+	hsml = G['h']*UnitLength_in_cm
+	density = G['rho']*UnitDensity_in_cgs
 
 	sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
 
 	#  dust optical depth 
-	tau = np.multiply(sobColDens,Z)*1/(mu_H*SOLAR_Z) * 10**(-21) #c m^2
+	tau = np.multiply(sobColDens,Z*1E-21/SOLAR_Z)/mu_H
 	tau[tau==0]=EPSILON #avoid divide by 0
 
 	chi = 3.1 * (1+3.1*np.power(Z/SOLAR_Z,0.365)) / 4.1 # Approximation
@@ -265,35 +339,99 @@ def calc_H_fracs(G):
 	fMetals = G['z'][:,0]
 
 	# NH1 = Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is HI / Mass_HI
-	NH1 =  Gmas * (1. - fHe - fMetals) * (G['nh']) * (1. - fH2) / H_MASS
+	NH1 =  G['m'] * (1. - fHe - fMetals) * (G['nh']) * (1. - fH2) / H_MASS
 	# NH2=  Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is H2 / Mass_HI
-	NH2 =  Gmas * (1. - fHe - fMetals) * (G['nh']) * fH2 / H_MASS #Gives Number of Hydrogen ATOMS in molecules
+	NH2 =  G['m'] * (1. - fHe - fMetals) * (G['nh']) * fH2 / H_MASS #Gives Number of Hydrogen ATOMS in molecules
 	#NHion=Mass * Fraction of Hydrogen * Fraction of Ionized Hydrogen / Mass 
-	NHion= Gmas * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
+	NHion= G['m'] * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
+	
+	return NH1,NHion,NH2
 
-	return NH1,NH2,NHion	
 
 
 
-def Dwek_2014_M31_dust_dens_vs_radius():
-	"""
-	Gives the dust surface density (M_sun pc^-2) vs radius (kpc) from galactic center for M31 (Andromeda) determined by Dwek et al. (2014)
-	"""
-	radius = np.array([3.2487e-1,1.0161e+0,1.7033e+0,2.3469e+0,3.0348e+0,3.6811e+0,4.3691e+0,5.0136e+0,5.7446e+0,6.3579e+0,7.0488e+0, \
-		     7.7346e+0,8.4225e+0,9.1109e+0,9.7594e+0,1.0408e+1,1.1098e+1,1.1791e+1,1.2446e+1,1.3140e+1,1.3832e+1,1.4484e+1,1.5176e+1, \
-		     1.5873e+1,1.6527e+1,1.7222e+1,1.7873e+1,1.8568e+1,1.9262e+1,1.9917e+1,2.0610e+1,2.1304e+1,2.1959e+1,2.2656e+1,2.3349e+1, \
-		     2.4003e+1,2.4697e+1])
+def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, foutname='nH_vs_fH2.png', style='color', labels=None, bin_nums=100):
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
 
-	surface_dens = np.array([9.1852e+3,9.1114e+3,1.1216e+4,1.6233e+4,1.9227e+4,2.4036e+4,2.8250e+4,3.9040e+4,4.0559e+4,3.3438e+4,3.3685e+4, \
-				   4.4789e+4,5.3049e+4,6.1396e+4,6.7845e+4,7.6727e+4,7.7891e+4,7.2086e+4,5.5874e+4,4.8244e+4,4.4648e+4,4.1964e+4,3.8538e+4, \
-				   2.8963e+4,2.3695e+4,1.9087e+4,1.8078e+4,1.5136e+4,1.2770e+4,1.0130e+4,9.0899e+3,7.7883e+3,5.9904e+3,4.3654e+3,3.8873e+3, \
-				   3.1557e+3,2.7038e+3])
+	plt.figure()
+	axis = plt.gca()
 
-	# Covert to correct units a
-	kpc_to_pc = 1E3;
-	surface_dens /= (kpc_to_pc * kpc_to_pc)
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		if Lz_list != None:
+			Lz_hat = Lz_list[i]; disk_height = height_list[i];
+		else:
+			Lz_hat = None; disk_height = None;
 
-	return radius, surface_dens
+		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+		coords -= center
+		# Get only data of particles in sphere/disk since those are the ones we care about
+		# Also gives a nice speed-up
+		# Get paticles in disk
+		if Lz_hat != None:
+			zmag = np.dot(coords,Lz_hat)
+			r_z = np.zeros(np.shape(coords))
+			r_z[:,0] = zmag*Lz_hat[0]
+			r_z[:,1] = zmag*Lz_hat[1]
+			r_z[:,2] = zmag*Lz_hat[2]
+			r_s = np.subtract(coords,r_z)
+			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+		# Get particles in sphere otherwise
+		else:
+			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+		M = G['m'][in_galaxy]
+		nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
+
+		NH1,NHion,NH2 = calc_H_fracs(G)
+		fH2 = NH2[in_galaxy]/(NH1[in_galaxy]+NH2[in_galaxy])
+
+		mean_fH2 = np.zeros(bin_nums - 1)
+		# 16th and 84th percentiles
+		std_fH2 = np.zeros([bin_nums - 1,2])
+		
+		nH_bins = np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums)
+		nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
+		digitized = np.digitize(nH,nH_bins)
+
+		for j in range(1,len(nH_bins)):
+			if len(nH[digitized==j])==0:
+				mean_fH2[j-1] = np.nan
+				std_fH2[j-1,0] = np.nan; std_fH2[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = fH2[digitized == j]
+				mean_fH2[j-1],std_fH2[j-1,0],std_fH2[j-1,1] = weighted_percentile(values, weights=weights)
+
+
+		plt.plot(nH_vals, mean_fH2, label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		plt.fill_between(nH_vals, std_fH2[:,0], std_fH2[:,1], alpha = 0.4, color=colors[i])
+
+
+	plt.xscale('log')
+	plt.yscale('log')
+	plt.ylim([0.01,1])
+	plt.xlim([1E-2,1E3])
+	xlabel=r'$n_H (cm^{-3})$'; ylabel=r'$f_{H2}$';
+	set_labels(axis, xlabel, ylabel)
+	plt.savefig(foutname)
+
 
 
 
@@ -444,9 +582,6 @@ def accretion_analysis_plot(gas, header, center_list, r_max_list,  Lz_list=None,
 
 
 
-
-
-
 def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, cosmological=True, \
 			   nHmin=1E-3, nHmax=1E3, Tmin=1E1, Tmax=1E5, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, labels =None, log=False, foutname='phase_plot.png'):
 	"""
@@ -548,7 +683,7 @@ def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None,
 
 def DZ_vs_dens(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=30, time=False, \
 	           depletion=False, cosmological=True, nHmin=1E-2, nHmax=1E3, labels=None, \
-	           foutname='compare_DZ_vs_dens.png', std_bars=True, style='color', log=True):
+	           foutname='compare_DZ_vs_dens.png', std_bars=True, style='color', log=True, observations=False):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs density for multiple simulations
 
@@ -574,6 +709,8 @@ def DZ_vs_dens(gas, header, center_list, r_max_list,  Lz_list=None, height_list=
 		'size' - make all lines solid black but with varying line thickness
 	log : boolean
 		Plot log of D/Z
+	observations : boolean
+		Overlay observational data
 
 	Returns
 	-------
@@ -618,6 +755,11 @@ def DZ_vs_dens(gas, header, center_list, r_max_list,  Lz_list=None, height_list=
 		if std_bars:
 			plt.fill_between(nH_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[i])
 
+		if observations:
+			DZ_vals,dens_vals = observations.Jenkins_2009_DZ_vs_dens(phys_dens=True)
+			plt.scatter(dens_vals, DZ_vals, label='Jenkins (2009)', c='xkcd:black', marker=Marker_Style[0])
+
+
 	if time:
 		if cosmological:
 			z = H['redshift']
@@ -625,7 +767,7 @@ def DZ_vs_dens(gas, header, center_list, r_max_list,  Lz_list=None, height_list=
 		else:
 			t = H['time']
 			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)			
-	
+
 	if labels!=None and len(gas)>1:
 		plt.legend(loc=4, frameon=False)
 	plt.xlabel(r'$n_H \, (cm^{-3})$')
@@ -758,7 +900,7 @@ def DZ_vs_Z(gas, header, center_list, r_max_list, Lz_list=None, height_list=None
 
 def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=50, time=False, \
 	        depletion=False, cosmological=True, labels=None, foutname='DZ_vs_r.png', std_bars=True, \
-	        style='color', log=True):
+	        style='color', log=True, observation=False):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs radius given code values of center and virial radius for multiple simulations/snapshots
 
@@ -792,6 +934,8 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 		'size' - make all lines solid black but with varying line thickness
 	log : boolean
 		Plot log of D/Z
+	observations : boolean
+		Overlay observational data 
 
 	Returns
 	-------
@@ -815,7 +959,8 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
 
-	ax=plt.figure()
+	plt.figure()
+	ax = plt.gca()
 
 	for i in range(len(gas)):
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
@@ -830,7 +975,7 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 			
 		# Replace zeros with small values since we are taking the log of the values
 		if log:
-			std_DZ[std_DZ == 0] = small_num
+			std_DZ[std_DZ == 0] = EPSILON
 			std_DZ = np.log10(std_DZ)
 			mean_DZ = np.log10(mean_DZ)
 		
@@ -839,6 +984,19 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 			plt.fill_between(r_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[i])
 
 	plt.xlabel("Radius (kpc)")
+	plt.xlim([r_vals[0],r_vals[-1]])
+
+	if observation:
+		data = observations.Chiang_2020_DZ_vs_radius(r_max=r_max)
+		for i, gal_name in enumerate(data.keys()):
+			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
+			if log:
+				std_DZ[std_DZ == 0] = EPSILON
+				std_DZ = np.log10(std_DZ)
+				mean_DZ = np.log10(mean_DZ)
+			plt.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c='xkcd:grey', fmt=Marker_Style[i], elinewidth=1, markersize=5)
+
+
 	if log:
 		y_label = "Log D/Z Ratio"
 	else:
@@ -847,11 +1005,11 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 	if time:
 		if cosmological:
 			z = H['redshift']
-			ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)
+			plt.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=ax.transAxes)
 		else:
 			t = H['time']
-			ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=axes[0].transAxes)		
-	plt.xlim([r_vals[0],r_vals[-1]])
+			plt.text(.95, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=ax.transAxes)		
+
 	if log:
 		DZ_min = -1.0
 		DZ_max = 0.0
@@ -860,7 +1018,139 @@ def DZ_vs_r(gas, header, center_list, r_max_list,  Lz_list=None, height_list=Non
 		DZ_max = 1.0
 	plt.ylim([DZ_min,DZ_max])
 	if labels!=None and len(gas)>1:
-		plt.legend(loc=4, frameon=False)
+		if observation:
+			plt.legend(loc=0, frameon=False, ncol=2)
+		else:
+			plt.legend(loc=0, frameon=False)	
+	plt.savefig(foutname)
+	plt.close()
+
+
+
+def DZ_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=50, time=False, \
+	        depletion=False, cosmological=True, labels=None, foutname='DZ_vs_fH2.png', std_bars=True, \
+	        style='color', log=True, observation=False, fH2_min=1E-2, fH2_max=1):
+	"""
+	Plots the average dust-to-metals ratio (D/Z) vs H2 gas fractoin given code values of center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	gas : array
+	    Array of snapshot gas data structures
+	header : array
+		Array of snapshot header structures
+	center_list : array
+		array of 3-D coordinate of center of circles
+	r_max_list : array
+		array of maximum radii
+	bin_nums : int
+		Number of bins to use
+	time : bool
+		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	log : boolean
+		Plot log of D/Z
+	observations : boolean
+		Overlay observational data 
+
+	Returns
+	-------
+	None
+	"""	
+
+
+	if len(gas) == 1:
+		linewidths = np.full(len(gas),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(gas),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	plt.figure()
+	ax = plt.gca()
+
+	for i in range(len(gas)):
+		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
+		if Lz_list != None:
+			Lz_hat = Lz_list[i]; disk_height = height_list[i];
+		else:
+			Lz_hat = None; disk_height = None;
+
+
+		mean_DZ,std_DZ,fH2_vals = calc_DZ_vs_param('fH2', G, center, r_max, Lz_hat=Lz_hat, \
+		                        disk_height=disk_height, depletion=depletion, \
+		                        param_min=fH2_min, param_max=fH2_max)
+			
+		# Replace zeros with small values since we are taking the log of the values
+		if log:
+			std_DZ[std_DZ == 0] = EPSILON
+			std_DZ = np.log10(std_DZ)
+			mean_DZ = np.log10(mean_DZ)
+		
+		plt.plot(fH2_vals, mean_DZ, label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
+		if std_bars:
+			plt.fill_between(fH2_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[i])
+
+	plt.xlabel(r'$f_{H2}$')
+	plt.xscale('log')
+	plt.xlim([fH2_vals[0],fH2_vals[-1]])
+
+	if observation:
+		data = observations.Chiang_2020_DZ_vs_fH2()
+		for i, gal_name in enumerate(data.keys()):
+			fH2_vals = data[gal_name][0]; DZ_vals = data[gal_name][1];
+			if log:
+				DZ_vals = np.log10(DZ_vals)
+			plt.scatter(fH2_vals, DZ_vals, label=gal_name, c='xkcd:grey', marker=Marker_Style[i], s=5)
+
+
+	if log:
+		y_label = "Log D/Z Ratio"
+	else:
+		y_label = "D/Z Ratio"
+	plt.ylabel(y_label)
+	if time:
+		if cosmological:
+			z = H['redshift']
+			plt.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = 16, ha = 'right', transform=ax.transAxes)
+		else:
+			t = H['time']
+			plt.text(.95, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = 16, ha = 'right', transform=ax.transAxes)		
+
+	if log:
+		DZ_min = -1.0
+		DZ_max = 0.0
+	else:
+		DZ_min = 0.0
+		DZ_max = 1.0
+	plt.ylim([DZ_min,DZ_max])
+	if labels!=None and len(gas)>1:
+		if observation:
+			plt.legend(loc=0, frameon=False, ncol=2)
+		else:
+			plt.legend(loc=0, frameon=False)	
 	plt.savefig(foutname)
 	plt.close()
 
@@ -993,6 +1283,29 @@ def calc_DZ_vs_param(param, G, center, r_max, Lz_hat=None, disk_height=5, bin_nu
 
 		for j in range(1,len(Z_bins)):
 			if len(Z[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+	# Get D/Z values vs H2 mass fraction of gas
+	elif param == 'fH2':
+		NH1,NHion,NH2 = calc_H_fracs(G)
+		fH2 = NH2[in_galaxy]/(NH1[in_galaxy]+NH2[in_galaxy])
+		fH2_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
+		param_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
+		digitized = np.digitize(fH2,fH2_bins)
+
+		if depletion:
+			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1]+G['dz'][:,0][in_galaxy])) / H_MASS
+		else:
+			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
+
+
+		for j in range(1,len(fH2_bins)):
+			if len(fH2[digitized==j])==0:
 				mean_DZ[j-1] = np.nan
 				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
 				continue

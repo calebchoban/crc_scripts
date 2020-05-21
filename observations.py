@@ -88,31 +88,63 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False):
 		return avg_nH, DZ_vals
 
 
-def Chiang_2020_DZ_vs_radius():
+def Chiang_2020_DZ_vs_radius(r_max=None, bin_nums=50):
+	"""
+	Gives the D/Z values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
+	binned data
+	"""
+
+	gal_names = ['IC342','M31','M33','M101','NGC628']
+	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
+
 	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	print IDs
+	ID = data['gal']
 	DZ = np.power(10,data['dtm'])
-	radius = data['radius_r25']
-	
+	arcsec_to_rad = 4.848E-6
+	radius_rad = data['radius_arcsec']*arcsec_to_rad
+
 	data = dict()
-	for id in IDs:
-		data[id] = [radius[gal==id],DZ[id==gal]]
+	for i,name in enumerate(gal_names):
+		r_data = radius_rad[ID==name]*gal_distance[i]
+		DZ_data = DZ[ID==name]
+		# If given a mad radius, bin the data for each galaxy
+		if r_max != None:
+			mean_DZ = np.zeros(bin_nums - 1)
+			# 16th and 84th percentiles
+			std_DZ = np.zeros([bin_nums - 1,2])
+			r_bins = np.linspace(0, r_max, num=bin_nums)
+			r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
+
+			for j in range(bin_nums-1):
+				# find all coordinates within shell
+				r_min = r_bins[j]; r_max = r_bins[j+1];
+				in_annulus = np.logical_and(r_data <= r_max, r_data > r_min)
+				values = DZ_data[in_annulus]
+				if len(values) > 0:
+					mean_DZ[j] = np.mean(values)
+					std_DZ[j] = np.percentile(values, [16,84])
+				else:
+					mean_DZ[j] = np.nan
+					std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
+			mask = np.logical_not(np.isnan(mean_DZ))
+			data[name] = [r_vals[mask], mean_DZ[mask], std_DZ[mask]]
+		# Else just give the raw data for each galaxy	
+		else:
+			data[name] = [r_data,DZ_data]
 
 	return data
 
 
 def Chiang_2020_DZ_vs_fH2():
-        data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-        gal = data['gal']
-        IDs = np.unique(data['gal'])
-        DZ = np.power(10,data['dtm'])
-        fH2 = data['fH2']
+	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	gal = data['gal']
+	IDs = np.unique(data['gal'])
+	DZ = np.power(10,data['dtm'])
+	fH2 = data['fh2']
 
-        data = dict()
-        for id in IDs:
-                data[id] = [fH2[gal==id],DZ[id==gal]]
+	data = dict()
+	for id in IDs:
+		data[id] = [fH2[gal==id],DZ[id==gal]]
 
 	return data
 
