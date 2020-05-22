@@ -55,7 +55,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False):
 	using results from Zhukovska (2016).
 	"""
 
-	avg_nH = np.logspace(-2,2,num=100)
+	avg_nH = np.logspace(-2,2,num=50)
 	# Get physical nH value with conversion from Zhukovska (2016).
 	# This may not be accurate so use with caution.
 	phys_nH = 147.234*np.power(avg_nH,1.054)
@@ -81,18 +81,18 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False):
 	dust_to_H = np.sum(solar_Mx_MH - obs_Mx_MH,axis=1)
 	DZ_vals = dust_to_H/total_Z
 
-
-	if phy_dens:
-		return phys_dens, DZ_vals
+	if phys_dens:
+		return phys_nH, DZ_vals
 	else:
 		return avg_nH, DZ_vals
 
 
-def Chiang_2020_DZ_vs_radius(r_max=None, bin_nums=50):
+def Chiang_2020_DZ_vs_radius(bin_data = True):
 	"""
 	Gives the D/Z values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
 	binned data
 	"""
+	bin_nums = 100
 
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
@@ -106,9 +106,10 @@ def Chiang_2020_DZ_vs_radius(r_max=None, bin_nums=50):
 	data = dict()
 	for i,name in enumerate(gal_names):
 		r_data = radius_rad[ID==name]*gal_distance[i]
+		r_max = np.max(r_data)
 		DZ_data = DZ[ID==name]
-		# If given a mad radius, bin the data for each galaxy
-		if r_max != None:
+		# If given a max radius, bin the data for each galaxy
+		if bin_data:
 			mean_DZ = np.zeros(bin_nums - 1)
 			# 16th and 84th percentiles
 			std_DZ = np.zeros([bin_nums - 1,2])
