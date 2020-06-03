@@ -15,7 +15,6 @@ LINE_WIDTHS = [0.5,1.0,1.5,2.0,2.5,3.0]
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
 
-
 # Conversion factors for code to cgs units
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
@@ -28,6 +27,7 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.67E-24 # grams
 SOLAR_Z						= 0.02
+BoltzMann_ergs              = 1.3806e-16
 
 EPSILON						= 1E-7 # small number to avoid zeros
 
