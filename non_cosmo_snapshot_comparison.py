@@ -6,10 +6,17 @@ import subprocess
 
 
 
+
+snap_dirs = []
 main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
-names = ['fiducial_model','elem_creation_eff','enhanced_acc','extra_O']
-snap_dirs = [main_dir + i + '/output/' for i in names] 
-labels = ['Fiducial','Elem. Creation Eff.','Enhanced Acc.','Enhanced O']
+names = ['fiducial_model','extra_O']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels = ['Spec. Fiducial','Spec. w/ O']
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Elemental/'
+names = ['fiducial_model','decreased_acc']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels += ['Elem. Fiducial','Elem. Low Acc.']
+
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
 
@@ -46,8 +53,7 @@ for i, num in enumerate(snaps):
 	print(num)
 	Gas_snaps = []; Headers = []; masks = []; centers = []; r_maxes = []; Lz_hats = []; disk_heights = [];
 	for j,snap_dir in enumerate(snap_dirs):
-		name = names[j]
-		print(name)
+		print snap_dir
 
 		H = readsnap(snap_dir, num, 0, header_only=1, cosmological=cosmological)
 		Headers += [H]
@@ -68,33 +74,18 @@ for i, num in enumerate(snaps):
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
-	DZ_vs_params(['nH','r','fH2'], [[1E-3,1E3],[0,r_max_phys],[0.01,1]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=False, depletion=False, \
-          cosmological=False, labels=labels, foutname='DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 
+	observed_DZ_vs_param(['r','dust','fH2'], [[0,r_max_phys],[0.005,0.5],[0.01,1]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
+	
+	DZ_vs_params(['nH','r','fH2'], [[1E-3,1E3],[0,r_max_phys],[0.01,1]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 
 	# Make D/Z vs r plot
-	#DZ_vs_r(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=False, \
-	#    `  foutname=image_dir+sub_dir+'disk_'+implementation+'_DZ_vs_r_snapshot_%03d.png' % num,labels=labels, \
-	#	    cosmological=cosmological, log=False, observation=True)
-	#DZ_vs_fH2(Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, bin_nums=50, time=False, \
-	#        depletion=False, cosmological=True, labels=labels, foutname=image_dir+sub_dir+'disk_'+implementation+'_DZ_vs_fH2_snapshot_%03d.png' % num, \
-	#        std_bars=True, style='color', log=False, observation=True, fH2_min=1E-2, fH2_max=1)
 	#nH_vs_fH2(Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, foutname='nH_vs_fH2.png', labels=labels)
 	#DZ_pixel_bin('fH2', Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, num_bins=100, observation=True, \
 	#			 labels=labels, foutname='DZ_pixel_bin_vs_fH2.png')
-	"""
 	# Make D/Z vs density plot
-	DZ_vs_dens(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, time=True, \
-		       foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_dens_snapshot_%03d.png' % num,labels=labels, \
-		       cosmological=cosmological, log=False)
-	# Make D/Z vs Z plot
-	DZ_vs_Z(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, time=True, Zmin=1E0, Zmax=1e1, \
-		    foutname=image_dir+sub_dir+'disk_'+implementation+'_compare_DZ_vs_Z_snapshot_%03d.png' % num,labels=labels, \
-		    cosmological=cosmological, log=False)
-	"""
-	#DZ_vs_all(Gas_snaps,Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=50, time=True, depletion=False, \
-	#	      cosmological=cosmological, labels=labels, foutname=image_dir+sub_dir+implementation+'_compare_DZ_vs_all_snapshot_%03d.png' % num, \
-	#	      std_bars=True, style='color', nHmin=1E-3, nHmax=1E3, Zmin=1E0, Zmax=1E1, log=False)
 	#temp_dist(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
 	#           cosmological=cosmological, Tmin=1, Tmax=1E6, labels=labels, foutname='compare_temp_dist.png',  style='color')
 
@@ -105,4 +96,3 @@ for i, num in enumerate(snaps):
 
 	#surface_dens_vs_radius(Gas_snaps, Headers, centers, r_maxes, Lz_hats, disk_heights, bin_nums=100, time=False, \
     #      cosmological=cosmological, labels=labels, foutname=implementation+'_dust_surface_dens_vs_r_snapshot_%03d.png' % num)
-
