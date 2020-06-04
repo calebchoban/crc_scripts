@@ -17,6 +17,9 @@ names = ['fiducial_model','decreased_acc']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
 labels += ['Elem. Fiducial','Elem. Low Acc.']
 
+implementations = ['species','species','elemental','elemental']
+t_ref_factors = [1,1,1,10]
+
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
 
@@ -75,10 +78,14 @@ for i, num in enumerate(snaps):
 		Lz_hats += [Lz_hat]
 
 
-	observed_DZ_vs_param(['r','dust','fH2'], [[0,r_max_phys],[0.005,0.5],[0.01,1]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
+           cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)
+	exit()
+
+	observed_DZ_vs_param(['r','dust','fH2'], [[0,r_max_phys],[0.005,0.5],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 	
-	DZ_vs_params(['nH','r','fH2'], [[1E-3,1E3],[0,r_max_phys],[0.01,1]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	DZ_vs_params(['nH','r'], [[1E-3,1E3],[0,r_max_phys]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 
 	# Make D/Z vs r plot
@@ -89,8 +96,7 @@ for i, num in enumerate(snaps):
 	#temp_dist(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
 	#           cosmological=cosmological, Tmin=1, Tmax=1E6, labels=labels, foutname='compare_temp_dist.png',  style='color')
 
-	#accretion_analysis_plot(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
-    #       cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementation)
+
 	#binned_phase_plot('DZ', Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=True, \
     #       cosmological=cosmological, Tmin=1, Tmax=1E5, labels=labels, vmin=0, vmax=0.45)
 

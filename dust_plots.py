@@ -451,7 +451,7 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 	# Get D/Z values vs H2 mass fraction of gas
 	elif param == 'fH2':
 		NH1,NHion,NH2 = calc_H_fracs(G)
-		fH2 = NH2[in_galaxy]/(NH1[in_galaxy]+NH2[in_galaxy])
+		fH2 = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
 		fH2_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
 		param_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
 		digitized = np.digitize(fH2,fH2_bins)
@@ -555,7 +555,6 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 		ylabel = r'D/Z Ratio'
 		if param == 'fH2':
 			xlabel = r'$f_{H2}$'
-			axis.set_xscale('log')
 		elif param == 'r':
 			xlabel = 'Radius (kpc)'
 		elif param == 'gas':
@@ -754,13 +753,13 @@ def calc_obs_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_
 
 	elif param == 'fH2':
 		MH1=NH1*H_MASS/UnitMass_in_Msolar
-		MH2=NH2*H_MASS/UnitMass_in_Msolar
+		MH2=2*NH2*H_MASS/UnitMass_in_Msolar
 		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass,MH2,MH1], statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
 		fH2_pixel = ret[2].flatten()/(ret[2].flatten()+ret[3].flatten())
 
 		# Now bin the data 
-		fH2_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
+		fH2_bins = np.linspace(param_min,param_max,param_bins)
 		param_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
 		digitized = np.digitize(fH2_pixel,fH2_bins)
 
@@ -831,7 +830,7 @@ def calc_H_fracs(G):
 	# NH1 = Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is HI / Mass_HI
 	NH1 =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (G['nh']) * (1. - fH2) / H_MASS
 	# NH2=  Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is H2 / Mass_HI
-	NH2 =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (G['nh']) * fH2 / H_MASS #Gives Number of Hydrogen ATOMS in molecules
+	NH2 =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (G['nh']) * fH2 / (2*H_MASS) #Gives Number of H2 molecules
 	#NHion=Mass * Fraction of Hydrogen * Fraction of Ionized Hydrogen / Mass 
 	NHion= G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
 	
@@ -889,7 +888,7 @@ def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=N
 		nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
 
 		NH1,NHion,NH2 = calc_H_fracs(G)
-		fH2 = NH2[in_galaxy]/(NH1[in_galaxy]+NH2[in_galaxy])
+		fH2 = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
 
 		mean_fH2 = np.zeros(bin_nums - 1)
 		# 16th and 84th percentiles
@@ -925,8 +924,9 @@ def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=N
 
 
 
-def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, \
-	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='accretion_analysis.png',  style='color', implementation='species'):
+def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, log = False, \
+	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='inst_dust_prod.png', style='color', implementation='species', \
+	           t_ref_factors = None):
 	"""
 	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
 
@@ -968,6 +968,11 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 	fig,axes = plt.subplots(1, 1, figsize=(12,10))
 
 	for i in range(len(gas)):
+		if t_ref_factors != None:
+			t_ref_factor = t_ref_factors[i]
+		else:
+			t_ref_factor = 1.
+
 		if isinstance(implementation, list):
 			imp = implementation[i]
 		else:
@@ -1014,59 +1019,111 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 			DZ = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
 
 		if imp == 'species':
-			t_ref = 4.24E6; sil_dust_mass = 143.78; Mg_mass = 24.305; Mg_in_sil = 1.06;
-			n_Mg = G['z'][:,6][in_galaxy] * G['rho'][in_galaxy]*UnitDensity_in_cgs/(Mg_mass*H_MASS);
-			Mg_DZ = G['dz'][:,6][in_galaxy]/G['z'][:,6][in_galaxy]
-			Md = G['dz'][:,6][in_galaxy]*M*1E10
-			growth_time = t_ref * Mg_in_sil * np.sqrt(Mg_mass) / sil_dust_mass * (3.13/3) * (1E-2/(n_Mg)) * np.power(300/T,0.5)
-			dust_prod = (1.-Mg_DZ)*Md/growth_time
-			dust_prod *= sil_dust_mass / Mg_mass
+			# First get silicates
+			t_ref = 2.45E6*t_ref_factor;
+			dust_formula_mass = 0.0
+			atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+			elem_num_dens = np.multiply(G['z'][in_galaxy,:len(atomic_mass)], G['rho'][in_galaxy, np.newaxis]*UnitDensity_in_cgs) / (atomic_mass*H_MASS)
+			sil_elems_index = np.array([4,6,7,10]) # O,Mg,Si,Fe
+			# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
+			# with olivine fraction of 0.32 and Mg fraction of 0.8
+			sil_num_atoms = np.array([3.63077,1.06,1.,0.570769]) # O, Mg, Si, Fe
+
+
+			for k in range(4): dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]];
+			sil_num_dens = elem_num_dens[:,sil_elems_index] 
+			# Find element with lowest number density factoring in number of atoms needed to make one formula unit of the dust species
+			key = np.argmin(sil_num_dens / sil_num_atoms, axis = 1)
+			key_num_dens = sil_num_dens[range(sil_num_dens.shape[0]),key]
+			key_elem = sil_elems_index[key]
+			key_DZ = G['dz'][in_galaxy,key_elem]/G['z'][in_galaxy,key_elem]
+			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
+			key_in_dust = sil_num_atoms[key]
+			key_mass = atomic_mass[key_elem]
+			cond_dens = 3.13
+			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
+			sil_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
+			sil_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+			sil_dust_prod *= dust_formula_mass / atomic_mass[key_elem]
+			sil_dust_prod[T>Tcut] = 0.
+
+			# Now carbon dust
+			CO_frac = 0.2; # Fraction of C locked in CO
+			t_ref = 2.45E6*t_ref_factor
+			key_elem = 2
+			key_DZ = G['dz'][in_galaxy,key_elem]/((1-CO_frac)*G['z'][in_galaxy,key_elem])
+			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
+			key_in_dust = 1
+			key_mass = atomic_mass[key_elem]
+			dust_formula_mass = key_mass
+			cond_dens = 2.25
+			key_num_dens = elem_num_dens[:,key_elem]*(1-CO_frac)
+			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
+			carbon_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
+			carbon_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+			carbon_dust_prod[T>Tcut] = 0.
+
+			# Now iron dust
+			t_ref = 2.45E6*t_ref_factor
+			key_elem = 10
+			key_DZ = G['dz'][in_galaxy,key_elem]/G['z'][in_galaxy,key_elem]
+			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
+			key_in_dust = 1
+			dust_formulat_mass = atomic_mass[key_elem]
+			cond_dens = 7.86
+			key_num_dens = elem_num_dens[:,key_elem]
+			key_mass = atomic_mass[key_elem]
+			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
+			iron_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
+			iron_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+			iron_dust_prod[T>Tcut] = 0.
+
+
+		# Elemental implementation
 		else:
-			t_ref = 0.2; T_ref = 20; nH_ref = 1.;
+			t_ref = 0.2E9*t_ref_factor; T_ref = 20; nH_ref = 1.;
 			growth_time = t_ref * (nH_ref/nH) * np.power(T_ref/T,0.5)
-			Mg_DZ = G['dz'][:,6][in_galaxy]/G['z'][:,6][in_galaxy]
-			Si_DZ = G['dz'][:,7][in_galaxy]/G['z'][:,7][in_galaxy]
-			Fe_DZ = G['dz'][:,10][in_galaxy]/G['z'][:,10][in_galaxy]
-			O_DZ = G['dz'][:,4][in_galaxy]/G['z'][:,4][in_galaxy]
-			Mg_dust = G['dz'][:,6][in_galaxy]*M*1E10
-			Si_dust = G['dz'][:,6][in_galaxy]*M*1E10
-			Fe_dust = G['dz'][:,6][in_galaxy]*M*1E10
-			O_dust = G['dz'][:,6][in_galaxy]*M*1E10
-			dust_prod = ((1.-Mg_DZ)*Mg_dust + (1.-Si_DZ)*Si_dust + (1.-Fe_DZ)*Fe_dust + (1.-O_DZ)*O_dust)/growth_time
-		dust_prod[dust_prod<0] = 0 
-		# No dust growth if no dust
-		dust_prod[G['dz'][:,6][in_galaxy]==0] = 0;
+			sil_DZ = G['dz'][:,[4,6,7,10]][in_galaxy]/G['z'][:,[4,6,7,10]][in_galaxy]
+			sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = -1.
+			sil_dust_mass = np.multiply(G['dz'][:,[4,6,7,10]][in_galaxy],M[:,np.newaxis]*1E10)
+			sil_dust_prod = np.sum((1.-sil_DZ)*sil_dust_mass/growth_time[:,np.newaxis],axis=1)
+			CO_frac = 0.2; # Fraction of C locked in CO
+			C_DZ = G['dz'][:,2][in_galaxy]/((1-CO_frac)*G['z'][:,2][in_galaxy])
+			C_dust_mass = G['dz'][:,2][in_galaxy]*M*1E10
+			carbon_dust_prod = (1.-C_DZ)*C_dust_mass/growth_time
+			carbon_dust_prod[np.logical_or(C_DZ <= 0,C_DZ >= 1)] = 0.
+			iron_dust_prod = np.zeros(len(sil_dust_prod))
+
+			print t_ref
 
 
-		hot_gas = T>Tcut
-		axes[0].hist(np.log10(nH), bin_nums, weights=dust_prod, range=[np.log10(1E-2),np.log10(1E3)], histtype='step', cumulative=True, label="All Gas", color=colors[0], \
-			         linewidth=linewidths[0])
-		axes[0].hist(np.log10(nH[np.logical_not(hot_gas)]), bin_nums, weights=dust_prod[np.logical_not(hot_gas)], range=[np.log10(1E-2),np.log10(1E3)], histtype='step', \
-			         cumulative=True, label="T < %i K" % Tcut, color=colors[1],linewidth=linewidths[0])
-		axes[0].hist(np.log10(nH[hot_gas]), bin_nums, weights=dust_prod[hot_gas], range=[np.log10(1E-2),np.log10(1E3)], histtype='step', cumulative=True, \
-			         label="T > %i K" % Tcut, color=colors[2],linewidth=linewidths[0])
-		axes[0].legend(loc=2)
-		xlabel = r'Log $n_H$ (cm$^{-3}$)'; ylabel = r'Cumulative Inst. Dust Prod. $(M_{\odot,sil}/yr)$'
-		set_labels(axes[0],xlabel,ylabel)
 
-		nH_lims = [0.1,1,10,100]
-		names = [r'$n_H>0.1$ cm$^{-3}$ ',r'$n_H>1$ cm$^{-3}$    ',r'$n_H>10$ cm$^{-3}$  ',r'$n_H>100$ cm$^{-3}$']
-		for j,nH_lim in enumerate(nH_lims):
-			mask = nH>=nH_lim
-			frac = 1.0*len(nH[mask])/len(nH)
-			names[j] += r' $f_{gas}$ = %.2g' % frac
-			axes[1].hist(np.log10(T[mask]), bin_nums, range=[np.log10(Tmin),np.log10(Tmax)], density=True, histtype='step', cumulative=True, label=names[j], \
-				       linestyle=linestyles[j], color=colors[j], linewidth=linewidths[0], weights = M[mask])
-			axes[1].axvline(x=np.log10(Tcut))
-		xlabel = r'Log T (K)'; ylabel = "Fraction of Gas < T"
-		set_labels(axes[1],xlabel,ylabel)	
-		axes[1].legend(loc=2)
 
-		set_labels(axes[2],xlabel,ylabel)	
-		axes[2].legend(loc=2)
-		
-		plt.savefig(labels[i]+'_'+foutname)
-		plt.close()
+		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=sil_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
+			         linewidth=linewidths[0], linestyle=linestyles[0])
+		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=carbon_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
+			         linewidth=linewidths[0], linestyle=linestyles[1])
+		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=iron_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
+			         linewidth=linewidths[0], linestyle=linestyles[2])
+
+	lines = []
+	for i in range(len(labels)):
+		lines += [mlines.Line2D([], [], color=colors[i], label=labels[i])]
+	lines += [mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[0],label='Silicate'), \
+		      mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[1],label='Carbon'), \
+		      mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[2],label='Iron')]
+
+	axes.legend(handles=lines,loc=2, frameon=False)
+	axes.set_xlim([1E-2,1E3])
+	xlabel = r'$n_H$ (cm$^{-3}$)'; ylabel = r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$'
+	set_labels(axes,xlabel,ylabel)
+	if log:
+		axes.set_yscale('log')
+		axes.set_ylim([1E-3,1E1])
+	axes.set_xscale('log')
+
+	plt.savefig(foutname)
+	plt.close()
 
 
 """
