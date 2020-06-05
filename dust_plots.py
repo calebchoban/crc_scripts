@@ -1081,10 +1081,11 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 
 		# Elemental implementation
 		else:
-			t_ref = 0.2E9*t_ref_factor; T_ref = 20; nH_ref = 1.;
-			growth_time = t_ref * (nH_ref/nH) * np.power(T_ref/T,0.5)
+			t_ref = 0.2E9*t_ref_factor; T_ref = 20; dens_ref = H_MASS;
+			dens = G['rho'][in_galaxy]*UnitDensity_in_cgs
+			growth_time = t_ref * (dens_ref/dens) * np.power(T_ref/T,0.5)
 			sil_DZ = G['dz'][:,[4,6,7,10]][in_galaxy]/G['z'][:,[4,6,7,10]][in_galaxy]
-			sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = -1.
+			sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = 1.
 			sil_dust_mass = np.multiply(G['dz'][:,[4,6,7,10]][in_galaxy],M[:,np.newaxis]*1E10)
 			sil_dust_prod = np.sum((1.-sil_DZ)*sil_dust_mass/growth_time[:,np.newaxis],axis=1)
 			CO_frac = 0.2; # Fraction of C locked in CO
@@ -1093,10 +1094,6 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 			carbon_dust_prod = (1.-C_DZ)*C_dust_mass/growth_time
 			carbon_dust_prod[np.logical_or(C_DZ <= 0,C_DZ >= 1)] = 0.
 			iron_dust_prod = np.zeros(len(sil_dust_prod))
-
-			print t_ref
-
-
 
 
 		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=sil_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \

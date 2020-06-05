@@ -80,7 +80,6 @@ for i, num in enumerate(snaps):
 
 	inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
            cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)
-	exit()
 
 	observed_DZ_vs_param(['r','dust','fH2'], [[0,r_max_phys],[0.005,0.5],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)

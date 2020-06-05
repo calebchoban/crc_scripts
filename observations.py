@@ -92,7 +92,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True):
 	Gives the D/Z or dust surface density values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
 	binned data
 	"""
-	bin_nums = 100
+	bin_nums = 40
 
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
