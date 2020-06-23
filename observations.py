@@ -1,6 +1,8 @@
 import numpy as np
 import utils
 
+SOLAR_Z= 0.02
+
 def Dwek_2014_M31_dust_dens_vs_radius():
 	"""
 	Gives the dust surface density (M_sun pc^-2) vs radius (kpc) from galactic center for M31 (Andromeda) determined by Dwek et al. (2014)
@@ -217,6 +219,121 @@ def Chiang_2020_DZ_vs_Sigma_dust(bin_data = True):
 
 		else:
 			data[gal_name] = [dust_surf,DZ_data]
+
+	return data
+
+
+
+def Chiang_2020_DZ_vs_Sigma_H2(bin_data = True):
+	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	gal = data['gal']
+	IDs = np.unique(data['gal'])
+	DZ = np.power(10,data['dtm'])
+	H2 = np.power(10,data['h2'])
+
+	data = dict()
+	for gal_name in IDs:
+		DZ_data = DZ[gal==gal_name]
+		H2_surf = H2[gal==gal_name]
+		# Bin data if asked for
+		if bin_data:
+			bin_nums = 40
+			mean_vals = np.zeros(bin_nums - 1)
+			# 16th and 84th percentiles
+			std_vals = np.zeros([bin_nums - 1,2])
+			surf_bins = np.logspace(np.log10(np.min(H2_surf)), np.log10(np.max(H2_surf)), num=bin_nums)
+			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
+			digitized = np.digitize(H2_surf,surf_bins)
+			for j in range(1,len(surf_bins)):
+				if len(H2_surf[digitized==j])==0:
+					mean_vals[j-1] = np.nan
+					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
+					continue
+				else:
+					values = DZ_data[digitized == j]
+					mean_vals[j-1] = np.mean(values)
+					std_vals[j-1] = np.percentile(values, [16,84])
+			mask = np.logical_not(np.isnan(mean_vals))
+			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
+
+		else:
+			data[gal_name] = [H2_surf,DZ_data]
+
+	return data
+
+
+def Chiang_2020_DZ_vs_Sigma_metals(bin_data = True):
+	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	gal = data['gal']
+	IDs = np.unique(data['gal'])
+	DZ = np.power(10,data['dtm'])
+	metals = data['metal_z']/SOLAR_Z
+
+	data = dict()
+	for gal_name in IDs:
+		DZ_data = DZ[gal==gal_name]
+		metals_surf = metals[gal==gal_name]
+		# Bin data if asked for
+		if bin_data:
+			bin_nums = 40
+			mean_vals = np.zeros(bin_nums - 1)
+			# 16th and 84th percentiles
+			std_vals = np.zeros([bin_nums - 1,2])
+			surf_bins = np.logspace(np.log10(np.min(metals_surf)), np.log10(np.max(metals_surf)), num=bin_nums)
+			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
+			digitized = np.digitize(metals_surf,surf_bins)
+			for j in range(1,len(surf_bins)):
+				if len(metals_surf[digitized==j])==0:
+					mean_vals[j-1] = np.nan
+					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
+					continue
+				else:
+					values = DZ_data[digitized == j]
+					mean_vals[j-1] = np.mean(values)
+					std_vals[j-1] = np.percentile(values, [16,84])
+			mask = np.logical_not(np.isnan(mean_vals))
+			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
+
+		else:
+			data[gal_name] = [metals_surf,DZ_data]
+
+	return data
+
+
+def Chiang_2020_DZ_vs_Sigma_gas(bin_data = True):
+	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	gal = data['gal']
+	IDs = np.unique(data['gal'])
+	DZ = np.power(10,data['dtm'])
+	gas = np.power(10,data['gas'])
+
+	data = dict()
+	for gal_name in IDs:
+		DZ_data = DZ[gal==gal_name]
+		gas_surf = gas[gal==gal_name]
+		# Bin data if asked for
+		if bin_data:
+			bin_nums = 40
+			mean_vals = np.zeros(bin_nums - 1)
+			# 16th and 84th percentiles
+			std_vals = np.zeros([bin_nums - 1,2])
+			surf_bins = np.logspace(np.log10(np.min(gas_surf)), np.log10(np.max(gas_surf)), num=bin_nums)
+			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
+			digitized = np.digitize(gas_surf,surf_bins)
+			for j in range(1,len(surf_bins)):
+				if len(gas_surf[digitized==j])==0:
+					mean_vals[j-1] = np.nan
+					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
+					continue
+				else:
+					values = DZ_data[digitized == j]
+					mean_vals[j-1] = np.mean(values)
+					std_vals[j-1] = np.percentile(values, [16,84])
+			mask = np.logical_not(np.isnan(mean_vals))
+			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
+
+		else:
+			data[gal_name] = [gas_surf,DZ_data]
 
 	return data
 

@@ -20,10 +20,23 @@ labels += ['Elem. Fiducial','Elem. Low Acc.']
 implementations = ['species','species','elemental','elemental']
 t_ref_factors = [1,1,1,10]
 
+
+snap_dirs = []
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
+names = ['extra_O']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels = ['Spec. w/ O']
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Elemental/'
+names = ['fiducial_model']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels += ['Elem. Fiducial']
+
+implementations = ['species','elemental']
+t_ref_factors = [1,1]
+
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
 
-implementation = 'species'
 
 cosmological = False
 
@@ -78,14 +91,21 @@ for i, num in enumerate(snaps):
 		Lz_hats += [Lz_hat]
 
 
-	inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
-           cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)
+	DZ_var_in_pixel(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, pixel_res=2, depletion=False, \
+				cosmological=False, labels=labels, style='color', log=False)
+	exit()
 
-	observed_DZ_vs_param(['r','dust','fH2'], [[0,r_max_phys],[0.005,0.5],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	#inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
+    #       cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)
+
+	observed_DZ_vs_param(['dust','H2','gas'], [[0.005,0.5],[.1,20],[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='obs_DZ_vs_surf.png', std_bars=True, style='color', log=False, include_obs=True)
+
+	observed_DZ_vs_param(['r','dust','fH2','gas'], [[0,r_max_phys],[0.005,0.5],[0,1.],[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 	
-	DZ_vs_params(['nH','r'], [[1E-3,1E3],[0,r_max_phys]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
+	#DZ_vs_params(['nH','r'], [[1E-3,1E3],[0,r_max_phys]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	#			cosmological=False, labels=labels, foutname='DZ_vs_param.png', std_bars=True, style='color', log=False, include_obs=True)
 
 	# Make D/Z vs r plot
 	#nH_vs_fH2(Gas_snaps, Headers, centers, r_maxes,  Lz_list=Lz_hats, height_list=disk_heights, foutname='nH_vs_fH2.png', labels=labels)
