@@ -41,9 +41,10 @@ H_MASS 						= 1.67E-24 # grams
 SOLAR_Z						= 0.02
 	
 # Small number used to plot zeros on log graph
-small_num = 1E-7
-EPSILON = 1E-7
+small_num 					= 1E-7
+EPSILON 					= 1E-7
 
+ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
 
 def set_labels(axis, xlabel, ylabel):
 	"""
@@ -123,7 +124,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	return values
 
 
-def plot_observational_data(axis, param, log=True):
+def plot_observational_data(axis, param, elems=None, log=True):
 	"""
 	Plots observational D/Z data vs the given param.
 
@@ -181,6 +182,10 @@ def plot_observational_data(axis, param, log=True):
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)	
+	elif 'depl':
+		for i,elem in enumerate(elems):
+			dens_vals, DZ_vals = observations.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
+			axis.scatter(dens_vals, DZ_vals, label='Jenkins09', c=Line_Colors[i], marker=Marker_Style[0], s = 12)	
 	elif param == 'Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print "D/Z vs Z observations have not been implemented yet"
@@ -1030,8 +1035,55 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 
 
 
+def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, \
+			bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, phys_dens=False, \
+			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True):
+	"""
+	Plots mock observations of dust-to-metals vs various parameters for multiple simulations 
 
-def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, foutname='nH_vs_fH2.png', style='color', labels=None, bin_nums=100):
+	Parameters
+	----------
+	elems : array
+		Array of which elements you want to plot depletions for
+	gas : array
+	    Array of snapshot gas data structures
+	header : array
+		Array of snapshot header structures
+	center_list : array
+		array of 3-D coordinate of center of circles
+	r_max_list : array
+		array of maximum radii
+	bin_nums : int
+		Number of bins to use
+	time : bool
+		Print time in corner of plot (useful for movies)
+	depletion: bool, optional
+		Was the simulation run with the DEPLETION option
+	cosmological : bool
+		Is the simulation cosmological
+	labels : array
+		Array of labels for each data set
+	phys_dens : boolean
+		Use physical 3D densities or mean sight-line densities
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	log : boolean
+		Plot log of D/Z
+	include_obs : boolean
+		Overplot observed data if available
+
+	Returns
+	-------
+	None
+	"""	
+	limits = [1E-2,1E3]
+
 	if len(gas) == 1:
 		linewidths = np.full(len(gas),2)
 		colors = Line_Colors
@@ -1050,6 +1102,9 @@ def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=N
 
 	plt.figure()
 	axis = plt.gca()
+
+	if include_obs:
+		plot_observational_data(axis, param='depl', elems=elems, log=log)
 
 	for i in range(len(gas)):
 		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
@@ -1076,40 +1131,107 @@ def nH_vs_fH2(gas, header, center_list, r_max_list,  Lz_list=None, height_list=N
 		else:
 			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
 
+		coords = coords[in_galaxy]
 		M = G['m'][in_galaxy]
 		nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
 
-		NH1,NHion,NH2 = calc_H_fracs(G)
-		fH2 = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
-
-		mean_fH2 = np.zeros(bin_nums - 1)
-		# 16th and 84th percentiles
-		std_fH2 = np.zeros([bin_nums - 1,2])
-		
-		nH_bins = np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums)
+		nH_bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
 		nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
-		digitized = np.digitize(nH,nH_bins)
 
-		for j in range(1,len(nH_bins)):
-			if len(nH[digitized==j])==0:
-				mean_fH2[j-1] = np.nan
-				std_fH2[j-1,0] = np.nan; std_fH2[j-1,1] = np.nan;
-				continue
+
+		for j,elem in enumerate(elems):
+
+			elem_indx = ELEMENTS.index(elem)
+
+			mean_DZ = np.zeros(bin_nums-1)
+			std_DZ = np.zeros([bin_nums-1,2])
+
+			if phys_dens:
+				xlabel = r'$n_H$ (cm$^{-3}$)'
+
+				if depletion:
+					DZ = (G['dz'][:,elem_indx]/(G['z'][:,elem_indx]+G['dz'][:,elem_indx]))[in_galaxy]
+				else:
+					DZ = (G['dz'][:,elem_indx]/G['z'][:,elem_indx])[in_galaxy]
+
+				digitized = np.digitize(nH,nH_bins)
+
+				for k in range(1,len(nH_bins)):
+					if len(nH[digitized==k])==0:
+						mean_DZ[k-1] = np.nan
+						std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
+						continue
+					else:
+						weights = M[digitized == k]
+						values = DZ[digitized == k]
+						mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
+
 			else:
-				weights = M[digitized == j]
-				values = fH2[digitized == j]
-				mean_fH2[j-1],std_fH2[j-1,0],std_fH2[j-1,1] = weighted_percentile(values, weights=weights)
+				xlabel = r'$\left<n_H\right>$ (cm$^{-3}$)'
+				pixel_res = 200./1000.
+				hsml = G['h'][in_galaxy]
+				x = coords[:,0];y=coords[:,1];
+				pixel_bins = int(np.ceil(2*r_max/pixel_res))
+				x_bins = np.linspace(-r_max,r_max,pixel_bins+1)
+				y_bins = np.linspace(-r_max,r_max,pixel_bins+1)
+				x_vals = (x_bins[1:] + x_bins[:-1]) / 2.
+				y_vals = (y_bins[1:] + y_bins[:-1]) / 2.
+				
+				dust_mass = G['dz'][in_galaxy,0]*M
+				if depletion:
+					Z_mass = G['z'][in_galaxy,0] * M + dust_mass
+				else:
+					Z_mass = G['z'][in_galaxy,0] * M
+
+				ret = binned_statistic_2d(x, y, [Z_mass,dust_mass], statistic=np.sum, bins=[x_bins,y_bins], expand_binnumbers=True)
+				data = ret.statistic
+				DZ_pixel = data[1].flatten()/data[0].flatten()
+				binning = ret.binnumber
+				pixel_num = np.arange(len(data.flatten()))
+
+				mean_nH = np.zeros(len(DZ_pixel))
+				
+
+				for y in range(len(y_vals)):
+					for x in range(len(x_vals)):
+						binx = binning[0]; biny = binning[1]
+						in_pixel = np.logical_and(binx == x+1, biny == y+1)
+						values = nH[in_pixel]
+						weights = hsml[in_pixel]
+						mean_nH[x+y] = weighted_percentile(values, weights=weights, percentiles=[50])
+
+				digitized = np.digitize(mean_nH,nH_bins)
+
+				for k in range(1,len(nH_bins)):
+					if len(mean_nH[digitized==k])==0:
+						mean_DZ[k-1] = np.nan
+						std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
+						continue
+					else:
+						values = DZ_pixel[digitized == k]
+						mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values)
 
 
-		plt.plot(nH_vals, mean_fH2, label=labels[i], linestyle=linestyles[i], color=colors[i], linewidth=linewidths[i])
-		plt.fill_between(nH_vals, std_fH2[:,0], std_fH2[:,1], alpha = 0.4, color=colors[i])
+			plt.plot(nH_vals, mean_DZ, label=labels[i], linestyle=linestyles[i], color=colors[j], linewidth=linewidths[i])
+			plt.fill_between(nH_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[j])
 
+
+	lines = []
+	for i in range(len(labels)):
+		lines += [mlines.Line2D([], [], color='xkcd:black',linestyle=linestyles[i], label=labels[i])]
+	for i,elem in enumerate(elems):
+		lines += [mlines.Line2D([], [], color=colors[i],label=elem)]
+
+	axis.legend(handles=lines,loc=2, frameon=False)
 
 	plt.xscale('log')
-	plt.yscale('log')
-	plt.ylim([0.01,1])
-	plt.xlim([1E-2,1E3])
-	xlabel=r'$n_H (cm^{-3})$'; ylabel=r'$f_{H2}$';
+	if log:
+		plt.yscale('log')
+		plt.ylim([0.001,1])
+	else:
+		plt.ylim([0,1])
+	plt.xlim(limits)
+	ylabel=r'D/Z Ratio';
 	set_labels(axis, xlabel, ylabel)
 	plt.savefig(foutname)
 

@@ -51,9 +51,9 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	return r_val, sigma_dust
 
 
-def Jenkins_2009_DZ_vs_dens(phys_dens=False):
+def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 	"""
-	Gives the D/Z values vs average sight light density from Jenkins (2009). Can also output physical density instead
+	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Can also output physical density instead
 	using results from Zhukovska (2016).
 	"""
 
@@ -64,6 +64,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False):
 	F_star = 0.772 + 0.461*np.log10(avg_nH) 
 
 	amu_H = 1.008
+	elems = ['C','N','O','Mg','Si','P','Cl','Ti','Cr','Mn','Fe','Ni','Cu','Zn','Ge','Kr']
 	# All values are for C,N,O,Mg,Si,P,Cl,Ti,Cr,Mn,Fe,Ni,Cu,Zn,Ge,Kr respectively
 	amu = np.array([12.01,14.01,16,24.3,28.085,30.973762,35.45,47.867,51.9961,54.938044,55.845,58.6934,63.546,65.38,72.63,83.798])
 	# 12+log(X/H)_solar values
@@ -78,10 +79,18 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False):
 	# Depletion factor of element x at a given F_star
 	x_depl = Bx + Ax*(F_star.reshape([-1,1]) - zx)
 
-	obs_Mx_MH = np.power(10, solar+x_depl-12)*amu/amu_H
+	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
 
-	dust_to_H = np.sum(solar_Mx_MH - obs_Mx_MH,axis=1)
-	DZ_vals = dust_to_H/total_Z
+	if elem == 'Z':
+		dust_to_H = np.sum(solar_Mx_MH - obs_Mx_MH,axis=1)
+		DZ_vals = dust_to_H/total_Z
+	elif elem in elems:
+		index = elems.index(elem)
+		elem_to_H = solar_Mx_MH[index] - obs_Mx_MH[:,index]
+		DZ_vals = elem_to_H/solar_Mx_MH[index]
+	else:
+		print("Given element is not included in Jenkins (2009)\n")
+		return 
 
 	if phys_dens:
 		return phys_nH, DZ_vals

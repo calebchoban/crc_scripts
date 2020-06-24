@@ -61,7 +61,7 @@ except:
 snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
-r_max_phys = 20 # kpc
+r_max_phys = 10 # kpc
 disk_height = 2 # kpc
 Lz_hat = [0.,0.,1.] # direction of disk
 
@@ -91,8 +91,13 @@ for i, num in enumerate(snaps):
 		Lz_hats += [Lz_hat]
 
 
-	DZ_var_in_pixel(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, pixel_res=2, depletion=False, \
-				cosmological=False, labels=labels, style='color', log=False)
+	# DZ_var_in_pixel(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, pixel_res=2, depletion=False, \
+	# 			cosmological=False, labels=labels, style='color', log=False)
+
+	elems = ['C','Si','Fe']
+	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, phys_dens=True, \
+			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=False, include_obs=True)
 	exit()
 
 	#inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
