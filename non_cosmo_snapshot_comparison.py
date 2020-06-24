@@ -61,13 +61,13 @@ except:
 snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
-r_max_phys = 10 # kpc
-disk_height = 2 # kpc
+r_max_phys = 40 # kpc
+disk_height = 4 # kpc
 Lz_hat = [0.,0.,1.] # direction of disk
 
 for i, num in enumerate(snaps):
 	print(num)
-	Gas_snaps = []; Headers = []; masks = []; centers = []; r_maxes = []; Lz_hats = []; disk_heights = [];
+	Gas_snaps = []; Star_snaps = []; Headers = []; masks = []; centers = []; r_maxes = []; Lz_hats = []; disk_heights = []; Rds = [];
 	for j,snap_dir in enumerate(snap_dirs):
 		print snap_dir
 
@@ -75,6 +75,16 @@ for i, num in enumerate(snaps):
 		Headers += [H]
 		G = readsnap(snap_dir, num, 0, cosmological=cosmological)
 		Gas_snaps += [G]
+		S = readsnap(snap_dir, num, 4, cosmological=cosmological)
+		# Need to remember the stars in the inital conditions
+		S1 = readsnap(snap_dir, num, 2, cosmological=cosmological)
+		S2 = readsnap(snap_dir, num, 3, cosmological=cosmological)
+		for key in ['m','p']:
+			S[key] = np.append(S[key],S1[key],axis=0)
+			S[key] = np.append(S[key],S2[key],axis=0)
+		Star_snaps += [S]
+
+
 
 		# Since this is a shallow copy, this fixes G['p'] as well
 		coords = G['p']
@@ -86,19 +96,30 @@ for i, num in enumerate(snaps):
 		center = np.average(coords, weights = G['m'], axis = 0)
 		centers += [center]
 
+
+		coords = S['p']
+		# Recenter coords at center of periodic box
+		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
+		# This also changes G['p'] as well
+		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
+
+
+		Rds += [calc_stellar_Rd(S, center, r_max_phys, Lz_hat=Lz_hat, disk_height=disk_height, bin_nums=30)]
+
 		r_maxes += [r_max_phys]
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
-
+	DZ_vs_params(['r','r25'], [[0,20],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='DZ_vs_radius.png', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds)
+	exit()
 	# DZ_var_in_pixel(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, pixel_res=2, depletion=False, \
 	# 			cosmological=False, labels=labels, style='color', log=False)
 
-	elems = ['C','Si','Fe']
-	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
-			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, phys_dens=True, \
-			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=False, include_obs=True)
-	exit()
+	#elems = ['C','Si','Fe']
+	# elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+	# 		bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, phys_dens=True, \
+	# 		foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=False, include_obs=True)
 
 	#inst_dust_prod(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
     #       cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)

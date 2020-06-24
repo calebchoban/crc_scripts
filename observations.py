@@ -98,7 +98,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 		return avg_nH, DZ_vals
 
 
-def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True):
+def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True):
 	"""
 	Gives the D/Z or dust surface density values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
 	binned data
@@ -114,12 +114,18 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True):
 		vals = np.power(10,data['dtm'])
 	else:
 		vals = data['dust']
-	arcsec_to_rad = 4.848E-6
-	radius_rad = data['radius_arcsec']*arcsec_to_rad
+	if phys_r:
+		arcsec_to_rad = 4.848E-6
+		radius = data['radius_arcsec']*arcsec_to_rad
+	else: 
+		radius = data['radius_r25']
 
 	data = dict()
 	for i,name in enumerate(gal_names):
-		r_data = radius_rad[ID==name]*gal_distance[i]
+		if phys_r:
+			r_data = radius[ID==name]*gal_distance[i]
+		else:
+			r_data = radius[ID==name]
 		r_max = np.max(r_data)
 		dust_data = vals[ID==name]
 		# If given a max radius, bin the data for each galaxy

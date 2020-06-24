@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 plt.switch_backend('agg')
 from scipy.stats import binned_statistic_2d
+from scipy.optimize import curve_fit
 import pickle
 import os
 from readsnap import readsnap
@@ -150,7 +151,14 @@ def plot_observational_data(axis, param, elems=None, log=True):
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)
 	elif param == 'r':
-		data = observations.Chiang_2020_dust_vs_radius(bin_data=True,DZ=True)
+		data = observations.Chiang_2020_dust_vs_radius(bin_data=True,DZ=True,phys_r=True)
+		for i, gal_name in enumerate(data.keys()):
+			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
+			if log:
+				std_DZ[std_DZ == 0] = EPSILON
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)
+	elif param == 'r25':
+		data = observations.Chiang_2020_dust_vs_radius(bin_data=True,DZ=True,phys_r=False)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
@@ -193,14 +201,14 @@ def plot_observational_data(axis, param, elems=None, log=True):
 
 
 def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=50, time=False, depletion=False, \
-	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True):
+	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, Rd=None):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
 
 	Parameters
 	----------
 	param: array
-		Array of parameters to plot D/Z against (fH2, nH, Z, r)
+		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
 	param_lims: array
 		Limits for each parameter given in params
 	gas : array
@@ -237,6 +245,8 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		Plot log of D/Z
 	include_obs : boolean
 		Overplot observed data if available
+	 Rd : array
+		Array of stellar scale radii to be used in plots vs radius
 
 	Returns
 	-------
@@ -262,7 +272,7 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 	# Set up subplots based on number of parameters given
 	if len(params) == 1:
 		fig,axes = plt.subplots(1, 1, figsize=(14,10))
-		axes = [axes]
+		axes = np.array([axes])
 	elif len(params)%2 == 0:
 		fig,axes = plt.subplots(len(params)/2, 2, figsize=(24,len(params)/2*10))
 	else:
@@ -278,6 +288,8 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 			xlabel = r'$f_{H2}$'
 		elif param == 'r':
 			xlabel = 'Radius (kpc)'
+		elif param=='r25':
+			xlabel = r'Radius (R$_{25}$)'
 		elif param == 'nH':
 			xlabel = r'$n_{H}$ (cm$^{-3}$)'
 			axis.set_xscale('log')
@@ -310,6 +322,8 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 				mean_DZ[mean_DZ == 0] = EPSILON
+			if param == 'r25':
+				param_vals = param_vals/(4.*Rd[j])
 
 			# Only need to label the seperate simulations in the first plot
 			if i==0:
@@ -418,7 +432,7 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
 
 	# Get D/Z valus over radius of galaxy from the center
-	elif param == 'r':
+	elif param == 'r' or param == 'r25':
 		r_bins = np.linspace(0, r_max, num=bin_nums)
 		param_vals = (r_bins[1:] + r_bins[:-1]) / 2.
 
@@ -1664,6 +1678,87 @@ def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None,
 
 
 
+
+def calc_stellar_Rd(S, center, r_max, Lz_hat=None, disk_height=5, bin_nums=50):
+	"""
+	Calculate the stellar scale radius (Rd) for a galaxy given its star particles
+
+	Parameters
+	----------
+	S : dict
+	    Snapshot star data structure
+	center : array
+		3-D coordinate of center of circle
+	r_max : double
+		maximum radii of gas particles to use
+	Lz_hat: array
+		Unit vector of Lz to be used to mask only 
+	disk_height: double
+		Height of disk to mask if Lz_hat is given, default is 5 kpc
+	bin_nums : int
+		Number of bins to use
+	Returns
+	-------
+	Rd : double
+		Galactic stellar scale radius
+	"""	
+
+	coords = np.copy(S['p']) # Since we edit coords need to make a deep copy
+	coords -= center
+	# Get only data of particles in sphere/disk since those are the ones we care about
+	# Also gives a nice speed-up
+	# Get paticles in disk
+	if Lz_hat != None:
+		zmag = np.dot(coords,Lz_hat)
+		r_z = np.zeros(np.shape(coords))
+		r_z[:,0] = zmag*Lz_hat[0]
+		r_z[:,1] = zmag*Lz_hat[1]
+		r_z[:,2] = zmag*Lz_hat[2]
+		r_s = np.subtract(coords,r_z)
+		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+		in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+	# Get particles in sphere otherwise
+	else:
+		in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+	M = S['m'][in_galaxy]*1E10
+	coords = coords[in_galaxy]
+
+	r_bins = np.linspace(0, r_max, num=bin_nums)
+	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
+	surf_dens = np.zeros(bin_nums-1)
+
+	for j in range(bin_nums-1):
+		# find all coordinates within shell
+		r_min = r_bins[j]; r_max = r_bins[j+1];
+		annulus_area = np.pi * np.power((r_max-r_min)*1000,2) # pc^2
+
+		zmag = np.dot(coords,Lz_hat)
+		r_z = np.zeros(np.shape(coords))
+		r_z[:,0] = zmag*Lz_hat[0]
+		r_z[:,1] = zmag*Lz_hat[1]
+		r_z[:,2] = zmag*Lz_hat[2]
+		r_s = np.subtract(coords,r_z)
+		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+		in_annulus = np.where((np.abs(zmag) <= disk_height) & (smag <= r_max) & (smag > r_min))
+
+		surf_dens[j] = np.sum(M[in_annulus]) / annulus_area
+
+	# Now fit 
+	fit,_ = curve_fit(dens_profile_func, r_vals, surf_dens)
+	cent_surf = fit[1]
+	Rd = fit[0]
+
+	print Rd, cent_surf
+	
+	return Rd
+
+
+def dens_profile_func(radius, Rd, cent_surf):
+	return cent_surf * np.exp(-radius/Rd)
+
+
+
 def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True, log=True):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
@@ -1732,6 +1827,8 @@ def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.pn
 
 	plt.savefig(foutname)
 	plt.close()
+
+
 
 def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, cosmological=True, log=True):
 	"""
