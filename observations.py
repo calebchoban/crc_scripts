@@ -3,6 +3,8 @@ import utils
 
 SOLAR_Z= 0.02
 
+CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
+
 def Dwek_2014_M31_dust_dens_vs_radius():
 	"""
 	Gives the dust surface density (M_sun pc^-2) vs radius (kpc) from galactic center for M31 (Andromeda) determined by Dwek et al. (2014)
@@ -98,17 +100,20 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 		return avg_nH, DZ_vals
 
 
-def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True):
+def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):
 	"""
 	Gives the D/Z or dust surface density values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
 	binned data
 	"""
+
+	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
+
 	bin_nums = 40
 
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
 
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
 	ID = data['gal']
 	if DZ:
 		vals = np.power(10,data['dtm'])
@@ -156,203 +161,6 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True):
 	return data
 
 
-def Chiang_2020_DZ_vs_fH2(bin_data = True):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	DZ = np.power(10,data['dtm'])
-	fH2 = data['fh2']
-	data = dict()
-
-	for gal_name in IDs:
-		DZ_data = DZ[gal==gal_name]
-		fH2_data = fH2[gal==gal_name]
-		# Bin data if asked for
-		if bin_data:
-			bin_nums = 40
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			fH2_bins = np.linspace(np.min(fH2_data), np.max(fH2_data), num=bin_nums)
-			fH2_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
-			digitized = np.digitize(fH2_data,fH2_bins)
-			for j in range(1,len(fH2_bins)):
-				if len(fH2_data[digitized==j])==0:
-					mean_vals[j-1] = np.nan
-					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
-					continue
-				else:
-					values = DZ_data[digitized == j]
-					mean_vals[j-1] = np.mean(values)
-					std_vals[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[gal_name] = [fH2_vals[mask], mean_vals[mask], std_vals[mask]]
-
-		else:
-			data[gal_name] = [fH2_data,DZ_data]
-
-	return data
-
-
-	for id in IDs:
-		data[id] = [fH2[gal==id],DZ[id==gal]]
-
-	return data
-
-
-def Chiang_2020_DZ_vs_Sigma_dust(bin_data = True):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	DZ = np.power(10,data['dtm'])
-	dust = data['dust']
-
-	data = dict()
-	for gal_name in IDs:
-		DZ_data = DZ[gal==gal_name]
-		dust_surf = dust[gal==gal_name]
-		# Bin data if asked for
-		if bin_data:
-			bin_nums = 40
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			surf_bins = np.logspace(np.log10(np.min(dust_surf)), np.log10(np.max(dust_surf)), num=bin_nums)
-			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
-			digitized = np.digitize(dust_surf,surf_bins)
-			for j in range(1,len(surf_bins)):
-				if len(dust_surf[digitized==j])==0:
-					mean_vals[j-1] = np.nan
-					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
-					continue
-				else:
-					values = DZ_data[digitized == j]
-					mean_vals[j-1] = np.mean(values)
-					std_vals[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
-
-		else:
-			data[gal_name] = [dust_surf,DZ_data]
-
-	return data
-
-
-
-def Chiang_2020_DZ_vs_Sigma_H2(bin_data = True):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	DZ = np.power(10,data['dtm'])
-	H2 = np.power(10,data['h2'])
-
-	data = dict()
-	for gal_name in IDs:
-		DZ_data = DZ[gal==gal_name]
-		H2_surf = H2[gal==gal_name]
-		# Bin data if asked for
-		if bin_data:
-			bin_nums = 40
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			surf_bins = np.logspace(np.log10(np.min(H2_surf)), np.log10(np.max(H2_surf)), num=bin_nums)
-			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
-			digitized = np.digitize(H2_surf,surf_bins)
-			for j in range(1,len(surf_bins)):
-				if len(H2_surf[digitized==j])==0:
-					mean_vals[j-1] = np.nan
-					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
-					continue
-				else:
-					values = DZ_data[digitized == j]
-					mean_vals[j-1] = np.mean(values)
-					std_vals[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
-
-		else:
-			data[gal_name] = [H2_surf,DZ_data]
-
-	return data
-
-
-def Chiang_2020_DZ_vs_Sigma_metals(bin_data = True):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	DZ = np.power(10,data['dtm'])
-	metals = data['metal_z']/SOLAR_Z
-
-	data = dict()
-	for gal_name in IDs:
-		DZ_data = DZ[gal==gal_name]
-		metals_surf = metals[gal==gal_name]
-		# Bin data if asked for
-		if bin_data:
-			bin_nums = 40
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			surf_bins = np.logspace(np.log10(np.min(metals_surf)), np.log10(np.max(metals_surf)), num=bin_nums)
-			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
-			digitized = np.digitize(metals_surf,surf_bins)
-			for j in range(1,len(surf_bins)):
-				if len(metals_surf[digitized==j])==0:
-					mean_vals[j-1] = np.nan
-					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
-					continue
-				else:
-					values = DZ_data[digitized == j]
-					mean_vals[j-1] = np.mean(values)
-					std_vals[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
-
-		else:
-			data[gal_name] = [metals_surf,DZ_data]
-
-	return data
-
-
-def Chiang_2020_DZ_vs_Sigma_gas(bin_data = True):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	DZ = np.power(10,data['dtm'])
-	gas = np.power(10,data['gas'])
-
-	data = dict()
-	for gal_name in IDs:
-		DZ_data = DZ[gal==gal_name]
-		gas_surf = gas[gal==gal_name]
-		# Bin data if asked for
-		if bin_data:
-			bin_nums = 40
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			surf_bins = np.logspace(np.log10(np.min(gas_surf)), np.log10(np.max(gas_surf)), num=bin_nums)
-			surf_vals = (surf_bins[1:] + surf_bins[:-1]) / 2.
-			digitized = np.digitize(gas_surf,surf_bins)
-			for j in range(1,len(surf_bins)):
-				if len(gas_surf[digitized==j])==0:
-					mean_vals[j-1] = np.nan
-					std_vals[j-1,0] = np.nan; std_vals[j-1,1] = np.nan;
-					continue
-				else:
-					values = DZ_data[digitized == j]
-					mean_vals[j-1] = np.mean(values)
-					std_vals[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[gal_name] = [surf_vals[mask], mean_vals[mask], std_vals[mask]]
-
-		else:
-			data[gal_name] = [gas_surf,DZ_data]
-
-	return data
-
-
 def Chiang_2020_dust_surf_dens_vs_param(param):
 	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
 	if param == 'gas':
@@ -374,5 +182,70 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 	data = dict()
 	for id in IDs:
 		data[id] = [vals[gal==id],dust[id==gal]]
+
+	return data
+
+
+
+
+def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=30, log=True):
+	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
+	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
+	DZ = np.power(10,data['dtm'])
+	if param == 'gas':
+		vals = np.power(10,data['gas'])
+	elif param == 'H2':
+		vals = np.power(10,data['h2'])
+	elif param == 'fH2':
+		vals = data['fh2']
+	elif param == 'Z':
+		vals = data['metal']
+	elif param == 'dust':
+		vals = data['dust']
+	elif param == 'r':
+		# kpc distance to galaxy
+		gal_distance = {'IC342': 2.29E3,'M101': 6.96E3,'M31': 0.79E3,'M33': 0.92E3,'NGC628': 9.77E3}
+		if phys_r:
+			arcsec_to_rad = 4.848E-6
+			vals = data['radius_arcsec']*arcsec_to_rad
+		else: 
+			vals = data['radius_r25']
+	else:
+		print("%s is not a valid param for Chiang_20_DZ_vs_param"%param)
+		return
+
+	gal = data['gal']
+	IDs = np.unique(data['gal'])
+
+	data = dict()
+	for gal_name in IDs:
+		gal_vals = vals[gal==gal_name]
+		if param =='r' and phys_r:
+			gal_vals *= gal_distance[gal_name]
+		DZ_vals = DZ[gal==gal_name]
+		if bin_data:
+			mean_DZ = np.zeros(bin_nums - 1)
+			# 16th and 84th percentiles
+			std_DZ = np.zeros([bin_nums - 1,2])
+			if log:
+				val_bins = np.logspace(np.log10(np.min(gal_vals)), np.log10(np.max(gal_vals)), num=bin_nums)
+			else:
+				val_bins = np.linspace(np.min(gal_vals), np.max(gal_vals), num=bin_nums)
+			param_vals = (val_bins[1:] + val_bins[:-1]) / 2.
+			digitized = np.digitize(gal_vals,val_bins)
+			for j in range(1,len(val_bins)):
+				if len(gal_vals[digitized==j])==0:
+					mean_DZ[j-1] = np.nan
+					std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+					continue
+				else:
+					values = DZ_vals[digitized == j]
+					mean_DZ[j-1] = np.mean(values)
+					std_DZ[j-1] = np.percentile(values, [16,84])
+			mask = np.logical_not(np.isnan(mean_DZ))
+			data[gal_name] = [param_vals[mask], mean_DZ[mask], std_DZ[mask]]
+
+		else:
+			data[gal_name] = [gal_vals,DZ_vals]
 
 	return data

@@ -20,7 +20,7 @@ labels += ['Elem. Fiducial','Elem. Low Acc.']
 implementations = ['species','species','elemental','elemental']
 t_ref_factors = [1,1,1,10]
 
-
+"""
 snap_dirs = []
 main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
 names = ['extra_O']
@@ -33,6 +33,7 @@ labels += ['Elem. Fiducial']
 
 implementations = ['species','elemental']
 t_ref_factors = [1,1]
+"""
 
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
@@ -110,8 +111,35 @@ for i, num in enumerate(snaps):
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
+	elems = ['C']
+	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, CO_frac=0.2, \
+			foutname='C_w_CO_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
+	exit()
+	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, CO_frac=0.0, \
+			foutname='C_no_CO_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
+
+	exit()
+	elems = ['Mg','Si','Fe','O']
+	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
+			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
+	exit()
+
 	DZ_vs_params(['r','r25'], [[0,20],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='DZ_vs_radius.png', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds)
+				cosmological=False, labels=labels, foutname='S12_DZ_vs_radius.png', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='S12')
+
+	observed_DZ_vs_param(['dust','H2','gas'], [[0.005,0.5],[.1,20],[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='S12_obs_DZ_vs_surf.png', std_bars=True, style='color', log=False, include_obs=True, CO_opt='S12')
+
+	DZ_vs_params(['r','r25'], [[0,20],[0,1.]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='B13_DZ_vs_radius.png', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='B13')
+	
+	observed_DZ_vs_param(['dust','H2','gas'], [[0.005,0.5],[.1,20],[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+				cosmological=False, labels=labels, foutname='B13_obs_DZ_vs_surf.png', std_bars=True, style='color', log=False, include_obs=True, CO_opt='B13')
+
+
 	exit()
 	# DZ_var_in_pixel(Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, pixel_res=2, depletion=False, \
 	# 			cosmological=False, labels=labels, style='color', log=False)

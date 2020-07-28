@@ -11,15 +11,16 @@ from readsnap import readsnap
 from astropy.table import Table
 import gas_temperature as gas_temp
 from tasz import *
-import observations
+from observations import *
 
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set personal color cycle
 Line_Colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
-Marker_Colors = ["xkcd:violet", "xkcd:teal", "xkcd:brown", "xkcd:gold", "xkcd:tomato"]
+Line_Colors = ["xkcd:azure", "xkcd:tomato", "xkcd:green", "xkcd:orchid", "xkcd:teal", "xkcd:sienna"]
+Marker_Colors = ["xkcd:orange", "xkcd:teal", "xkcd:sienna", "xkcd:gold", "xkcd:magenta"]
 Line_Styles = ['-','--',':','-.']
-Marker_Style = ['o','^','X','s','*']
+Marker_Style = ['o','^','X','s','v']
 Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
@@ -68,8 +69,10 @@ def set_labels(axis, xlabel, ylabel):
 	axis.set_ylabel(ylabel, fontsize = Large_Font)
 	axis.minorticks_on()
 	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-	axis.tick_params(axis='both', which='major', labelsize=Small_Font)
-	axis.tick_params(axis='both', which='minor', labelsize=Small_Font)	
+	axis.tick_params(axis='both', which='major', labelsize=Small_Font, length=8, width=2)
+	axis.tick_params(axis='both', which='minor', labelsize=Small_Font, length=4, width=1)	
+	for axe in ['top','bottom','left','right']:
+  		axis.spines[axe].set_linewidth(2)
 
 
 def calc_rotate_matrix(vec1, vec2):
@@ -125,7 +128,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	return values
 
 
-def plot_observational_data(axis, param, elems=None, log=True):
+def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12'):
 	"""
 	Plots observational D/Z data vs the given param.
 
@@ -144,56 +147,57 @@ def plot_observational_data(axis, param, elems=None, log=True):
 
 	"""
 	if param == 'fH2':
-		data = observations.Chiang_2020_DZ_vs_fH2(bin_data=True)
+		data = Chiang_20_DZ_vs_param(param, CO_opt=CO_opt, bin_nums=30, log=True)
 		for i, gal_name in enumerate(data.keys()):
 			fH2_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)
+			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r':
-		data = observations.Chiang_2020_dust_vs_radius(bin_data=True,DZ=True,phys_r=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r25':
-		data = observations.Chiang_2020_dust_vs_radius(bin_data=True,DZ=True,phys_r=False)
+		data = Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'nH':
-		dens_vals, DZ_vals = observations.Jenkins_2009_DZ_vs_dens(phys_dens=True)
-		axis.scatter(dens_vals, DZ_vals, label='Jenkins09+phys_dens', c='xkcd:grey', marker=Marker_Style[0], s = 12)
-		dens_vals, DZ_vals = observations.Jenkins_2009_DZ_vs_dens(phys_dens=False)
-		axis.scatter(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:grey', marker=Marker_Style[1], s = 12)
+		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=True)
+		axis.plot(dens_vals, DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=Line_Styles[0], linewidth=Line_Widths[5], zorder=2)
+		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=False)
+		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
 	elif param == 'dust':
-		data = observations.Chiang_2020_DZ_vs_Sigma_dust(bin_data=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'gas':
-		data = observations.Chiang_2020_DZ_vs_Sigma_gas(bin_data=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'H2':
-		data = observations.Chiang_2020_DZ_vs_Sigma_H2(bin_data=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=5)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
 	elif 'depl':
-		for i,elem in enumerate(elems):
-			dens_vals, DZ_vals = observations.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
-			axis.scatter(dens_vals, DZ_vals, label='Jenkins09', c=Line_Colors[i], marker=Marker_Style[0], s = 12)	
+		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False)
+		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
+		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
+		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=Line_Styles[0], linewidth=Line_Widths[5], zorder=2)
 	elif param == 'Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print "D/Z vs Z observations have not been implemented yet"
@@ -201,7 +205,7 @@ def plot_observational_data(axis, param, elems=None, log=True):
 
 
 def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=50, time=False, depletion=False, \
-	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, Rd=None):
+	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12', Rd=None):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
 
@@ -271,12 +275,12 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 
 	# Set up subplots based on number of parameters given
 	if len(params) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14,10))
+		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
 		axes = np.array([axes])
 	elif len(params)%2 == 0:
-		fig,axes = plt.subplots(len(params)/2, 2, figsize=(24,len(params)/2*10))
+		fig,axes = plt.subplots(len(params)/2, 2, figsize=(14/1.2,len(params)/2*10/1.2), squeeze=True)
 	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*14,10))
+		fig,axes = plt.subplots(1, 3, figsize=(3*14,10), squeeze=True)
 
 	for i, param in enumerate(params):
 		# Set up for each plot
@@ -308,7 +312,7 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 
 		# First plot observational data if applicable
 		if include_obs:
-			plot_observational_data(axis, param, log=log)
+			plot_observational_data(axis, param, log=log, CO_opt=CO_opt)
 
 		for j in range(len(gas)):
 			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
@@ -327,21 +331,25 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 
 			# Only need to label the seperate simulations in the first plot
 			if i==0:
-				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
+				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			else:
-				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
+				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
-				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[j])
+				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		axis.legend(loc=0, fontsize=Small_Font, frameon=False)
+		if include_obs:
+			axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+		else:
+			axis.legend(loc=0, fontsize=Small_Font, frameon=False)
 
 	if time:
 		if cosmological:
 			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)
 		else:
 			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)		
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()	
 
@@ -514,7 +522,7 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 
 def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, \
 			height_list=None, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
-			foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True):
+			foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12',):
 	"""
 	Plots mock observations of dust-to-metals vs various parameters for multiple simulations 
 
@@ -574,13 +582,13 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 
 	# Set up subplots based on number of parameters given
 	if len(params) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14,10))
+		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
 		axes = [axes]
 	elif len(params)%2 == 0:
-		fig,axes = plt.subplots(len(params)/2, 2, figsize=(24,len(params)/2*10))
+		fig,axes = plt.subplots(len(params)/2, 2, figsize=(24,len(params)/2*10), squeeze=True)
 		axes = axes.flatten()
 	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*14,10))
+		fig,axes = plt.subplots(1, 3, figsize=(3*14,10), squeeze=True)
 
 	for i, param in enumerate(params):
 		# Set up for each plot
@@ -616,7 +624,7 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 
 		# First plot observational data if applicable
 		if include_obs:
-			plot_observational_data(axis, param, log=log)
+			plot_observational_data(axis, param, log=log, CO_opt=CO_opt)
 
 		for j in range(len(gas)):
 			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
@@ -633,21 +641,25 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 
 			# Only need to label the seperate simulations in the first plot
 			if i==0:
-				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
+				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			else:
-				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
+				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
-				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[j])
+				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		axis.legend(loc=0, fontsize=Small_Font, frameon=False)
+		if include_obs:
+			axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+		else:
+			axis.legend(loc=0, fontsize=Small_Font, frameon=False)	
 
 	if time:
 		if cosmological:
 			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes ,zorder=4)
 		else:
 			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)		
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()	
 
@@ -1050,10 +1062,10 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 
 
 def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, \
-			bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, phys_dens=False, \
+			bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, CO_frac=0.2, \
 			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True):
 	"""
-	Plots mock observations of dust-to-metals vs various parameters for multiple simulations 
+	Plots mock observations of specified elemental depletion vs various parameters for multiple simulations 
 
 	Parameters
 	----------
@@ -1077,6 +1089,8 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 		Is the simulation cosmological
 	labels : array
 		Array of labels for each data set
+	CO_frac : double
+		Percent of Carbon assumed to be locked up in CO in simulations
 	phys_dens : boolean
 		Use physical 3D densities or mean sight-line densities
 	foutname: str, optional
@@ -1088,7 +1102,7 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 		'color' - gives different color and linestyles to each data set
 		'size' - make all lines solid black but with varying line thickness
 	log : boolean
-		Plot log of D/Z
+		Plot log of depletion
 	include_obs : boolean
 		Overplot observed data if available
 
@@ -1114,139 +1128,119 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
 
-	plt.figure()
-	axis = plt.gca()
-
-	if include_obs:
-		plot_observational_data(axis, param='depl', elems=elems, log=log)
-
-	for i in range(len(gas)):
-		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
-		if Lz_list != None:
-			Lz_hat = Lz_list[i]; disk_height = height_list[i];
-		else:
-			Lz_hat = None; disk_height = None;
-
-		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-		coords -= center
-		# Get only data of particles in sphere/disk since those are the ones we care about
-		# Also gives a nice speed-up
-		# Get paticles in disk
-		if Lz_hat != None:
-			zmag = np.dot(coords,Lz_hat)
-			r_z = np.zeros(np.shape(coords))
-			r_z[:,0] = zmag*Lz_hat[0]
-			r_z[:,1] = zmag*Lz_hat[1]
-			r_z[:,2] = zmag*Lz_hat[2]
-			r_s = np.subtract(coords,r_z)
-			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-		# Get particles in sphere otherwise
-		else:
-			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-		coords = coords[in_galaxy]
-		M = G['m'][in_galaxy]
-		nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-
-		nH_bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
-		nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
 
 
-		for j,elem in enumerate(elems):
 
-			elem_indx = ELEMENTS.index(elem)
+
+
+# Set up subplots based on number of parameters given
+	if len(elems) == 1:
+		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
+		axes = [axes]
+	elif len(elems)%2 == 0:
+		fig,axes = plt.subplots(len(elems)/2, 2, figsize=(28/1.2,len(elems)/2*10/1.2), squeeze=True)
+		axes = axes.flatten()
+	else:
+		fig,axes = plt.subplots(1, 3, figsize=(3*14/1.2,10/1.2), squeeze=True)
+
+	for i,elem in enumerate(elems):
+		axis = axes[i]
+		elem_indx = ELEMENTS.index(elem)
+
+		if include_obs:
+			plot_observational_data(axis, param='depl', elem=elem, log=log)
+
+		for j in range(len(gas)):
+			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j];
+			if Lz_list != None:
+				Lz_hat = Lz_list[j]; disk_height = height_list[j];
+			else:
+				Lz_hat = None; disk_height = None;
+
+			coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+			coords -= center
+			# Get only data of particles in sphere/disk since those are the ones we care about
+			# Also gives a nice speed-up
+			# Get paticles in disk
+			if Lz_hat != None:
+				zmag = np.dot(coords,Lz_hat)
+				r_z = np.zeros(np.shape(coords))
+				r_z[:,0] = zmag*Lz_hat[0]
+				r_z[:,1] = zmag*Lz_hat[1]
+				r_z[:,2] = zmag*Lz_hat[2]
+				r_s = np.subtract(coords,r_z)
+				smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+				in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+			# Get particles in sphere otherwise
+			else:
+				in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+			coords = coords[in_galaxy]
+			M = G['m'][in_galaxy]
+			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
+
+			nH_bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
+			nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
+
 
 			mean_DZ = np.zeros(bin_nums-1)
 			std_DZ = np.zeros([bin_nums-1,2])
-
-			if phys_dens:
-				xlabel = r'$n_H$ (cm$^{-3}$)'
-
-				if depletion:
-					DZ = (G['dz'][:,elem_indx]/(G['z'][:,elem_indx]+G['dz'][:,elem_indx]))[in_galaxy]
-				else:
-					DZ = (G['dz'][:,elem_indx]/G['z'][:,elem_indx])[in_galaxy]
-
-				digitized = np.digitize(nH,nH_bins)
-
-				for k in range(1,len(nH_bins)):
-					if len(nH[digitized==k])==0:
-						mean_DZ[k-1] = np.nan
-						std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
-						continue
-					else:
-						weights = M[digitized == k]
-						values = DZ[digitized == k]
-						mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
-
+		
+			if depletion:
+				DZ = (G['dz'][:,elem_indx]/(G['z'][:,elem_indx]+G['dz'][:,elem_indx]))[in_galaxy]
 			else:
-				xlabel = r'$\left<n_H\right>$ (cm$^{-3}$)'
-				pixel_res = 200./1000.
-				hsml = G['h'][in_galaxy]
-				x = coords[:,0];y=coords[:,1];
-				pixel_bins = int(np.ceil(2*r_max/pixel_res))
-				x_bins = np.linspace(-r_max,r_max,pixel_bins+1)
-				y_bins = np.linspace(-r_max,r_max,pixel_bins+1)
-				x_vals = (x_bins[1:] + x_bins[:-1]) / 2.
-				y_vals = (y_bins[1:] + y_bins[:-1]) / 2.
-				
-				dust_mass = G['dz'][in_galaxy,0]*M
-				if depletion:
-					Z_mass = G['z'][in_galaxy,0] * M + dust_mass
+				DZ = (G['dz'][:,elem_indx]/G['z'][:,elem_indx])[in_galaxy]
+
+			# Need to factor in C locked in CO
+			# Assume CO is only in T>300K gas
+			if elem=='C':
+				T = gas_temp.gas_temperature(G)
+				T = T[in_galaxy]
+				DZ[T>0] += CO_frac
+
+			# Deal with DZ>1 values
+			DZ[DZ>1] = 1.
+
+			digitized = np.digitize(nH,nH_bins)
+
+
+			for k in range(1,len(nH_bins)):
+				if len(nH[digitized==k])==0:
+					mean_DZ[k-1] = np.nan
+					std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
+					continue
 				else:
-					Z_mass = G['z'][in_galaxy,0] * M
+					weights = M[digitized == k]
+					values = DZ[digitized == k]
+					mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
 
-				ret = binned_statistic_2d(x, y, [Z_mass,dust_mass], statistic=np.sum, bins=[x_bins,y_bins], expand_binnumbers=True)
-				data = ret.statistic
-				DZ_pixel = data[1].flatten()/data[0].flatten()
-				binning = ret.binnumber
-				pixel_num = np.arange(len(data.flatten()))
+					print("nH : ",nH_vals[k-1])
+					print(values)
+			axis.plot(nH_vals, 1.-mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if std_bars:
+				axis.fill_between(nH_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-				mean_nH = np.zeros(len(DZ_pixel))
-				
+		# Only need legend on first plot
+		if i == 0:
+			if include_obs:
+				axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+			else:
+				axis.legend(loc=0, fontsize=Small_Font, frameon=False)
 
-				for y in range(len(y_vals)):
-					for x in range(len(x_vals)):
-						binx = binning[0]; biny = binning[1]
-						in_pixel = np.logical_and(binx == x+1, biny == y+1)
-						values = nH[in_pixel]
-						weights = hsml[in_pixel]
-						mean_nH[x+y] = weighted_percentile(values, weights=weights, percentiles=[50])
+		axis.set_xscale('log')
+		if log:
+			axis.set_yscale('log')
+			axis.set_ylim([0.001,1])
+		else:
+			axis.set_ylim([0,1])
+		axis.set_xlim(limits)
+		ylabel=r'[X/H]$_{gas}$';
+		xlabel = r'$n_H$ (cm$^{-3}$)'
+		set_labels(axis, xlabel, ylabel)
 
-				digitized = np.digitize(mean_nH,nH_bins)
+		axis.text(.10, .40, elem, color="xkcd:black", fontsize = 2*Large_Font, ha = 'center', va = 'center', transform=axis.transAxes)
 
-				for k in range(1,len(nH_bins)):
-					if len(mean_nH[digitized==k])==0:
-						mean_DZ[k-1] = np.nan
-						std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
-						continue
-					else:
-						values = DZ_pixel[digitized == k]
-						mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values)
-
-
-			plt.plot(nH_vals, mean_DZ, label=labels[i], linestyle=linestyles[i], color=colors[j], linewidth=linewidths[i])
-			plt.fill_between(nH_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.4, color=colors[j])
-
-
-	lines = []
-	for i in range(len(labels)):
-		lines += [mlines.Line2D([], [], color='xkcd:black',linestyle=linestyles[i], label=labels[i])]
-	for i,elem in enumerate(elems):
-		lines += [mlines.Line2D([], [], color=colors[i],label=elem)]
-
-	axis.legend(handles=lines,loc=2, frameon=False)
-
-	plt.xscale('log')
-	if log:
-		plt.yscale('log')
-		plt.ylim([0.001,1])
-	else:
-		plt.ylim([0,1])
-	plt.xlim(limits)
-	ylabel=r'D/Z Ratio';
-	set_labels(axis, xlabel, ylabel)
+	plt.tight_layout()
 	plt.savefig(foutname)
 
 
@@ -1758,217 +1752,8 @@ def dens_profile_func(radius, Rd, cent_surf):
 	return cent_surf * np.exp(-radius/Rd)
 
 
-
-def DZ_vs_time(dataname='data.pickle', data_dir='data/', foutname='DZ_vs_time.png', time=True, cosmological=True, log=True):
-	"""
-	Plots the average dust-to-metals ratio (D/Z) vs time from precompiled data
-
-	Parameters
-	----------
-	dataname : str
-		Name of data file
-	datadir: str
-		Directory of data
-	foutname : str
-		Name of file to be saved
-
-	Returns
-	-------
-	None
-	"""
-
-	with open(data_dir+dataname, 'rb') as handle:
-		data = pickle.load(handle)
-	
-	if cosmological:
-		if time:
-			time_data = data['time']
-		else:
-			time_data = -1.+1./data['a_scale']
-	else:
-		time_data = data['time']
-
-	mean_DZ = data['DZ_ratio'][:,0]
-	std_DZ = data['DZ_ratio'][:,1:]
-	if log:
-		# Replace zeros in with small numbers
-		std_DZ[std_DZ==0.] = small_num
-		std_DZ = np.log10(std_DZ)
-		mean_DZ = np.log10(mean_DZ)
-
-	ax=plt.figure()
-	plt.plot(time_data, mean_DZ)
-	plt.fill_between(time_data, std_DZ[:,0], std_DZ[:,1],alpha = 0.4)
-
-	# Set y-axis label
-	if log:
-		y_label = "Log D/Z Ratio"
-	else:
-		y_label = "D/Z Ratio"
-	plt.ylabel(y_label,fontsize = Large_Font)
-
-	# Set y limits
-	if log:
-		DZ_min = -1.0
-		DZ_max = 0.0
-	else:
-		DZ_min = 0.0
-		DZ_max = 1.0
-
-	plt.ylim([DZ_min,DZ_max])
-
-	if time or not cosmological:
-		plt.xlabel('t (Gyr)',fontsize = Large_Font)
-		plt.xscale('log')
-	else:
-		plt.xlabel('z',fontsize = Large_Font)
-		plt.gca().invert_xaxis()
-		plt.xscale('log')
-
-	plt.savefig(foutname)
-	plt.close()
-
-
-
-def all_data_vs_time(dataname='data.pickle', data_dir='data/', foutname='all_data_vs_time.png', time=False, cosmological=True, log=True):
-	"""
-	Plots all time averaged data vs time from precompiled data
-
-	Parameters
-	----------
-	dataname : str
-		Name of data file
-	datadir: str
-		Directory of data
-	foutname: str
-		Name of file to be saved
-
-	Returns
-	-------
-	None
-	"""
-
-	Z_solar = 0.02
-	species_names = ['Silicates','Carbon','SiC','Iron','O Bucket']
-	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
-
-	with open(data_dir+dataname, 'rb') as handle:
-		data = pickle.load(handle)
-	
-	if cosmological:
-		if time:
-			time_data = data['time']
-		else:
-			time_data = -1.+1./data['a_scale']
-	else:
-		time_data = data['time']
-
-	num_species = np.shape(data['spec_frac'])[1]
-
-	sfr = data['sfr'] 
-	# Get mean and std, and make sure to set zero std to small number
-	mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
-	mean_Z = data['metallicity'][:,0]/Z_solar; std_Z = data['metallicity'][:,1:]/Z_solar;
-	mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
-	mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
-	mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
-
-	if log:
-		# Replace zeros in with small numbers
-		std_DZ[std_DZ==0.] = small_num;
-		std_DZ = np.log10(std_DZ); 
-		mean_DZ = np.log10(mean_DZ);
-
-	fig,axes = plt.subplots(2, 3, sharex='all', figsize=(24,12))
-
-	axes[0,0].plot(time_data, mean_DZ)
-	axes[0,0].set_xlim([time_data[1],time_data[-1]])
-	axes[0,0].fill_between(time_data, std_DZ[:,0], std_DZ[:,1],alpha = 0.4)
-	axes[0,0].set_xscale('log')
-
-	axes[0,1].plot(time_data, sfr)
-	axes[0,1].set_xlim([time_data[1],time_data[-1]])
-	axes[0,1].set_ylabel(r'SFR $(M_{\odot}/yr)$',fontsize = Large_Font)
-	axes[0,1].set_ylim([0.0001,0.1])
-	axes[0,1].set_xscale('log')
-	axes[0,1].set_yscale('log')
-
-
-	axes[0,2].plot(time_data, np.log10(mean_Z))
-	axes[0,02].set_xlim([time_data[1],time_data[-1]])
-	axes[0,2].fill_between(time_data, std_Z[:,0], std_Z[:,1],alpha = 0.4)
-	axes[0,2].set_xscale('log')
-	axes[0,2].set_ylim([-2.,1.])
-	axes[0,2].set_ylabel(r'Log Z $(Z_{\odot})$',fontsize = Large_Font)
-
-	for i in range(num_species):
-		axes[1,0].plot(time_data, mean_spec[:,i], label=species_names[i])
-		axes[1,0].fill_between(time_data, std_spec[:,i,0], std_spec[:,i,1],alpha = 0.4)
-	axes[1,0].set_xlim([time_data[1],time_data[-1]])
-	axes[1,0].set_ylabel(r'Species Mass Fraction',fontsize = Large_Font)
-	axes[1,0].set_ylim([0,1])
-	axes[1,0].set_xscale('log')
-	axes[1,0].legend(loc=0, fontsize=Small_Font, frameon=False)
-
-	for i in range(4):
-		axes[1,1].plot(time_data, mean_source[:,i], label=source_names[i])
-		axes[1,1].fill_between(time_data, std_source[:,i,0], std_source[:,i,1],alpha = 0.4)
-	axes[1,1].set_xlim([time_data[1],time_data[-1]])
-	axes[1,1].set_ylabel(r'Source Mass Fraction',fontsize = Large_Font)
-	axes[1,1].set_ylim([1E-2,1.1])
-	axes[1,1].set_yscale('log')
-	axes[1,1].set_xscale('log')
-	axes[1,1].legend(loc=0, fontsize=Small_Font, frameon=False)
-
-	axes[1,2].plot(time_data, mean_sil_to_C)
-	axes[1,2].fill_between(time_data, std_sil_to_C[:,0], std_sil_to_C[:,1],alpha = 0.4)
-	axes[1,2].set_xlim([time_data[1],time_data[-1]])
-	axes[1,2].set_ylabel(r'Silicates to Carbon Ratio',fontsize = Large_Font)
-	axes[1,2].set_ylim([0,5])
-	axes[1,2].set_xscale('log')
-
-	# Set tick size
-	for ax in axes.flatten():
-		ax.tick_params(axis='both', which='major', labelsize=Small_Font)
-		ax.tick_params(axis='both', which='minor', labelsize=Small_Font)
-
-
-	# Set y-axis label for D/Z and Z
-	if log:
-		axes[0,0].set_ylabel(r'Log D/Z Ratio',fontsize = Large_Font)	
-	else:
-		axes[0,0].set_ylabel(r'D/Z Ratio',fontsize = Large_Font)
-
-	# Set y limits
-	if log:
-		val_min = -1.0
-		val_max = 0.0
-	else:
-		val_min = 0.0
-		val_max = 1.0
-
-	axes[0,0].set_ylim([val_min,val_max])
-
-
-	if time or not cosmological:
-		axes[1,0].set_xlabel('t (Gyr)',fontsize = Large_Font)
-		axes[1,1].set_xlabel('t (Gyr)',fontsize = Large_Font)
-		axes[1,2].set_xlabel('t (Gyr)',fontsize = Large_Font)
-	else:
-		axes[1,0].set_xlabel('z',fontsize = Large_Font)
-		axes[1,1].set_xlabel('z',fontsize = Large_Font)
-		axes[1,2].set_xlabel('z',fontsize = Large_Font)
-		plt.gca().invert_xaxis()
-		
-
-	plt.tight_layout()
-
-	plt.savefig(foutname)
-	plt.close()
-
-	
-def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='compare_runs_vs_time.png', \
-	                     labels=["fiducial"], time=False, cosmological=True, log=True):
+def dust_data_vs_time(params, param_lims, implementation='species', datanames=['data.pickle'], data_dir='data/', foutname='dust_data_vs_time.png', \
+	                     labels=None, time=False, cosmological=True, log=True, std_bars=True, style='color'):
 	"""
 	Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
@@ -1986,125 +1771,104 @@ def compare_runs_vs_time(datanames=['data.pickle'], data_dir='data/', foutname='
 	None
 	"""
 
-	Z_solar = 0.02
-	species_names = ['Silicates','Carbon','SiC','Iron','O Bucket']
+	species_names = ['Silicates','Carbon','SiC','Iron','O Reservoir']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
-	fig,axes = plt.subplots(2, 2, sharex='all', figsize=(24,12))
-	lines = [] # List of line styles used for plot legend
-	for i,dataname in enumerate(datanames):
+	if len(datanames) == 1:
+		linewidths = np.full(len(datanames),2)
+		colors = ['xkcd:black' for i in range(len(gas))]
+		linestyles = ['-' for i in range(len(gas))]
+	elif style == 'color':
+		linewidths = np.full(len(datanames),2)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(datanames))]
+		linestyles = ['-' for i in range(len(datanames))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
 
-		lines += [mlines.Line2D([], [], color='xkcd:black',
-                          linestyle=Line_Styles[i], label=labels[i])]
+	# Set up subplots based on number of parameters given
+	if len(params) == 1:
+		fig,axes = plt.subplots(1, 1, figsize=(14,10))
+		axes = np.array([axes])
+	elif len(params)%2 == 0:
+		#fig,axes = plt.subplots(len(params)/2, 2, figsize=(1.8*14/1.4,len(params)/2*10/1.4))
+		fig,axes = plt.subplots(2, len(params)/2, figsize=(15/1.4,20/1.4,), squeeze=True)
+	else:
+		fig,axes = plt.subplots(1, 3, figsize=(3*10,6), squeeze=True)
 
-		with open(data_dir+dataname, 'rb') as handle:
-			data = pickle.load(handle)
-		
-		if cosmological:
-			if time:
-				time_data = data['time']
+	for i, param in enumerate(params):
+		# Set up for each plot
+		axis = axes.flatten()[i]
+		param_lim = param_lims[i]
+		axis.set_ylim(param_lim)
+		xlabel = 'Time (Gyr)'
+		param_labels=None
+		if param == 'DZ':
+			ylabel = 'D/Z Ratio'
+			param_id = 'DZ_ratio'
+		elif param == 'source':
+			ylabel = 'Source Mass Fraction'
+			param_id = 'source_frac'
+			param_labels = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+			axis.set_yscale('log')
+		elif param=='species':
+			ylabel = 'Species Mass Fraction'
+			param_id = 'spec_frac'
+			if implementation == 'species':
+				param_labels = ['Silicates','Carbon','SiC','Iron','O Bucket']
 			else:
-				time_data = -1.+1./data['a_scale']
+				param_labels = ['Silicates','Carbon']
+		elif param == 'Si/C':
+			ylabel = 'Sil-to-C Ratio'
+			param_id = 'sil_to_C_ratio'
 		else:
-			time_data = data['time']
-
-		num_species = np.shape(data['spec_frac'])[1]
-
-		# Get mean and std, and make sure to set zero std to small number
-		mean_DZ = data['DZ_ratio'][:,0]; std_DZ = data['DZ_ratio'][:,1:];
-		mean_spec = data['spec_frac'][:,:,0]; std_spec = data['spec_frac'][:,:,1:];
-		mean_source = data['source_frac'][:,:,0]; std_source = data['source_frac'][:,:,1:];
-		mean_sil_to_C = data['sil_to_C_ratio'][:,0]; std_sil_to_C = data['sil_to_C_ratio'][:,1:];
-
-		# If plotting log of D/Z
+			print("%s is not a valid parameter for DZ_vs_params()\n"%param)
+			return()
+		set_labels(axis,xlabel,ylabel)
 		if log:
-			# Replace zeros in with small numbers
-			std_DZ[std_DZ==0.] = small_num; 
-			std_DZ = np.log10(std_DZ);
-			mean_DZ = np.log10(mean_DZ);	
-		
-		axes[0,0].plot(time_data, mean_DZ, color='xkcd:black', linestyle=Line_Styles[i])
+			axis.set_xscale('log')
+			axis.set_xlim()
 
-		for j in range(num_species):
-			axes[0,1].plot(time_data, mean_spec[:,j], label=species_names[j], color=Line_Colors[j], linestyle=Line_Styles[i])
+		for j,dataname in enumerate(datanames):
+			with open(data_dir+dataname, 'rb') as handle:
+				data = pickle.load(handle)
 
+			if cosmological:
+				if time:
+					time_data = data['time']
+				else:
+					time_data = -1.+1./data['a_scale']
+			else:
+				time_data = data['time']
 
-		for j in range(4):
-			axes[1,0].plot(time_data, mean_source[:,j], label=source_names[j], color=Line_Colors[j], linestyle=Line_Styles[i])
-
-		axes[1,1].plot(time_data, mean_sil_to_C, color='xkcd:black', linestyle=Line_Styles[i])
-
-
-	# Set y-axis label
-	if log:
-		y_label = "Log D/Z Ratio"
-	else:
-		y_label = "D/Z Ratio"
-
-	# Set y limits
-	if log:
-		DZ_min = -1.0
-		DZ_max = 0.0
-	else:
-		DZ_max = 1.0
-		DZ_min = 0.0
-
-	axes[0,0].set_xlim([time_data[1],time_data[-1]])
-	axes[0,0].set_ylabel(y_label,fontsize = Large_Font)
-	axes[0,0].set_ylim([DZ_min,DZ_max])
-	axes[0,0].set_xscale('log')
-
-	axes[0,1].set_xlim([time_data[1],time_data[-1]])
-	axes[0,1].set_ylabel(r'Species Mass Fraction',fontsize = Large_Font)
-	axes[0,1].set_ylim([0,1])
-	axes[0,1].set_xscale('log')
-	spec_lines = []
-	for i in range(num_species):
-		spec_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=species_names[i])]
-	axes[0,1].legend(handles=spec_lines,loc=0, frameon=False)
-
-	axes[1,0].set_xlim([time_data[1],time_data[-1]])
-	axes[1,0].set_ylabel(r'Source Mass Fraction',fontsize = Large_Font)
-	axes[1,0].set_ylim([1E-2,1.1])
-	axes[1,0].set_yscale('log')
-	axes[1,0].set_xscale('log')
-	source_lines = []
-	for i in range(4):
-		source_lines += [mlines.Line2D([], [], color=Line_Colors[i], label=source_names[i])]
-	axes[1,0].legend(handles=source_lines, loc=0, frameon=False)
-
-	axes[1,1].set_xlim([time_data[1],time_data[-1]])
-	axes[1,1].set_ylabel(r'Silicates to Carbon Ratio',fontsize = Large_Font)
-	axes[1,1].set_ylim([0,5])
-	axes[1,1].set_xscale('log')
-
-
-	if time or not cosmological:
-		axes[1,0].set_xlabel('t (Gyr)',fontsize = Large_Font)
-		axes[1,1].set_xlabel('t (Gyr)',fontsize = Large_Font)
-	else:
-		axes[1,0].set_xlabel('z',fontsize = Large_Font)
-		axes[1,1].set_xlabel('z',fontsize = Large_Font)
-		plt.gca().invert_xaxis()
-
-	# Set tick size
-	for ax in axes.flatten():
-		ax.tick_params(axis='both', which='major', labelsize=Small_Font)
-		ax.tick_params(axis='both', which='minor', labelsize=Small_Font)
-
-	
-	# Create the legend for the different runs
-	axes[0,0].legend(handles=lines, loc=0, frameon=False)
-
-	"""
-	fig.legend(handles=lines,   		# The line objects
-           loc="upper center",  		# Position of legend
-           borderaxespad=0.1,   		# Small spacing around legend box
-           ncol=len(lines),    			# Make the legend stretch horizontally across the plot
-           fontsize=24,
-           bbox_to_anchor=(0.5, .95), 	# Pin the legend to just above the plots
-		   frameon=False)
-	"""
+			# Check if parameter has subparameters
+			if param_labels == None:
+				mean_vals = data[param_id][:,0]; std_vals = data[param_id][:,1:];
+				axis.plot(time_data, mean_vals, color='xkcd:black', linestyle=Line_Styles[j], label=labels[j], zorder=3)
+				if std_bars:
+					axis.fill_between(time_data, std_vals[:,0], std_DZ[:,1], alpha = 0.3, color='xkcd:black', zorder=1)
+			else:
+				mean_vals = data[param_id][:,:,0]; std_vals = data[param_id][:,:,1:];
+				for k in range(np.shape(mean_vals)[1]):
+					axis.plot(time_data, mean_vals[:,k], color=Line_Colors[k], linestyle=Line_Styles[j], zorder=3)
+					if std_bars:
+						axis.fill_between(time_data, std_vals[:,k,0], std_DZ[:,k,1], alpha = 0.3, color=Line_Colors[k], zorder=1)
+		# Only need to label the seperate simulations in the first plot
+		if i==0 and len(datanames)>1:
+			axis.legend(loc=0, frameon=False, fontsize=Small_Font)
+		# If there are subparameters need to make their own legend
+		if param_labels != None:
+			param_lines = []
+			for j, label in enumerate(param_labels):
+				param_lines += [mlines.Line2D([], [], color=Line_Colors[j], label=label)]
+			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=Small_Font)
+		if log:
+			axis.set_xlim(time_data[1],time_data[-1])
+	plt.tight_layout()
 	plt.savefig(foutname)
 	plt.close()
 
