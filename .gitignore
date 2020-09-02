@@ -2,6 +2,7 @@ images/
 halos/
 data/
 utils/
+dust_yields/
 
 *.pyc
 *.e

@@ -55,8 +55,9 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 
 def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 	"""
-	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Can also output physical density instead
-	using results from Zhukovska (2016).
+	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Note that
+	for C the depletion is increased by factor of 2 due to findings in Sofia et al. (2011) and Parvathi et al. (2012).
+	Can also output physical density instead using results from Zhukovska (2016).
 	"""
 
 	avg_nH = np.logspace(-2,3,num=50)
@@ -75,7 +76,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 	total_Z = np.sum(solar_Mx_MH)
 	# Fit parameters for depletions
 	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
-	Bx = np.array([-0.193,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	Bx = np.array([-0.193-np.log10(2),-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
 	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
 
 	# Depletion factor of element x at a given F_star
@@ -188,7 +189,7 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 
-def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=30, log=True):
+def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=30, log=True, goodSNR=True):
 	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
 	DZ = np.power(10,data['dtm'])
@@ -216,6 +217,14 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
+	SNR = data['GOODSNR']
+
+	# Check whether to use all data or only that with good SNR
+	if goodSNR:
+		mask = SNR == 1
+		DZ = DZ[mask]
+		gal = gal[mask]
+		vals = vals[mask]
 
 	data = dict()
 	for gal_name in IDs:

@@ -3,7 +3,7 @@ from dust_plots import *
 from astropy.table import Table
 import os
 import subprocess
-
+import gas_temperature as gas_temp
 
 
 
@@ -34,6 +34,17 @@ labels += ['Elem. Fiducial']
 implementations = ['species','elemental']
 t_ref_factors = [1,1]
 """
+
+snap_dirs = []
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
+names = ['fiducial_model','extra_O']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels = ['Spec. Fiducial','Spec. w/ O']
+
+implementations = ['species','species']
+t_ref_factors = [1,1]
+
+
 
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
@@ -86,7 +97,6 @@ for i, num in enumerate(snaps):
 		Star_snaps += [S]
 
 
-
 		# Since this is a shallow copy, this fixes G['p'] as well
 		coords = G['p']
 		# Recenter coords at center of periodic box
@@ -97,13 +107,11 @@ for i, num in enumerate(snaps):
 		center = np.average(coords, weights = G['m'], axis = 0)
 		centers += [center]
 
-
 		coords = S['p']
 		# Recenter coords at center of periodic box
 		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
 		# This also changes G['p'] as well
 		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
-
 
 		Rds += [calc_stellar_Rd(S, center, r_max_phys, Lz_hat=Lz_hat, disk_height=disk_height, bin_nums=30)]
 
@@ -111,13 +119,24 @@ for i, num in enumerate(snaps):
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
+	elems = ['Mg','Si']
+	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
+			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
+	exit()
+
+
+	DZ_vs_params(['T'], [[1,1E5]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+			cosmological=False, labels=labels, foutname='DZ_vs_T.png', std_bars=True, style='color', log=False, include_obs=True)
+	exit()
+
 	elems = ['C']
 	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
-			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, CO_frac=0.2, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
 			foutname='C_w_CO_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
 	exit()
 	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
-			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, CO_frac=0.0, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
 			foutname='C_no_CO_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True)
 
 	exit()

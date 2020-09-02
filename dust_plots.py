@@ -12,6 +12,7 @@ from astropy.table import Table
 import gas_temperature as gas_temp
 from tasz import *
 from observations import *
+from analytic_dust_yields import *
 
 # Set style of plots
 plt.style.use('seaborn-talk')
@@ -47,6 +48,43 @@ small_num 					= 1E-7
 EPSILON 					= 1E-7
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
+
+
+def setup_figure(num_plots):
+	"""
+	Sets up the figure size and subplot layout based on number of plots
+
+	Parameters
+	----------
+	num_plots : int
+		Number of plots to be plotted
+
+	Returns
+	-------
+	fig : Pyplot figure
+		Pyplot figure which houses plots
+	axes: list
+		List of axes for each plot
+	"""	
+	if num_plots == 1:
+		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
+		axes = np.array([axes])
+	elif num_plots%2 == 0:
+		fig,axes = plt.subplots(num_plots/2, 2, figsize=(28/1.2,num_plots/2*10/1.2), squeeze=True)
+	elif num_plots%3 == 0:
+		fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
+	else:
+		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*14/1.2,np.ceil(num_plots/3.)*10/1.2), squeeze=True)\
+	
+	axes=axes.flat
+	# Delete any excess axes
+	if len(axes) > num_plots:
+		for i in range(len(axes)-num_plots):
+			fig.delaxes(axes[-(i+1)])
+	return fig,axes
+
+
+
 
 def set_labels(axis, xlabel, ylabel):
 	"""
@@ -128,7 +166,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
 	return values
 
 
-def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12'):
+def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', goodSNR=True):
 	"""
 	Plots observational D/Z data vs the given param.
 
@@ -147,21 +185,21 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12'):
 
 	"""
 	if param == 'fH2':
-		data = Chiang_20_DZ_vs_param(param, CO_opt=CO_opt, bin_nums=30, log=True)
+		data = Chiang_20_DZ_vs_param(param, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			fH2_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r25':
-		data = Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False)
+		data = Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
@@ -173,34 +211,41 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12'):
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=False)
 		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
 	elif param == 'dust':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'gas':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
-		for i, gal_name in enumerate(data.keys()):
-			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
-			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
-	elif param == 'H2':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True)
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
-	elif 'depl':
+		if not goodSNR:
+			data = Chiang_20_DZ_vs_param(param, bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
+			for i, gal_name in enumerate(data.keys()):
+				sigma_vals = data[gal_name][0]; DZ = data[gal_name][1]
+				axis.scatter(sigma_vals, DZ, c=Marker_Colors[i], marker=Marker_Style[i], s=2, zorder=0, alpha=0.4)	
+	elif param == 'H2':
+		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
+		for i, gal_name in enumerate(data.keys()):
+			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
+			if log:
+				std_DZ[std_DZ == 0] = EPSILON
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
+	elif param == 'depl':
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False)
 		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
 		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=Line_Styles[0], linewidth=Line_Widths[5], zorder=2)
 	elif param == 'Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
-		print "D/Z vs Z observations have not been implemented yet"
+		print("D/Z vs Z observations have not been implemented yet")
+	else:
+		print("D/Z vs %s observational data is not available."%param)
 
 
 
@@ -274,17 +319,11 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		return
 
 	# Set up subplots based on number of parameters given
-	if len(params) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
-		axes = np.array([axes])
-	elif len(params)%2 == 0:
-		fig,axes = plt.subplots(len(params)/2, 2, figsize=(14/1.2,len(params)/2*10/1.2), squeeze=True)
-	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*14,10), squeeze=True)
+	fig,axes = setup_figure(len(params))
 
 	for i, param in enumerate(params):
 		# Set up for each plot
-		axis = axes.flatten()[i]
+		axis = axes[i]
 		param_lim = param_lims[i]
 		axis.set_xlim(param_lim)
 		ylabel = 'D/Z Ratio'
@@ -296,6 +335,9 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 			xlabel = r'Radius (R$_{25}$)'
 		elif param == 'nH':
 			xlabel = r'$n_{H}$ (cm$^{-3}$)'
+			axis.set_xscale('log')
+		elif param == 'T':
+			xlabel = r'T (K)'
 			axis.set_xscale('log')
 		elif param == 'Z':
 			xlabel = r'Z (Z$_{\odot}$)'
@@ -312,7 +354,7 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 
 		# First plot observational data if applicable
 		if include_obs:
-			plot_observational_data(axis, param, log=log, CO_opt=CO_opt)
+			plot_observational_data(axis, param, log=log, CO_opt=CO_opt, goodSNR=True)
 
 		for j in range(len(gas)):
 			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
@@ -431,6 +473,26 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 
 		for j in range(1,len(nH_bins)):
 			if len(nH[digitized==j])==0:
+				mean_DZ[j-1] = np.nan
+				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+				continue
+			else:
+				weights = M[digitized == j]
+				values = DZ[digitized == j]
+				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+
+	# Get D/Z values over gas temperature
+	elif param == 'T':
+		T = gas_temp.gas_temperature(G)
+		T = T[in_galaxy]
+
+		# Make bins for T
+		T_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
+		param_vals = (T_bins[1:] + T_bins[:-1]) / 2.
+		digitized = np.digitize(T,T_bins)
+
+		for j in range(1,len(T_bins)):
+			if len(T[digitized==j])==0:
 				mean_DZ[j-1] = np.nan
 				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
 				continue
@@ -581,14 +643,7 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 		return
 
 	# Set up subplots based on number of parameters given
-	if len(params) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
-		axes = [axes]
-	elif len(params)%2 == 0:
-		fig,axes = plt.subplots(len(params)/2, 2, figsize=(24,len(params)/2*10), squeeze=True)
-		axes = axes.flatten()
-	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*14,10), squeeze=True)
+	fig,axes = setup_figure(len(params))
 
 	for i, param in enumerate(params):
 		# Set up for each plot
@@ -624,7 +679,7 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 
 		# First plot observational data if applicable
 		if include_obs:
-			plot_observational_data(axis, param, log=log, CO_opt=CO_opt)
+			plot_observational_data(axis, param, log=log, CO_opt=CO_opt, goodSNR=False)
 
 		for j in range(len(gas)):
 			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
@@ -781,12 +836,9 @@ def calc_obs_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_
 
 	elif param=='H2':
 		MH2=2*NH2*H_MASS*Grams_to_Msolar
-		print NH2
 		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass,MH2], statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
 		MH2_pixel = ret[2].flatten()/pixel_area
-
-		print MH2_pixel
 
 		# Now bin the data 
 		gas_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
@@ -1062,7 +1114,7 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 
 
 def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, \
-			bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, CO_frac=0.2, \
+			bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
 			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True):
 	"""
 	Plots mock observations of specified elemental depletion vs various parameters for multiple simulations 
@@ -1089,8 +1141,6 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 		Is the simulation cosmological
 	labels : array
 		Array of labels for each data set
-	CO_frac : double
-		Percent of Carbon assumed to be locked up in CO in simulations
 	phys_dens : boolean
 		Use physical 3D densities or mean sight-line densities
 	foutname: str, optional
@@ -1128,20 +1178,8 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
 
-
-
-
-
-
-# Set up subplots based on number of parameters given
-	if len(elems) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
-		axes = [axes]
-	elif len(elems)%2 == 0:
-		fig,axes = plt.subplots(len(elems)/2, 2, figsize=(28/1.2,len(elems)/2*10/1.2), squeeze=True)
-		axes = axes.flatten()
-	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*14/1.2,10/1.2), squeeze=True)
+	# Set up subplots based on number of parameters given
+	fig,axes = setup_figure(len(elems))
 
 	for i,elem in enumerate(elems):
 		axis = axes[i]
@@ -1191,13 +1229,6 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 			else:
 				DZ = (G['dz'][:,elem_indx]/G['z'][:,elem_indx])[in_galaxy]
 
-			# Need to factor in C locked in CO
-			# Assume CO is only in T>300K gas
-			if elem=='C':
-				T = gas_temp.gas_temperature(G)
-				T = T[in_galaxy]
-				DZ[T>0] += CO_frac
-
 			# Deal with DZ>1 values
 			DZ[DZ>1] = 1.
 
@@ -1213,9 +1244,6 @@ def elem_depletion_vs_dens(elems, gas, header, center_list, r_max_list, Lz_list=
 					weights = M[digitized == k]
 					values = DZ[digitized == k]
 					mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
-
-					print("nH : ",nH_vals[k-1])
-					print(values)
 			axis.plot(nH_vals, 1.-mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(nH_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
@@ -1743,7 +1771,7 @@ def calc_stellar_Rd(S, center, r_max, Lz_hat=None, disk_height=5, bin_nums=50):
 	cent_surf = fit[1]
 	Rd = fit[0]
 
-	print Rd, cent_surf
+	print("Rd = %e, cent. surf. dens. = %e" % (Rd,cent_surf))
 	
 	return Rd
 
@@ -1791,18 +1819,11 @@ def dust_data_vs_time(params, param_lims, implementation='species', datanames=['
 		return
 
 	# Set up subplots based on number of parameters given
-	if len(params) == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14,10))
-		axes = np.array([axes])
-	elif len(params)%2 == 0:
-		#fig,axes = plt.subplots(len(params)/2, 2, figsize=(1.8*14/1.4,len(params)/2*10/1.4))
-		fig,axes = plt.subplots(2, len(params)/2, figsize=(15/1.4,20/1.4,), squeeze=True)
-	else:
-		fig,axes = plt.subplots(1, 3, figsize=(3*10,6), squeeze=True)
+	fig,axes = setup_figure(len(params))
 
 	for i, param in enumerate(params):
 		# Set up for each plot
-		axis = axes.flatten()[i]
+		axis = axes[i]
 		param_lim = param_lims[i]
 		axis.set_ylim(param_lim)
 		xlabel = 'Time (Gyr)'
@@ -2091,3 +2112,133 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 			data = {'time':time,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
 		with open(data_dir+foutname, 'wb') as handle:
 			pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753, style='color'):
+	"""
+	Plots comparison of stellar dust creation for the given stellar metallicities
+
+	Parameters
+	----------
+	Z_list : list
+		List of metallicities to compare in solar units
+	dust_species : list
+		List of dust species to plot individually (carbon, silicates, iron, SiC, silicates+)
+	data_dirc: string
+		Name of directory to store calculated yields files
+	FIRE_ver : int
+		Version of FIRE metals yields to use in calculations
+	transition_age : double
+		Age at which stellar yields switch from O/B to AGB stars
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# First create ouput directory if needed
+	try:
+	    # Create target Directory
+	    os.mkdir(data_dirc)
+	    print("Directory " + data_dirc +  " Created")
+	except:
+	    print("Directory " + data_dirc +  " already exists")
+
+
+	if style == 'color':
+		linewidths = np.full(len(Z_list),3)
+		colors = Line_Colors
+		linestyles = Line_Styles
+	elif style == 'size':
+		linewidths = Line_Widths
+		colors = ['xkcd:black' for i in range(len(Z_list))]
+		linestyles = ['-' for i in range(len(Z_list))]
+	else:
+		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
+		return
+
+	N = 10000 # number of steps 
+	max_t = 10. # max age of stellar population to compute yields
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	# First make simulated data if it hasn't been made already
+	for Z in Z_list:
+		name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		if not os.path.isfile(data_dirc + name):
+			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="elemental")
+			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
+
+		name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		if not os.path.isfile(data_dirc +name):
+			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="species")
+			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
+
+
+	# Compare routine carbon yields between routines
+	# Set up subplots based on number of parameters given
+	fig,axes = setup_figure(len(dust_species))
+	ylabel = r'Cumulative Dust Ratio $(M_{dust}/M_{\star})$'
+	xlabel = "Stellar Age (Gyr)"
+
+	for i, species in enumerate(dust_species):
+		axis = axes[i]
+		if species == 'carbon':
+			name = 'Carbonaceous'
+			indices = np.array([1])
+		elif species == 'silicates':
+			name = 'Silicates'
+			indices = np.array([0])
+		elif species == 'silicates+':
+			name = 'Silicates+Others'
+			indices = np.array([0,2,3])
+		elif species == 'iron':
+			name = 'Iron'
+			indices = np.array([3])
+		elif species == 'SiC':
+			name = 'SiC'
+			indices = np.array([2])
+		else:
+			print("%s is not a valid dust species for compare_dust_creation()\n"%species)
+			return()
+
+
+		set_labels(axis,xlabel,ylabel)
+		# Add extra lines emphazising the time regimes for SNe II or AGB+SNe Ia
+		axis.axvline(transition_age, color='xkcd:grey',lw=3)
+		# Only need labels and legend for first plot
+		if i == 0:
+			y_arrow = 1E-5
+			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=Large_Font, color='xkcd:grey')
+			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/2), xycoords="data", xytext=(0.2*transition_age, y_arrow/2), 
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=Large_Font, color='xkcd:grey')
+			# Make legend
+			lines = []
+			for j in range(len(Z_list)):
+				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
+			lines += [mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[1],label='Species')]
+			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=Small_Font)
+		#  Add label for dust species
+		axis.text(.95, .05, name, color="xkcd:black", fontsize = Large_Font, ha = 'right', transform=axis.transAxes)
+
+		for j,Z in enumerate(Z_list):
+			name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			data = pickle.load(open(data_dirc + name, "rb" ))
+			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
+			elem_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
+			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonposy = 'clip', linewidth = linewidths[j])
+
+			name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			data = pickle.load(open(data_dirc + name, "rb" ))
+			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
+			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
+			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonposy = 'clip', linewidth = linewidths[j])
+
+		axis.set_ylim([1E-7,1E-2])
+		axis.set_xlim([time[0], time[-1]])
+
+	plt.savefig('creation_routine_comparison.pdf', format='pdf', transparent=False, bbox_inches='tight')
+	plt.close()
