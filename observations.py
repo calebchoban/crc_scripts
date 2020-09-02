@@ -193,15 +193,15 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
 	DZ = np.power(10,data['dtm'])
-	if param == 'gas':
+	if param == 'sigma_gas':
 		vals = np.power(10,data['gas'])
-	elif param == 'H2':
+	elif param == 'sigma_H2':
 		vals = np.power(10,data['h2'])
 	elif param == 'fH2':
 		vals = data['fh2']
-	elif param == 'Z':
+	elif param == 'sigma_Z':
 		vals = data['metal']
-	elif param == 'dust':
+	elif param == 'sigma_dust':
 		vals = data['dust']
 	elif param == 'r':
 		# kpc distance to galaxy

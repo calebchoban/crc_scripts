@@ -15,7 +15,6 @@ Z_list = [1,0.008/0.02,0.001/0.02]
 data_dirc = './dust_yields'
 dust_species = ['carbon','silicates+']
 compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753)
-exit()
 
 ###############################################################################
 # Plot D/Z evolution over time
@@ -77,7 +76,7 @@ for i,snap_dir in enumerate(snap_dirs):
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 # dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_dust_comp_data_vs_time.pdf', \
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source', 'species'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_all_data_vs_time.pdf', \
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_all_data_vs_time.pdf', \
 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 
 
@@ -108,7 +107,7 @@ for i,snap_dir in enumerate(snap_dirs):
 #                      labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 # dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_dust_comp_data_vs_time.pdf', \
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source', 'species'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_all_data_vs_time.pdf', \
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_all_data_vs_time.pdf', \
 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 
 
@@ -140,7 +139,7 @@ for i,snap_dir in enumerate(snap_dirs):
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 # dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_dust_comp_data_vs_time.pdf', \
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source', 'species'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_all_data_vs_time.pdf', \
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_all_data_vs_time.pdf', \
 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 
 
@@ -171,7 +170,7 @@ for i,snap_dir in enumerate(snap_dirs):
 #                      labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 # dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_dust_comp_data_vs_time.pdf', \
 # 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source', 'species'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_all_data_vs_time.pdf', \
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_all_data_vs_time.pdf', \
 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
 
 
@@ -277,16 +276,16 @@ for i, num in enumerate(snaps):
 	DZ_vs_params(['r'], [[0,20]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='S12_DZ_vs_radius.pdf', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='S12')
 
-	observed_DZ_vs_param(['gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	observed_DZ_vs_param(['sigma_gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='S12_obs_DZ_vs_surf.pdf', std_bars=True, style='color', log=False, include_obs=True, CO_opt='S12')
 
 	DZ_vs_params(['r'], [[0,20]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='B13_DZ_vs_radius.pdf', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='B13')
 	
-	observed_DZ_vs_param(['gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
+	observed_DZ_vs_param(['sigma_gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
 				cosmological=False, labels=labels, foutname='B13_obs_DZ_vs_surf.pdf', std_bars=True, style='color', log=False, include_obs=True, CO_opt='B13')
 
 	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+	elem_depletion_vs_param(elems, 'nH', [1E-2,1E3], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
 			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
 			foutname='obs_elemental_dep_vs_dens.pdf', std_bars=True, style='color', log=True, include_obs=True)
