@@ -13,6 +13,7 @@ import gas_temperature as gas_temp
 from tasz import *
 from observations import *
 from analytic_dust_yields import *
+import plot_setup as plt_set
 
 # Set style of plots
 plt.style.use('seaborn-talk')
@@ -71,132 +72,6 @@ PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0,1.], 		False],
 					          'Si/C': ['Sil-to-C Ratio', 								[0,1], 			False]
 					     }
 
-
-
-def setup_figure(num_plots):
-	"""
-	Sets up the figure size and subplot layout based on number of plots
-
-	Parameters
-	----------
-	num_plots : int
-		Number of plots to be plotted
-
-	Returns
-	-------
-	fig : Pyplot figure
-		Pyplot figure which houses plots
-	axes: list
-		List of axes for each plot
-	"""	
-	if num_plots == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
-		axes = np.array([axes])
-	elif num_plots%2 == 0:
-		fig,axes = plt.subplots(num_plots/2, 2, figsize=(28/1.2,num_plots/2*10/1.2), squeeze=True)
-	elif num_plots%3 == 0:
-		fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
-	else:
-		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*14/1.2,np.ceil(num_plots/3.)*10/1.2), squeeze=True)\
-	
-	axes=axes.flat
-	# Delete any excess axes
-	if len(axes) > num_plots:
-		for i in range(len(axes)-num_plots):
-			fig.delaxes(axes[-(i+1)])
-	return fig,axes
-
-
-def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log=None):
-	"""
-	Sets up the axes for plot given x and y param and optional limits
-
-	Parameters
-	----------
-	axis : Matplotlib axis
-	    Axis of plot
-	x_param : string
-		Parameter to be plotted on x axis
-	y_param : string
-		Parameter to be plotted on y axis
-	x_lim : array
-		Limits for x axis
-	x_log : boolean
-		Explicitly set x axis to linear or log space, otherwise go with default for x_param
-	y_lim : array
-		Limits for y axis
-	y_log : boolean
-		Explicitly set y axis to linear or log space, otherwise go with default for y_param
-
-	Returns
-	-------
-	None
-
-	"""	
-
-	# Setup x axis
-	if x_param not in PARAM_INFO.keys():
-		print("%s is not a valid parameter\n"%x_param)
-		print("Valid parameters are:")
-		print(PARAM_INFO.keys())
-		return
-	x_info = PARAM_INFO[x_param]
-	xlabel = x_info[0]
-	if x_lim == None:
-		x_lim = x_info[1]
-	if x_info[2] and (x_log or x_log==None):
-		axis.set_xscale('log')
-	axis.set_xlim(x_lim)
-
-	# Setup y axis
-	if y_param not in PARAM_INFO.keys():
-		print("%s is not a valid parameter\n"%y_param)
-		print("Valid parameters are:")
-		print(PARAM_INFO.keys())
-		return
-	y_info = PARAM_INFO[y_param]
-	ylabel = y_info[0]
-	if y_lim == None:
-		y_lim = y_info[1]
-	if y_info[2] and (y_log or y_log==None):
-		axis.set_yscale('log')
-	axis.set_ylim(y_lim)
-
-	# Set axis labels and ticks
-	set_labels(axis,xlabel,ylabel)
-
-	print x_info,y_info
-
-	return
-
-
-def set_labels(axis, xlabel, ylabel):
-	"""
-	Sets the labels and ticks for the given axis.
-
-	Parameters
-	----------
-	axis : Matplotlib axis
-	    Axis of plot
-	xlabel : array-like
-	    X axis label
-	ylabel : array-like, optional
-	    Y axis label
-
-	Returns
-	-------
-	None
-
-	"""
-
-	axis.set_xlabel(xlabel, fontsize = Large_Font)
-	axis.set_ylabel(ylabel, fontsize = Large_Font)
-	axis.minorticks_on()
-	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-	axis.tick_params(axis='both', which='major', labelsize=Small_Font, length=8, width=2)
-	axis.tick_params(axis='both', which='minor', labelsize=Small_Font, length=4, width=1)	
-	for axe in ['top','bottom','left','right']:
-  		axis.spines[axe].set_linewidth(2)
 
 
 def calc_rotate_matrix(vec1, vec2):
@@ -258,7 +133,7 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 
 	Parameters
 	----------
-	axis : pyplot axis
+	axis : Matplotlib axis
 		Axis on which to plot the data
 	param: string
 		Parameters to plot D/Z against (fH2, nH, Z, r, sigma_dust)
@@ -388,24 +263,11 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 	None
 	"""	
 
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	elif style == 'color':
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = setup_figure(len(params))
+	fig,axes = plt_set.setup_figure(len(params))
 
 	for i, x_param in enumerate(params):
 		# Set up for each plot
@@ -413,7 +275,7 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		x_lim = param_lims[i]
 
 		y_param = 'DZ'
-		setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
 
 		# First plot observational data if applicable
 		if include_obs:
@@ -647,7 +509,7 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 
 def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, \
 			height_list=None, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
-			foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12',):
+			foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12'):
 	"""
 	Plots mock observations of dust-to-metals vs various parameters for multiple simulations 
 
@@ -689,31 +551,18 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 	None
 	"""	
 
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	elif style == 'color':
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = setup_figure(len(params))
+	fig,axes = plt_set.setup_figure(len(params))
 
 	for i, x_param in enumerate(params):
 		# Set up for each plot
 		axis = axes[i]
 		x_lim = param_lims[i]
 		y_param = 'DZ'
-		setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
 
 		# First plot observational data if applicable
 		if include_obs:
@@ -990,12 +839,10 @@ def calc_H_fracs(G):
 	fHe = G['z'][:,1]
 	fMetals = G['z'][:,0]
 
-	# NH1 = Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is HI / Mass_HI
-	NH1 =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (G['nh']) * (1. - fH2) / H_MASS
-	# NH2=  Mass * Fraction of Hydrogen * Fraction of Hydrogen that is Neutral * Fraction of Neutral Hydrogen that is H2 / Mass_HI
-	NH2 =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (G['nh']) * fH2 / (2*H_MASS) #Gives Number of H2 molecules
-	#NHion=Mass * Fraction of Hydrogen * Fraction of Ionized Hydrogen / Mass 
-	NHion= G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
+	# Gives number of H1, H2, and Hion atoms
+	NH1   =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1. - fH2) / H_MASS
+	NH2   =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * fH2 / (2*H_MASS)
+	NHion =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
 	
 	return NH1,NHion,NH2
 
@@ -1041,27 +888,14 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 	None
 	"""	
 
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	elif style == 'color':
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
 
 	fig = plt.figure() 
 	axis = plt.gca()
 	ylabel = r'D/Z Ratio'
 	xlabel = r'Pixel Num'
-	set_labels(axis,xlabel,ylabel)
+	plt_set.setup_labels(axis,xlabel,ylabel)
 	if log:
 		axis.set_yscale('log')
 		axis.set_ylim([0.01,1.0])
@@ -1202,33 +1036,19 @@ def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r
 	-------
 	None
 	"""	
-	limits = [1E-2,1E3]
 
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'color':
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = setup_figure(len(elems))
+	fig,axes = plt_set.setup_figure(len(elems))
 
 	for i,elem in enumerate(elems):
 		axis = axes[i]
 		elem_indx = ELEMENTS.index(elem)
-		setup_axis(axis, param, 'depletion', x_lim=param_lim)
+		plt_set.setup_axis(axis, param, 'depletion', x_lim=param_lim)
 
-		if include_obs:
+		if include_obs and param == 'nH':
 			plot_observational_data(axis, param='depletion', elem=elem, log=log)
 
 		for j in range(len(gas)):
@@ -1260,9 +1080,15 @@ def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r
 			M = G['m'][in_galaxy]
 
 			if param == 'nH':
-				nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-				nH_bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
-				nH_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
+				param_data = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
+				param_bins = np.logspace(np.log10(param_lim[0]),np.log10(param_lim[1]),bin_nums)
+				param_vals = (param_bins[1:] + param_bins[:-1]) / 2.
+
+			elif param == 'fH2':
+				NH1,NHion,NH2 = calc_H_fracs(G)
+				param_data = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
+				param_bins = np.linspace(param_lim[0],param_lim[1],bin_nums)
+				param_vals = (param_bins[1:] + param_bins[:-1]) / 2.
 
 
 			mean_DZ = np.zeros(bin_nums-1)
@@ -1276,11 +1102,11 @@ def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r
 			# Deal with DZ>1 values
 			DZ[DZ>1] = 1.
 
-			digitized = np.digitize(nH,nH_bins)
+			digitized = np.digitize(param_data,param_bins)
 
 
-			for k in range(1,len(nH_bins)):
-				if len(nH[digitized==k])==0:
+			for k in range(1,len(param_bins)):
+				if len(param_data[digitized==k])==0:
 					mean_DZ[k-1] = np.nan
 					std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
 					continue
@@ -1288,9 +1114,9 @@ def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r
 					weights = M[digitized == k]
 					values = DZ[digitized == k]
 					mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
-			axis.plot(nH_vals, 1.-mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			axis.plot(param_vals, 1.-mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
-				axis.fill_between(nH_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
+				axis.fill_between(param_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
 		# Only need legend on first plot
 		if i == 0:
@@ -1332,22 +1158,10 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 	-------
 	None
 	"""
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'color':
-		linewidths = np.full(len(gas),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
-	
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
+
 	fig,axes = plt.subplots(1, 1, figsize=(12,10))
 
 	for i in range(len(gas)):
@@ -1496,7 +1310,7 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 	axes.legend(handles=lines,loc=2, frameon=False)
 	axes.set_xlim([1E-2,1E3])
 	xlabel = r'$n_H$ (cm$^{-3}$)'; ylabel = r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$'
-	set_labels(axes,xlabel,ylabel)
+	plt_set.setup_labels(axes,xlabel,ylabel)
 	if log:
 		axes.set_yscale('log')
 		axes.set_ylim([1E-3,1E1])
@@ -1708,24 +1522,11 @@ def dust_data_vs_time(params, param_lims, implementation='species', datanames=['
 	species_names = ['Silicates','Carbon','SiC','Iron','O Reservoir']
 	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
-	if len(datanames) == 1:
-		linewidths = np.full(len(datanames),2)
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
-	elif style == 'color':
-		linewidths = np.full(len(datanames),2)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(datanames))]
-		linestyles = ['-' for i in range(len(datanames))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(datanames), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = setup_figure(len(params))
+	fig,axes = plt_set.setup_figure(len(params))
 
 	for i, y_param in enumerate(params):
 		# Set up for each plot
@@ -1735,7 +1536,7 @@ def dust_data_vs_time(params, param_lims, implementation='species', datanames=['
 			x_param = 'time'
 		else:
 			x_param = 'redshift'
-		setup_axis(axis, x_param, y_param, y_lim=y_lim)
+		plt_set.setup_axis(axis, x_param, y_param, y_lim=y_lim)
 
 		param_labels=None
 		if y_param == 'DZ':
@@ -2046,18 +1847,8 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 	except:
 	    print("Directory " + data_dirc +  " already exists")
 
-
-	if style == 'color':
-		linewidths = np.full(len(Z_list),3)
-		colors = Line_Colors
-		linestyles = Line_Styles
-	elif style == 'size':
-		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(Z_list))]
-		linestyles = ['-' for i in range(len(Z_list))]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
-		return
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(Z_list), style=style)
 
 	N = 10000 # number of steps 
 	max_t = 10. # max age of stellar population to compute yields
@@ -2080,13 +1871,13 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 
 	# Compare routine carbon yields between routines
 	# Set up subplots based on number of parameters given
-	fig,axes = setup_figure(len(dust_species))
+	fig,axes = plt_set.setup_figure(len(dust_species))
 	x_param = 'time'; y_param = 'cum_dust_prod'
 	x_lim = [0,max_t]
 
 	for i, species in enumerate(dust_species):
 		axis = axes[i]
-		setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
 		if species == 'carbon':
 			name = 'Carbonaceous'
 			indices = np.array([1])

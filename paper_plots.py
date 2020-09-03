@@ -289,3 +289,6 @@ for i, num in enumerate(snaps):
 	elem_depletion_vs_param(elems, 'nH', [1E-2,1E3], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
 			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
 			foutname='obs_elemental_dep_vs_dens.pdf', std_bars=True, style='color', log=True, include_obs=True)
+	elem_depletion_vs_param(elems, 'fH2', [0,1], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
+			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
+			foutname='obs_elemental_dep_vs_fH2.pdf', std_bars=True, style='color', log=True, include_obs=True)
