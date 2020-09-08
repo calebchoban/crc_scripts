@@ -1,57 +1,4 @@
-import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-plt.switch_backend('agg')
-from scipy.stats import binned_statistic_2d
-from scipy.optimize import curve_fit
-import pickle
-import os
-from readsnap import readsnap
-from astropy.table import Table
-import gas_temperature as gas_temp
-from tasz import *
-from observations import *
-from analytic_dust_yields import *
-
-# Set style of plots
-plt.style.use('seaborn-talk')
-# Set personal color cycle
-Line_Colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
-Line_Colors = ["xkcd:azure", "xkcd:tomato", "xkcd:green", "xkcd:orchid", "xkcd:teal", "xkcd:sienna"]
-Marker_Colors = ["xkcd:orange", "xkcd:teal", "xkcd:sienna", "xkcd:gold", "xkcd:magenta"]
-Line_Styles = ['-','--',':','-.']
-Marker_Style = ['o','^','X','s','v']
-Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
-
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
-
-# Large and small font sizes to be used for axes labels and legends
-Large_Font=26
-Small_Font=16	
-
-# Houses labels, limits, and if they should be plotted in log space for possible parameters
-PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0,1.], 		False],
-								 'r': ['Radius (kpc)', 									[0,20,], 		False],
-							   'r25': [r'Radius (R$_{25}$)', 							[0,2], 			False],
-					     'sigma_gas': [r'$\Sigma_{gas}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E0,1E2], 		True],
-						   'sigma_Z': [r'$\Sigma_{metals}$ (M$_{\odot}$ pc$^{-2}$)', 	[1E-3,1E0], 	True],
-						'sigma_dust': [r'$\Sigma_{dust}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  'sigma_H2': [r'$\Sigma_{H2}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  	  'time': ['Time (Gyr)',									[1E-2,1E1],		True],
-						  'redshift': ['z',												[1E-1,100],		True],
-						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 							[1E-2,1E3], 	True],
-						         'T': [r'T (K)', 										[1E1,1E5], 		True],
-						         'Z': [r'Z (Z$_{\odot}$)', 								[1E-3,5E0], 	True],
-						        'DZ': ['D/Z Ratio', 									[0,1], 			False],
-						 'depletion': [r'[X/H]$_{gas}$', 								[1E-3,1E0], 	True],
-				     'cum_dust_prod': [r'Cumulative Dust Ratio $(M_{dust}/M_{\star})$', [1E-6,1E-2], 	True],
-					'inst_dust_prod': [r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$', [0,10], 		False],
-					   'source_frac': ['Source Mass Fraction', 							[1E-2,1E0], 	True],
-					     'spec_frac': ['Species Mass Fraction', 						[0,1], 			False],
-					          'Si/C': ['Sil-to-C Ratio', 								[0,1], 			False]
-					     }
-
+from config import *
 
 
 def setup_plot_style(num_sets, style='color'):
@@ -81,14 +28,14 @@ def setup_plot_style(num_sets, style='color'):
 
 	if num_sets == 1:
 		linewidths = np.full(num_sets,2)
-		colors = Line_Colors
-		linestyles = Line_Styles
+		colors = LINE_COLORS
+		linestyles = LINE_STYLES
 	elif style == 'color':
 		linewidths = np.full(num_sets,2)
-		colors = Line_Colors
-		linestyles = Line_Styles
+		colors = LINE_COLORS
+		linestyles = LINE_STYLES
 	elif style == 'size':
-		linewidths = Line_Widths
+		linewidths = LINE_WIDTHS
 		colors = ['xkcd:black' for i in range(num_sets)]
 		linestyles = ['-' for i in range(num_sets)]
 	else:
@@ -213,11 +160,11 @@ def setup_labels(axis, xlabel, ylabel):
 
 	"""
 
-	axis.set_xlabel(xlabel, fontsize = Large_Font)
-	axis.set_ylabel(ylabel, fontsize = Large_Font)
+	axis.set_xlabel(xlabel, fontsize = LARGE_FONT)
+	axis.set_ylabel(ylabel, fontsize = LARGE_FONT)
 	axis.minorticks_on()
 	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-	axis.tick_params(axis='both', which='major', labelsize=Small_Font, length=8, width=2)
-	axis.tick_params(axis='both', which='minor', labelsize=Small_Font, length=4, width=1)	
+	axis.tick_params(axis='both', which='major', labelsize=SMALL_FONT, length=8, width=2)
+	axis.tick_params(axis='both', which='minor', labelsize=SMALL_FONT, length=4, width=1)	
 	for axe in ['top','bottom','left','right']:
   		axis.spines[axe].set_linewidth(2)

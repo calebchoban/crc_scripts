@@ -15,63 +15,7 @@ from observations import *
 from analytic_dust_yields import *
 import plot_setup as plt_set
 
-# Set style of plots
-plt.style.use('seaborn-talk')
-# Set personal color cycle
-Line_Colors = ["xkcd:blue", "xkcd:red", "xkcd:green", "xkcd:orange", "xkcd:violet", "xkcd:teal", "xkcd:brown"]
-Line_Colors = ["xkcd:azure", "xkcd:tomato", "xkcd:green", "xkcd:orchid", "xkcd:teal", "xkcd:sienna"]
-Marker_Colors = ["xkcd:orange", "xkcd:teal", "xkcd:sienna", "xkcd:gold", "xkcd:magenta"]
-Line_Styles = ['-','--',':','-.']
-Marker_Style = ['o','^','X','s','v']
-Line_Widths = [0.5,1.0,1.5,2.0,2.5,3.0]
-
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=Line_Colors)
-
-# Large and small font sizes to be used for axes labels and legends
-Large_Font=26
-Small_Font=16
-
-
-UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
-UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
-UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
-Grams_to_Msolar 			= 5.02785e-34
-UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
-UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s # 0.978 Gyr/h
-UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
-UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 2)
-UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
-H_MASS 						= 1.67E-24 # grams
-SOLAR_Z						= 0.02
-	
-# Small number used to plot zeros on log graph
-small_num 					= 1E-7
-EPSILON 					= 1E-7
-
-ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
-
-# Houses labels, limits, and if they should be plotted in log space for possible parameters
-PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0,1.], 		False],
-								 'r': ['Radius (kpc)', 									[0,20,], 		False],
-							   'r25': [r'Radius (R$_{25}$)', 							[0,2], 			False],
-					     'sigma_gas': [r'$\Sigma_{gas}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E0,1E2], 		True],
-						   'sigma_Z': [r'$\Sigma_{metals}$ (M$_{\odot}$ pc$^{-2}$)', 	[1E-3,1E0], 	True],
-						'sigma_dust': [r'$\Sigma_{dust}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  'sigma_H2': [r'$\Sigma_{H2}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  	  'time': ['Time (Gyr)',									[1E-2,1E1],		True],
-						  'redshift': ['z',												[1E-1,100],		True],
-						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 							[1E-2,1E3], 	True],
-						         'T': [r'T (K)', 										[1E1,1E5], 		True],
-						         'Z': [r'Z (Z$_{\odot}$)', 								[1E-3,5E0], 	True],
-						        'DZ': ['D/Z Ratio', 									[0,1], 			False],
-						 'depletion': [r'[X/H]$_{gas}$', 								[1E-3,1E0], 	True],
-				     'cum_dust_prod': [r'Cumulative Dust Ratio $(M_{dust}/M_{\star})$', [1E-6,1E-2], 	True],
-					'inst_dust_prod': [r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$', [0,10], 		False],
-					   'source_frac': ['Source Mass Fraction', 							[1E-2,1E0], 	True],
-					     'spec_frac': ['Species Mass Fraction', 						[0,1], 			False],
-					          'Si/C': ['Sil-to-C Ratio', 								[0,1], 			False]
-					     }
-
+from config import *
 
 
 def calc_rotate_matrix(vec1, vec2):
@@ -151,57 +95,57 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			fH2_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
+			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r':
 		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'r25':
 		data = Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'nH':
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=True)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=Line_Styles[0], linewidth=Line_Widths[5], zorder=2)
+		axis.plot(dens_vals, DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=LINE_STYLES[0], linewidth=LINE_WIDTHS[5], zorder=2)
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=False)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
+		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=LINE_STYLES[1], linewidth=LINE_WIDTHS[5], zorder=2)
 	elif param == 'sigma_dust':
 		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'sigma_gas':
 		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 		if not goodSNR:
 			data = Chiang_20_DZ_vs_param(param, bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
 			for i, gal_name in enumerate(data.keys()):
 				sigma_vals = data[gal_name][0]; DZ = data[gal_name][1]
-				axis.scatter(sigma_vals, DZ, c=Marker_Colors[i], marker=Marker_Style[i], s=2, zorder=0, alpha=0.4)	
+				axis.scatter(sigma_vals, DZ, c=MARKER_COLORS[i], marker=MARKER_STYLES[i], s=2, zorder=0, alpha=0.4)	
 	elif param == 'sigma_H2':
 		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=Marker_Colors[i], fmt=Marker_Style[i], elinewidth=1, markersize=6,zorder=2)	
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'depletion':
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=Line_Styles[1], linewidth=Line_Widths[5], zorder=2)
+		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=LINE_STYLES[1], linewidth=LINE_WIDTHS[5], zorder=2)
 		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=Line_Styles[0], linewidth=Line_Widths[5], zorder=2)
+		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=LINE_STYLES[0], linewidth=LINE_WIDTHS[5], zorder=2)
 	elif param == 'sigma_Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print("D/Z vs Z observations have not been implemented yet")
@@ -305,17 +249,17 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
 		if include_obs:
-			axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
 		else:
-			axis.legend(loc=0, fontsize=Small_Font, frameon=False)
+			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
 
 	if time:
 		if cosmological:
 			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)
 		else:
 			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)	
 	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()	
@@ -590,17 +534,17 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
 		if include_obs:
-			axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
 		else:
-			axis.legend(loc=0, fontsize=Small_Font, frameon=False)	
+			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)	
 
 	if time:
 		if cosmological:
 			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes ,zorder=4)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes ,zorder=4)
 		else:
 			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)	
 	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()	
@@ -975,11 +919,11 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 					x, y = x + dx, y + dy
 			k+=1
 
-		axis.errorbar(pixel_num, mean_DZ[indices], yerr = np.abs(mean_DZ[indices]-np.transpose(std_DZ[indices])), c=colors[j], fmt=Marker_Style[0], elinewidth=1, markersize=2)
+		axis.errorbar(pixel_num, mean_DZ[indices], yerr = np.abs(mean_DZ[indices]-np.transpose(std_DZ[indices])), c=colors[j], fmt=MARKER_STYLE[0], elinewidth=1, markersize=2)
 		axis.plot(pixel_num, DZ_pixel[indices], label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
 		
 
-	axis.legend(loc=0, fontsize=Small_Font, frameon=False)
+	axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
 	plt.savefig(foutname)
 	plt.close()	
 
@@ -1121,22 +1065,22 @@ def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r
 		# Only need legend on first plot
 		if i == 0:
 			if include_obs:
-				axis.legend(loc=0, fontsize=Small_Font, frameon=False, ncol=2)
+				axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
 			else:
-				axis.legend(loc=0, fontsize=Small_Font, frameon=False)
+				axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
 
-		axis.text(.10, .40, elem, color="xkcd:black", fontsize = 2*Large_Font, ha = 'center', va = 'center', transform=axis.transAxes)
+		axis.text(.10, .40, elem, color="xkcd:black", fontsize = 2*LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 	plt.tight_layout()
 	plt.savefig(foutname)
 
 
 
-
+"""
 def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, log = False, \
 	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='inst_dust_prod.png', style='color', implementation='species', \
 	           t_ref_factors = None):
-	"""
+
 	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
 
 	Parameters
@@ -1157,7 +1101,7 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 	Returns
 	-------
 	None
-	"""
+
 
 	# Get plot stylization
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
@@ -1204,11 +1148,7 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 		T = T[in_galaxy]
 		M = G['m'][in_galaxy]
 
-		if depletion:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1]+G['dz'][:,0][in_galaxy])) / H_MASS
-		else:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-
+		dust_prod = calc_dust_acc(G,implementation=imp,, CNM_thresh=0.95, CO_frac=0.2, nano_iron=False, depletion=False)
 
 		if depletion:
 			DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
@@ -1266,7 +1206,7 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 			key_DZ = G['dz'][in_galaxy,key_elem]/G['z'][in_galaxy,key_elem]
 			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
 			key_in_dust = 1
-			dust_formulat_mass = atomic_mass[key_elem]
+			dust_formula_mass = atomic_mass[key_elem]
 			cond_dens = 7.86
 			key_num_dens = elem_num_dens[:,key_elem]
 			key_mass = atomic_mass[key_elem]
@@ -1318,6 +1258,135 @@ def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_l
 
 	plt.savefig(foutname)
 	plt.close()
+"""
+
+
+
+
+def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, log = False, \
+	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='dust_acc_diag.png', style='color', implementation='species', \
+	           t_ref_factors = None):
+	"""
+	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
+
+	Parameters
+	----------
+	params : array
+		List of parameters to plot diagnostics for (inst_dust_prod, growth_timescale, )
+	gas : array
+	    Array of snapshot gas data structure
+	header : array
+		Array of snapshot header structure
+	bin_nums: int
+		Number of bins to use
+	time : bool, optional
+		Print time in corner of plot (useful for movies)
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
+
+	for i,param in enumerate(params):
+		axis = axes[i]
+		if param == 'inst_dust_prod':
+			plt_set.setup_axis(axis, 'nH', param)
+		if param == 'g_timescale':
+			plt_set.setup_axis(axis, param, 'g_timescale_frac')
+
+
+		for j in range(len(gas)):
+
+			if isinstance(implementation, list):
+				imp = implementation[j]
+			else:
+				imp = implementation
+
+			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j];
+			if Lz_list != None:
+				Lz_hat = Lz_list[j]; disk_height = height_list[j];
+			else:
+				Lz_hat = None; disk_height = None;
+
+			coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
+			coords -= center
+			# Get only data of particles in sphere/disk since those are the ones we care about
+			# Also gives a nice speed-up
+			# Get paticles in disk
+			if Lz_hat != None:
+				zmag = np.dot(coords,Lz_hat)
+				r_z = np.zeros(np.shape(coords))
+				r_z[:,0] = zmag*Lz_hat[0]
+				r_z[:,1] = zmag*Lz_hat[1]
+				r_z[:,2] = zmag*Lz_hat[2]
+				r_s = np.subtract(coords,r_z)
+				smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
+				in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
+			# Get particles in sphere otherwise
+			else:
+				in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+
+
+			T = gas_temp.gas_temperature(G)
+			T = T[in_galaxy]
+			M = G['m'][in_galaxy]
+
+			if depletion:
+				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1]+G['dz'][:,0])) / H_MASS
+			else:
+				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1])) / H_MASS
+
+			if param == 'inst_dust_prod':
+				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False, depletion=False)
+				x_vals = dict.fromkeys(weight_vals.keys(), nH)
+			elif param == 'g_timescale':
+				if imp == 'species':
+					x_vals = calc_spec_acc_timescale(G, depletion=False, CNM_thresh=1.0, nano_iron=False)
+				else:
+					x_vals = calc_elem_acc_timescale(G)
+				for key in x_vals.keys(): 
+					x_vals[key]*=1E-9
+				weight_vals=dict.fromkeys(x_vals.keys(), np.full(len(nH),1./len(nH)))
+			else:
+				print('%s is not a valid parameter for dust_growth_diag()'%param)
+				return
+			lines = []
+			for k in range(len(labels)):
+				lines += [mlines.Line2D([], [], color=colors[k], label=labels[k])]
+
+			# Set up bins based on limits and scale of x axis
+			limits = axis.get_xlim()
+			scale_str = axis.get_xaxis().get_scale()
+			if scale_str == 'log':
+				bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
+			else:
+				bins = np.linspace(limits[0],limits[1],bin_nums)
+
+			for k,key in enumerate(sorted(weight_vals.keys())):
+				axis.hist(x_vals[key][in_galaxy], bins=bins, weights=weight_vals[key][in_galaxy], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
+				         linewidth=linewidths[0], linestyle=linestyles[k])
+				lines += [mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[k],label=key)]
+
+		# Want legend only on first plot
+			if i == 0:
+				axis.legend(handles=lines,loc=2, frameon=False)
+
+
+	plt.savefig(foutname)
+	plt.close()
+
+
+
 
 
 
@@ -1402,11 +1471,11 @@ def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None,
 			plt.imshow(ret.statistic.T, origin='bottom', cmap=plt.get_cmap(thecmap), vmin=vmin, vmax=vmax, extent=[np.log10(nHmin),np.log10(nHmax),np.log10(Tmin),np.log10(Tmax)])
 			#plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), weights=weight, vmin=vmin, vmax=vmax) 
 		cbar = plt.colorbar()
-		cbar.ax.set_ylabel(bar_label, fontsize=Large_Font)
+		cbar.ax.set_ylabel(bar_label, fontsize=LARGE_FONT)
 
 
-		plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$', fontsize=Large_Font) 
-		plt.ylabel(r'log T (K)', fontsize=Large_Font)
+		plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$', fontsize=LARGE_FONT) 
+		plt.ylabel(r'log T (K)', fontsize=LARGE_FONT)
 		plt.tight_layout()
 		if time:
 			if cosmological:
@@ -1571,24 +1640,24 @@ def dust_data_vs_time(params, param_lims, implementation='species', datanames=['
 			# Check if parameter has subparameters
 			if param_labels == None:
 				mean_vals = data[param_id][:,0]; std_vals = data[param_id][:,1:];
-				axis.plot(time_data, mean_vals, color='xkcd:black', linestyle=Line_Styles[j], label=labels[j], zorder=3)
+				axis.plot(time_data, mean_vals, color='xkcd:black', linestyle=LINE_STYLES[j], label=labels[j], zorder=3)
 				if std_bars:
 					axis.fill_between(time_data, std_vals[:,0], std_DZ[:,1], alpha = 0.3, color='xkcd:black', zorder=1)
 			else:
 				mean_vals = data[param_id][:,:,0]; std_vals = data[param_id][:,:,1:];
 				for k in range(np.shape(mean_vals)[1]):
-					axis.plot(time_data, mean_vals[:,k], color=Line_Colors[k], linestyle=Line_Styles[j], zorder=3)
+					axis.plot(time_data, mean_vals[:,k], color=LINE_COLORS[k], linestyle=LINE_STYLES[j], zorder=3)
 					if std_bars:
-						axis.fill_between(time_data, std_vals[:,k,0], std_DZ[:,k,1], alpha = 0.3, color=Line_Colors[k], zorder=1)
+						axis.fill_between(time_data, std_vals[:,k,0], std_DZ[:,k,1], alpha = 0.3, color=LINE_COLORS[k], zorder=1)
 		# Only need to label the seperate simulations in the first plot
 		if i==0 and len(datanames)>1:
-			axis.legend(loc=0, frameon=False, fontsize=Small_Font)
+			axis.legend(loc=0, frameon=False, fontsize=SMALL_FONT)
 		# If there are subparameters need to make their own legend
 		if param_labels != None:
 			param_lines = []
 			for j, label in enumerate(param_labels):
-				param_lines += [mlines.Line2D([], [], color=Line_Colors[j], label=label)]
-			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=Small_Font)
+				param_lines += [mlines.Line2D([], [], color=LINE_COLORS[j], label=label)]
+			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=SMALL_FONT)
 		if log:
 			axis.set_xlim(time_data[1],time_data[-1])
 	plt.tight_layout()
@@ -1755,7 +1824,7 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 
 			for j in range(4):
 				source_frac[i,j] = weighted_percentile(G['dzs'][:,j], weights=M)
-				source_frac[i,j][source_frac[i,j]==0] = small_num
+				source_frac[i,j][source_frac[i,j]==0] = EPSILON
 
 
 			if implementation == 'species':
@@ -1764,36 +1833,36 @@ def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=F
 					spec_frac_vals = G['spec'][:,j]/G['dz'][:,0]
 					is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 					spec_frac[i,j] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-					spec_frac[i,j][spec_frac[i,j]==0] = small_num
+					spec_frac[i,j][spec_frac[i,j]==0] = EPSILON
 
 				sil_to_C_vals = G['spec'][:,0]/G['spec'][:,1]
 				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
 				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
-				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = small_num
+				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = EPSILON
 
 			elif implementation == 'elemental':
 				# Need to mask nan and inf values for average to work
 				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 				spec_frac[i,0] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-				spec_frac[i,0][spec_frac[i,0]==0] = small_num
+				spec_frac[i,0][spec_frac[i,0]==0] = EPSILON
 
 				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
 				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
 				spec_frac[i,1] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-				spec_frac[i,1][spec_frac[i,1]==0] = small_num
+				spec_frac[i,1][spec_frac[i,1]==0] = EPSILON
 
 				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
 				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
 				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
-				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = small_num
+				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = EPSILON
 
 			if depletion:
 				DZ_vals = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
 			else:
 				DZ_vals = G['dz'][:,0]/G['z'][:,0]
 			DZ_ratio[i] = weighted_percentile(DZ_vals, weights=M)
-			DZ_ratio[i][DZ_ratio[i]==0] = small_num
+			DZ_ratio[i][DZ_ratio[i]==0] = EPSILON
 
 			# Calculate SFR as all stars born within the last 100 Myrs
 			if S['k']!=-1:
@@ -1903,17 +1972,17 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 		if i == 0:
 			y_arrow = 1E-5
 			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=Large_Font, color='xkcd:grey')
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=LARGE_FONT, color='xkcd:grey')
 			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/2), xycoords="data", xytext=(0.2*transition_age, y_arrow/2), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=Large_Font, color='xkcd:grey')
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=LARGE_FONT, color='xkcd:grey')
 			# Make legend
 			lines = []
 			for j in range(len(Z_list)):
 				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
 			lines += [mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[1],label='Species')]
-			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=Small_Font)
+			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=SMALL_FONT)
 		#  Add label for dust species
-		axis.text(.95, .05, name, color="xkcd:black", fontsize = Large_Font, ha = 'right', transform=axis.transAxes)
+		axis.text(.95, .05, name, color="xkcd:black", fontsize = LARGE_FONT, ha = 'right', transform=axis.transAxes)
 
 		for j,Z in enumerate(Z_list):
 			name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'

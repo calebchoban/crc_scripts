@@ -37,11 +37,17 @@ t_ref_factors = [1,1]
 
 snap_dirs = []
 main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
-names = ['fiducial_model','extra_O']
+names = ['extra_O']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
-labels = ['Spec. Fiducial','Spec. w/ O']
+labels = ['Spec. w/ O']
 
-implementations = ['species','species']
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Elemental/'
+names = ['fiducial_model']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels += ['Elem. Fiducial']
+
+
+implementations = ['species','elemental']
 t_ref_factors = [1,1]
 
 
@@ -119,6 +125,10 @@ for i, num in enumerate(snaps):
 		disk_heights += [disk_height]
 		Lz_hats += [Lz_hat]
 
+
+	inst_dust_prod(['inst_dust_prod','g_timescale'], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
+           cosmological=cosmological, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False, t_ref_factors=t_ref_factors)
+	exit()
 	elems = ['Mg','Si']
 	elem_depletion_vs_dens(elems, Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
 			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \

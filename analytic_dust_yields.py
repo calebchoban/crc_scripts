@@ -1,5 +1,6 @@
 import numpy as np
-
+from config import *
+import gas_temperature as gas_temp
 
 # Theoretical dust yields for all sources of creation
 
@@ -622,3 +623,336 @@ def specDustAccretionEvolution(temp, dens, initial_frac, metallicity, time_step,
 		time[i+1] += time_step + time[i]
 
 	return dust_frac, time
+
+
+
+
+
+
+# Calculates the  Elemental gas-dust accretion timescale in years for all gas particles in the given snapshot gas particle structure
+def calc_elem_acc_timescale(G, t_ref_factor=1.):
+
+	t_ref = 0.2E9*t_ref_factor 	# yr
+	T_ref = 20					# K
+	dens_ref = H_MASS		   	# g cm^-3
+	T = gas_temp.gas_temperature(G)
+	dens = G['rho']*UnitDensity_in_cgs
+	growth_time = t_ref * (dens_ref/dens) * np.power(T_ref/T,0.5)
+
+	timescales = dict.fromkeys(['Silicates', 'Carbon', 'Iron'], None) 
+	timescales['Silicates'] = np.copy(growth_time)
+	timescales['Carbon'] = np.copy(growth_time)
+	timescales['Iron'] = np.zeros(len(growth_time))
+
+	return timescales
+
+# Calculates the key element for silicates for the Species implementation
+def calc_spec_key_elem(G):
+	atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+	elem_num_dens = np.multiply(G['z'][:,:len(atomic_mass)], G['rho'][:, np.newaxis]*UnitDensity_in_cgs) / (atomic_mass*H_MASS)
+	sil_elems_index = np.array([4,6,7,10]) # O,Mg,Si,Fe
+	# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
+	# with olivine fraction of 0.32 and Mg fraction of 0.8
+	sil_num_atoms = np.array([3.63077,1.06,1.,0.570769]) # O, Mg, Si, Fe
+
+	sil_num_dens = elem_num_dens[:,sil_elems_index] 
+	# Find element with lowest number density factoring in number of atoms needed to make one formula unit of the dust species
+	key = np.argmin(sil_num_dens / sil_num_atoms, axis = 1)
+	key_num_dens = sil_num_dens[range(sil_num_dens.shape[0]),key]
+	key_elem = sil_elems_index[key]
+	key_in_dust = sil_num_atoms[key]
+
+	return key_elem, key_num_dens, key_in_dust
+
+
+
+# Calculates the Species gas-dust accretion timescale in years for all gas particles in the given snapshot gas particle structure
+def calc_spec_acc_timescale(G, depletion=False, CNM_thresh=0.95, nano_iron=False):
+
+	T_ref = 300 		# K
+	nM_ref = 1E-2   	# reference number density for metals in 1 H cm^-3
+	ref_cond_dens = 3	# reference condensed dust species density g cm^-3
+	T_cut = 300 		# K cutoff temperature for step func. sticking efficiency
+	iron_incl = 0.7		# when using nan_iron, fraction of iron hidden in silicate dust and not available for acc.
+
+	T = gas_temp.gas_temperature(G)
+	fH2 = calc_fH2(G)
+
+	timescales = dict.fromkeys(['Silicates', 'Carbon', 'Iron'], None) 
+
+	###############
+    ## SILICATES 
+    ###############
+	t_ref = np.zeros(len(T))
+	t_ref[fH2<CNM_thresh] = 4.4E6
+	t_ref[fH2>=CNM_thresh] = 23.9E6
+
+	dust_formula_mass = 0.0
+	atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+	elem_num_dens = np.multiply(G['z'][:,:len(atomic_mass)], G['rho'][:, np.newaxis]*UnitDensity_in_cgs) / (atomic_mass*H_MASS)
+	sil_elems_index = np.array([4,6,7,10]) # O,Mg,Si,Fe
+	# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
+	# with olivine fraction of 0.32 and Mg fraction of 0.8
+	sil_num_atoms = np.array([3.63077,1.06,1.,0.570769]) # O, Mg, Si, Fe
+
+
+	for k in range(4): dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]];
+
+	key_elem, key_num_dens,key_in_dust = calc_spec_key_elem(G)
+	key_mass = atomic_mass[key_elem]
+	cond_dens = 3.13
+	growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/ref_cond_dens) * (nM_ref/key_num_dens) * np.power(T_ref/T,0.5) 
+	# Now get silicate dust species timescale from key element timescale
+	#growth_time *= key_in_dust*key_mass/dust_formula_mass
+
+	growth_time[T>T_cut] = np.inf
+	timescales['Silicates'] = np.copy(growth_time)
+
+	###############
+    ## CARBONACOUS 
+    ###############
+	t_ref = np.zeros(len(T))
+	t_ref[fH2<CNM_thresh] = 26.7E6
+	t_ref[fH2>=CNM_thresh] = 23.9E6
+
+	key_elem = 2
+	key_in_dust = 1
+	key_mass = atomic_mass[key_elem]
+	dust_formula_mass = key_mass
+	cond_dens = 2.25
+	key_num_dens = elem_num_dens[:,key_elem]
+	growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/ref_cond_dens) * (nM_ref/key_num_dens) * np.power(T_ref/T,0.5)
+	growth_time[T>T_cut] = np.inf
+	timescales['Carbon'] = np.copy(growth_time)
+
+	###############
+    ## IRON 
+    ###############
+	t_ref = np.zeros(len(T))
+	if nano_iron:
+		t_ref[fH2<CNM_thresh] = 0.029E6
+		t_ref[fH2>=CNM_thresh] = 2.42E6
+	else:
+		t_ref[fH2<CNM_thresh] = 4.4E6
+		t_ref[fH2>=CNM_thresh] = 23.9E6
+
+	key_elem = 10
+	key_in_dust = 1
+	dust_formula_mass = atomic_mass[key_elem]
+	cond_dens = 7.86
+	key_num_dens = elem_num_dens[:,key_elem]
+	key_mass = atomic_mass[key_elem]
+	growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/ref_cond_dens) * (nM_ref/key_num_dens) * np.power(T_ref/T,0.5)
+	growth_time[T>T_cut] = np.inf
+	timescales['Iron'] = np.copy(growth_time)
+
+	return timescales
+
+
+
+def calc_fH2(G):
+	# Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
+	Z = G['z'][:,0] #metal mass (everything not H, He)
+	# dust mean mass per H nucleus
+	mu_H = 2.3E-24# grams
+	# standard effective number of particle kernel neighbors defined in parameters file
+	N_ngb = 32.
+	# Gas softening length
+	hsml = G['h']*UnitLength_in_cm
+	density = G['rho']*UnitDensity_in_cgs
+
+	sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
+
+	#  dust optical depth 
+	tau = np.multiply(sobColDens,Z*1E-21/SOLAR_Z)/mu_H
+	tau[tau==0]=EPSILON #avoid divide by 0
+
+	chi = 3.1 * (1+3.1*np.power(Z/SOLAR_Z,0.365)) / 4.1 # Approximation
+
+	s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6 *tau) )
+	s[s==-4.] = -4.+EPSILON # Avoid divide by zero
+	fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
+	fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0
+
+	return fH2
+
+
+
+# Calculates the instantaneous dust production from accertion for the given snapshot gas particle structure
+def calc_dust_acc(G, implementation='species', CNM_thresh=0.95, CO_frac=0.2, nano_iron=False, depletion=False):
+
+	iron_incl = 0.7
+
+	atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+	sil_elems_index = np.array([4,6,7,10])
+	# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
+	# with olivine fraction of 0.32 and Mg fraction of 0.8
+	sil_num_atoms = np.array([3.63077,1.06,1.,0.570769]) # O, Mg, Si, Fe
+
+	M = G['m']
+	fH2 = calc_fH2(G)
+	C_in_CO = np.zeros(len(M))
+	C_in_CO[fH2>=CNM_thresh] = CO_frac
+
+	O_in_CO = np.zeros(len(M))
+	# Special case where you put the rest of C into CO
+	if CO_frac == 1.:
+		O_in_CO[fH2>=CNM_thresh] = (G['z'][fH2>=CNM_thresh,2]-G['dz'][:,2]) * atomic_mass[4] / atomic_mass[2] / G['z'][fH2>=CNM_thresh,4]
+	else:
+		O_in_CO[fH2>=CNM_thresh] = CO_frac * G['z'][fH2>=CNM_thresh,2] * atomic_mass[4] / atomic_mass[2] / G['z'][fH2>=CNM_thresh,4]
+
+	# Needed to select arbitrary elements from each row for 2D numpy arrays
+	farg = np.arange(len(G['m']))
+
+	if implementation == 'elemental':
+		timescales = calc_elem_acc_timescale(G)
+		growth_timescale = timescales['Silicates']
+		if depletion:
+			sil_DZ = G['dz'][:,[4,6,7,10]]/(G['dz'][:,[4,6,7,10]]+G['z'][:,[4,6,7,10]])
+		else:
+			sil_DZ = G['dz'][:,[4,6,7,10]]/G['z'][:,[4,6,7,10]]
+		# Account for O locked in CO which reduced the max amount of O in dust
+		sil_DZ[:,0] = np.multiply(sil_DZ[:,0], 1./(1.-O_in_CO))
+		sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = 1.
+		sil_dust_mass = np.multiply(G['dz'][:,[4,6,7,10]],M[:,np.newaxis]*1E10)
+
+		sil_dust_prod = np.sum((1.-sil_DZ)*sil_dust_mass/growth_timescale[:,np.newaxis],axis=1)
+		
+
+		growth_timescale = timescales['Carbon']
+		if depletion:
+			C_DZ = G['dz'][:,2]/((1-C_in_CO)*(G['z'][:,2]+G['dz'][:,2]))
+		else:
+			C_DZ = G['dz'][:,2]/((1-C_in_CO)*G['z'][:,2])
+		C_dust_mass = G['dz'][:,2]*M*1E10
+		carbon_dust_prod = (1.-C_DZ)*C_dust_mass/growth_timescale
+		carbon_dust_prod[np.logical_or(C_DZ <= 0,C_DZ >= 1)] = 0.
+
+		iron_dust_prod = np.zeros(len(sil_dust_prod))
+
+		O_dust_prod = np.zeros(len(sil_dust_prod))
+
+	else:
+		timescales = calc_spec_acc_timescale(G, depletion=depletion, CNM_thresh=CNM_thresh, nano_iron=nano_iron)
+		####################
+		## SILICATES 
+		####################
+		growth_timescale = timescales['Silicates']
+		key_elem, key_num_dens, key_in_dust = calc_spec_key_elem(G)
+
+		sil_dust_formula_mass = 0.0
+		for k in range(4): sil_dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]];
+
+		if depletion:
+			key_DZ = G['dz'][farg,key_elem]/(G['z'][farg,key_elem]+G['dz'][farg,key_elem])
+		else:
+			key_DZ = G['dz'][farg,key_elem]/G['z'][farg,key_elem]
+		# Deal with nan data
+		key_DZ[np.isnan(key_DZ)] = 0.
+
+		key_M_dust = G['dz'][farg,key_elem]*M*1E10
+		sil_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
+		sil_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+		sil_dust_prod /= key_in_dust*atomic_mass[key_elem]/sil_dust_formula_mass
+
+		####################
+		## CARBONACOUS 
+		####################
+		growth_timescale = timescales['Carbon']
+		key_elem = 2
+		if depletion:
+			key_DZ = G['dz'][:,key_elem]/((1-C_in_CO)*(G['z'][:,key_elem]+G['dz'][:,key_elem]))
+		else:
+			key_DZ = G['dz'][:,key_elem]/((1-C_in_CO)*G['z'][:,key_elem])
+		# Deal with nan data
+		key_DZ[np.isnan(key_DZ)] = 0.
+
+		key_M_dust = G['dz'][:,key_elem]*M*1E10
+		carbon_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
+		carbon_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+
+
+		####################
+		## IRON 
+		####################
+		growth_timescale = timescales['Iron']
+		key_elem = 10
+		if depletion:
+			key_DZ = G['dz'][:,key_elem]/(G['z'][:,key_elem]+G['dz'][:,key_elem])
+		else:
+			key_DZ = G['dz'][:,key_elem]/G['z'][:,key_elem]
+		# Deal with nan data
+		key_DZ[np.isnan(key_DZ)] = 0.
+
+		key_M_dust = G['dz'][:,key_elem]*M*1E10
+		# If nanoparticle iron dust need to account for amount of iron locked in silicate grains
+		# and unavailable for accretion
+		if nano_iron:
+			key_M_dust *= 1.- iron_incl
+		iron_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
+		iron_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
+
+
+		####################
+		## OXYGEN RESERVOIR 
+		####################
+		# Check if sim was run with optional O reservoir
+		# TODO : Try and implement a meaningful O reservoir dust production rate
+		"""
+		if np.shape(G['spec'])[1] > 4:
+			if depletion:
+				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1]+G['dz'][:,0])) / H_MASS
+			else:
+				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1])) / H_MASS
+				nH = G['rho']*UnitDensity_in_cgs * 0.76 / H_MASS
+			# expected fractional O depletion
+			D_O = 1. - 0.65441 / np.power(nH,0.103725)
+			D_O[D_O<0] = 0
+			key_elem = timescales['silicates'][1].astype(int)
+			key_mass = atomic_mass[key_elem]
+			atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+			num_atoms = np.array([0,0,0,0,3.63077,0,1.06,1.,0,0,0.570769]) # num atoms in sil
+			key_num_atoms = num_atoms[key_elem]
+
+			# fraction of maximum possible silicate dust present
+			if depletion:
+				frac_of_sil = G['spec'][:,0] / ((G['z'][farg,key_elem]+G['dz'][farg,key_elem]) * sil_dust_formula_mass/(key_num_atoms * key_mass))
+				max_O_in_sil = (G['z'][farg,key_elem]+G['dz'][farg,key_elem]) * ((sil_num_atoms[0] * atomic_mass[4])/(key_num_atoms * key_mass));
+				extra_O = frac_of_sil * D_O * (G['z'][:,4]+G['dz'][:,4]) - max_O_in_sil - G['spec'][:,4];
+			else:
+				frac_of_sil = (G['spec'][:,0]) / ((G['z'][farg,key_elem]) * sil_dust_formula_mass/(key_num_atoms * key_mass))
+				max_O_in_sil = G['z'][farg,key_elem] * ((sil_num_atoms[0] * atomic_mass[4])/(key_num_atoms * key_mass));
+				extra_O = frac_of_sil * D_O * G['z'][:,4] - max_O_in_sil - G['spec'][:,4];
+				#extra_O *= M*1E10
+
+			print(np.unique(key_elem))
+
+			mask = extra_O > 0.
+			mask = nH > 10
+			print('n_H = ', nH[mask])
+			print('Z_O = ',G['z'][:,4][mask])
+			print('f_sil = ',frac_of_sil[mask])
+			print('f_(max O in sil) =' ,max_O_in_sil[mask]/G['z'][:,4][mask])
+			print('D_O = ',D_O[mask])
+			print('f_(O res) = ', G['spec'][:,4][mask]/G['z'][:,4][mask])
+			print(frac_of_sil[mask] * D_O[mask])
+			print(extra_O[mask])
+
+			print 1.*len(extra_O[extra_O > 0])/len(extra_O)
+
+			extra_O[extra_O < 0] = 0
+			extra_O[sil_dust_prod <= 0] = 0
+			# If needed O depletion can't be attributed to silicate dust and what's already in the oxygen reservoir throw more oxygen into the reservoir
+			O_dust_prod = extra_O
+
+			print(np.sum(extra_O))
+
+		else:
+			O_dust_prod = np.zeros(len(sil_dust_prod))
+
+
+	dust_prod = {'Silicates':sil_dust_prod,'Carbon':carbon_dust_prod,'Iron':iron_dust_prod,'O Reservoir':O_dust_prod}
+		"""
+
+	dust_prod = {'Silicates':sil_dust_prod,'Carbon':carbon_dust_prod,'Iron':iron_dust_prod}
+	return dust_prod

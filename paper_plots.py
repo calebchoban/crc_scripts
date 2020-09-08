@@ -191,8 +191,7 @@ names = ['fiducial_model','decreased_acc']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
 labels += ['Elemental', 'Elemental Low Acc.']
 
-implementations = ['species','elemental']
-t_ref_factors = [1,1]
+implementations = ['species','species','elemental','elemental']
 
 image_dir = './non_cosmo_species_images/'
 sub_dir = 'compare_snapshots/' # subdirectory 
@@ -292,3 +291,6 @@ for i, num in enumerate(snaps):
 	elem_depletion_vs_param(elems, 'fH2', [0,1], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
 			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
 			foutname='obs_elemental_dep_vs_fH2.pdf', std_bars=True, style='color', log=True, include_obs=True)
+
+	dust_acc_diag(['inst_dust_prod','g_timescale'], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
+           cosmological=False, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False)
