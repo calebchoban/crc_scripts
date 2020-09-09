@@ -136,10 +136,6 @@ class Particle:
 
         # construct the final dictionary
         p *= (ascale*hinv)
-        # Fix coordinates for non-cosmological sims run in periodic box
-        if not sp.cosmological:
-            mask1 = p > sp.boxsize/2; mask2 = p <= sp.boxsize/2
-            p[mask1] -= sp.boxsize/2; p[mask2] += sp.boxsize/2;
         v *= np.sqrt(ascale)
         m *= hinv
         self.k = 1
@@ -177,5 +173,60 @@ class Particle:
                 self.age = utils.get_stellar_ages(sft, sp=sp)
             if (sp.Flag_Metals):
                 self.z = z
+
+        return
+        
+
+    # Reduce the particle data to only the masked particles
+    def mask(self, mask):
+        self.p = self.p[mask]
+        self.v = self.v[mask]
+        self.m = self.m[mask]
+        self.npart = len(self.m)
+        self.id = self.id[mask]
+
+        if (ptype==0):
+            self.u = self.u[mask]
+            self.rho = self.rho[mask]
+            if (sp.Flag_Cooling):
+                self.T = self.T[mask]
+                self.ne = self.ne[mask]
+                self.nh = self.nh[mask]
+            if (sp.Flag_Metals):
+                self.z = self.z[mask]
+            if (sp.Flag_DustMetals):
+                self.dz = self.dz[mask]
+                self.dzs = self.dzs[mask]
+            if (sp.Flag_DustSpecies):
+                self.spec = self.spec[mask]
+            if (sp.Flag_Sfr):
+                self.sfr = self.sfr[mask]
+    
+        if (ptype==4):
+            if (sp.Flag_StellarAge):
+                if (sp.cosmological==0):
+                self.sft = self.sft[mask]
+                self.age = self.age[mask]
+            if (sp.Flag_Metals):
+                self.z = self.z[mask]
+
+        return
+
+
+    # Rotates particle fields given the rotation matrix
+    def rotate(self, rotation_matrix):
+        self.p = np.dot(self.p,rotation_matrix)
+        self.v = np.dot(self.v,rotation_matrix)
+
+        return
+
+
+    # Fixes coordinate issue for non-cosmological periodic BCs
+    def pb_fix(self):
+        p = self.p       
+        boxsize = self.boxsize
+        mask1 = p > sp.boxsize/2; mask2 = p <= sp.boxsize/2
+        p[mask1] -= sp.boxsize/2; p[mask2] += sp.boxsize/2;
+        self.p = p
 
         return

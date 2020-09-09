@@ -24,7 +24,7 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 BoltzMann_ergs              = 1.3806e-16
 H_MASS 						= 1.67E-24 # grams
-
+SOLAR_Z						= 0.02
 EPSILON						= 1E-7 # small number to avoid zeros
 
 

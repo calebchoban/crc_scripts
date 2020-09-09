@@ -51,6 +51,7 @@ class AHF:
             Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,44,64,), unpack=True)
             Xc, Yc, Zc, Rvir, Rmax = ascale*hinv*np.loadtxt(hfile, usecols=(5,6,7,11,12,), unpack=True)
             Vmax = np.loadtxt(hfile, usecols=(16,), unpack=True) # velocity in km/s
+            Lx, Ly, Lz = np.loadtxt(hfile, usecols=(23,24,25,), unpack=True)
             fMhires = np.loadtxt(hfile, usecols=(37,), unpack=True)
         
         else:
@@ -59,6 +60,7 @@ class AHF:
             Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,53,73,), unpack=True)
             Xc, Yc, Zc, Rvir, Rmax = ascale*hinv*np.loadtxt(hfile, usecols=(5,6,7,11,12,), unpack=True)
             Vmax = np.loadtxt(hfile, usecols=(16,), unpack=True) # velocity in km/s
+            Lx, Ly, Lz = np.loadtxt(hfile, usecols=(23,24,25,), unpack=True)
             fMhires = np.loadtxt(hfile, usecols=(37,), unpack=True)
 
         # now write to class
@@ -80,6 +82,8 @@ class AHF:
         self.Rmax = Rmax
         self.Vmax = Vmax
         self.fMhires = fMhires
+        self.Lhat = [Lx,Ly,Lz]
+
 
         return
 

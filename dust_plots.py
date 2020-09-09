@@ -137,8 +137,9 @@ def plot_observational_data(axis, param, log=True):
 
 
 
-def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=50, time=False, depletion=False, \
-	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True):
+def DZ_vs_params(params, param_lims, galaxies, bin_nums=50, time=None, depletion=False, \
+	            labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', \
+	            log=True, include_obs=True):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
 
@@ -148,22 +149,12 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		Array of parameters to plot D/Z against (fH2, nH, Z, r)
 	param_lims: array
 		Limits for each parameter given in params
-	gas : array
-	    Array of snapshot gas data structures
-	header : array
-		Array of snapshot header structures
-	center_list : array
-		array of 3-D coordinate of center of circles
-	r_max_list : array
-		array of maximum radii
-	Lz_list : array
-		List of Lz unit vectors if selecting particles in disk
-	height_list : array
-		List of disk heights if applicable
+	galaxies : array
+	    Array of galaxies to plot
 	bin_nums : int
 		Number of bins to use
-	time : bool
-		Print time in corner of plot (useful for movies)
+	time : double
+		Print given time in corner of plot (useful for movies)
 	depletion: bool, optional
 		Was the simulation run with the DEPLETION option
 	cosmological : bool
@@ -186,18 +177,18 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 	None
 	"""	
 
-	if len(gas) == 1:
-		linewidths = np.full(len(gas),2)
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
+	if len(galaxies) == 1:
+		linewidths = np.full(len(galaxies),2)
+		colors = ['xkcd:black' for i in range(len(galaxies))]
+		linestyles = ['-' for i in range(len(galaxies))]
 	elif style == 'color':
-		linewidths = np.full(len(gas),2)
+		linewidths = np.full(len(galaxies),2)
 		colors = Line_Colors
 		linestyles = Line_Styles
 	elif style == 'size':
 		linewidths = Line_Widths
-		colors = ['xkcd:black' for i in range(len(gas))]
-		linestyles = ['-' for i in range(len(gas))]
+		colors = ['xkcd:black' for i in range(len(galaxies))]
+		linestyles = ['-' for i in range(len(galaxies))]
 	else:
 		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' are supported.")
 		return
@@ -240,14 +231,9 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		if include_obs:
 			plot_observational_data(axis, param, log=log)
 
-		for j in range(len(gas)):
-			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
-			if Lz_list != None:
-				Lz_hat = Lz_list[j]; disk_height = height_list[j];
-			else:
-				Lz_hat = None; disk_height = None;
-
-			mean_DZ,std_DZ,param_vals = calc_DZ_vs_param(param, param_lim, G, center, r_max, Lz_hat=Lz_hat, disk_height=disk_height, depletion=depletion)
+		for galaxy in galaxies:
+			G = galaxy.gas
+			mean_DZ,std_DZ,param_vals = calc_DZ_vs_param(param, param_lim, G, depletion=depletion)
 			# Replace zeros with small values since we are taking the log of the values
 			if log:
 				std_DZ[std_DZ == 0] = EPSILON
@@ -263,13 +249,11 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 
 		axis.legend(loc=0, fontsize=Small_Font, frameon=False)
 
-	if time:
+	if time != None:
 		if cosmological:
-			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)
+			axes[0].text(.05, .95, 'z = ' + '%.2g' % str(time), color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)
 		else:
-			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)		
+			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % str(time), color="xkcd:black", fontsize = Large_Font, ha = 'left', transform=axes[0].transAxes)		
 	plt.savefig(foutname)
 	plt.close()	
 

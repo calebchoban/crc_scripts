@@ -8,13 +8,19 @@ from galaxy import Halo
 
 class Snapshot:
 
-    def __init__(self, sdir, snum, cosmological=0):
+    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False):
         
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological
         self.nsnap = self.check_snap_exist()
         self.k = -1 if self.nsnap==0 else 1
+
+        # In case the sim was non-cosmological and used periodic BC which causes
+        # galaxy to be split between the 4 corners of the box
+        self.pb_fix = False
+        if periodic_bound_fix and cosmological==0:
+            self.pb_fix=True
         
         # initialize particle types
         self.header = Header(self)
@@ -69,6 +75,8 @@ class Snapshot:
 
         part = self.header if header_only else self.part[ptype]
         part.load()
+        if self.pb_fix:
+            part.pb_fix()
 
         return part
     
@@ -115,17 +123,6 @@ class Snapshot:
         AHF.load(hdir=hdir)
 
         return AHF
-    
-    
-    def runAHF(self, AHFDir=None):
-        
-        # non-cosmological snapshots do not have AHF attribute
-        if (self.cosmological==0): return
-        
-        AHF = self.AHF
-        AHF.runAHF(AHFDir=AHFDir)
-    
-        return
     
 
     def loadhalo(self, id=-1, mode='AHF', hdir=None, nclip=1000):
