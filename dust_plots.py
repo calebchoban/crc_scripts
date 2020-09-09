@@ -165,22 +165,12 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
 	param_lims: array
 		Limits for each parameter given in params
-	gas : array
-	    Array of snapshot gas data structures
-	header : array
-		Array of snapshot header structures
-	center_list : array
-		array of 3-D coordinate of center of circles
-	r_max_list : array
-		array of maximum radii
-	Lz_list : array
-		List of Lz unit vectors if selecting particles in disk
-	height_list : array
-		List of disk heights if applicable
+	galaxies : array
+	    Array of galaxies to plot
 	bin_nums : int
 		Number of bins to use
-	time : bool
-		Print time in corner of plot (useful for movies)
+	time : double
+		Print given time in corner of plot (useful for movies)
 	depletion: bool, optional
 		Was the simulation run with the DEPLETION option
 	cosmological : bool
@@ -253,7 +243,7 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		else:
 			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
 
-	if time:
+	if time != None:
 		if cosmological:
 			z = H['redshift']
 			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)

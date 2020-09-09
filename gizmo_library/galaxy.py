@@ -74,6 +74,7 @@ class Halo:
                 self.rmax = AHF.Rmax[self.id]
                 self.vmax = AHF.Vmax[self.id]
                 self.fhi = AHF.fMhires[self.id]
+                self.Lhat = AHF.Lhat[self.id]
 
             # no catalog
             else:
@@ -84,11 +85,11 @@ class Halo:
                 self.yc = sp.boxsize/2.
                 self.zc = sp.boxsize/2.
                 self.rvir = sp.boxsize*2.
+                self.Lhat = np.array([0,0,1.])
     
         return
 
-
-    # load particle for the snapshot
+    # load all particles from the snapshot
     def loadpart(self, ptype, header_only=0):
 
         part = self.header if header_only==1 else self.part[ptype]
@@ -105,7 +106,31 @@ class Halo:
     
         return PartID, PType
     
-    
+    # centers the particles for the given viewing angle
+    def centerpart(ptype, view='faceon'):
+        Lz_hat = np.array([0.,0.,1.])
+        Ly_hat = np.array([0.,1.,0.])
+        Lhat = self.Lhat
+        if view == 'faceon':
+            rot_matrix = utils.calc_rotate_matrix(Lz_hat,Lhat)
+            sp.rotate_coords(rot_matrix)
+        elif view == 'edgeon':
+            rot_matrix = utils.calc_rotate_matrix(Lz_hat,Lhat)
+            sp.rotate_coords(rot_matrix)
+            rot_matrix = utils.calc_rotate_matrix(Lz_hat,Ly_hat)
+            sp.rotate_coords(rot_matrix)
+        elif view == 'random':
+            L_rand = np.random.rand(3)
+            L_rand = L_rand / np.linalg.norm(L_rand)
+            rot_matrix = utils.calc_rotate_matrix(L_rand,Lhat)
+            sp.rotate_coords(rot_matrix)
+
+        self.Lhat = Lz_hat
+
+
+        return
+
+
     # this calls my own visual module
     def viewpart(self, ptype, field='None', method='simple', **kwargs):
 
