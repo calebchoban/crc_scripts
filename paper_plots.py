@@ -1,10 +1,22 @@
-from readsnap import readsnap
-from dust_plots import *
-from astropy.table import Table
+
 import os
 import subprocess
+from gizmo_library.time_evolution import Dust_Evo
+from gizmo import *
+from dust_plots import *
 
 
+# First setup directory for all the plots
+
+plot_dir = './dust_plots/'
+
+# First create ouput directory if needed
+try:
+    # Create target Directory
+    os.mkdir(plot_dir)
+    print "Directory " + plot_dir +  " Created " 
+except:
+    print "Directory " + plot_dir +  " already exists"
 
 
 ###############################################################################
@@ -12,41 +24,27 @@ import subprocess
 ###############################################################################
 
 Z_list = [1,0.008/0.02,0.001/0.02]
-data_dirc = './dust_yields'
+data_dirc = './analytic_dust_yields/'
 dust_species = ['carbon','silicates+']
-compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753)
+compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753, foutname=plot_dir+'creation_routine_compare.pdf')
 
 ###############################################################################
 # Plot D/Z evolution over time
 ###############################################################################
 
-image_dir = './non_cosmo_images/'
-sub_dir = 'time_evolution/' # subdirectory 
-
-# First create ouput directory if needed
-try:
-    # Create target Directory
-    os.mkdir(image_dir)
-    print "Directory " + image_dir +  " Created " 
-except:
-    print "Directory " + image_dir +  " already exists"
-try:
-    # Create target Directory
-    os.mkdir(image_dir + sub_dir)
-    print "Directory " + image_dir + sub_dir + " Created " 
-except:
-    print "Directory " + image_dir + sub_dir + " already exists"
-
+# Here is the all the main parameteres for the D/Z evolution plots
 
 # First and last snapshot numbers
 startnum = 0
-endnum = 380
+endnum = 300
+snap_lims = [startnum,endnum]
 
 # Maximum radius used for getting data
 r_max = 20 # kpc
 disk_height = 2 # kpc
-Lz_hat = [0.,0.,1.] # direction of disk
 
+pb_fix=True
+dust_depl=False
 
 ###############################################################################
 # Species Implementation w/ creation efficienc variations
@@ -63,21 +61,20 @@ cosmological = False
 # Now preload the time evolution data
 snap_dirs = [main_dir + i + '/output/' for i in names] 
 
-data_names = []
+dust_evo_data = []
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
-	dataname = implementation+'_'+name+'_data_'+str(r_max)+'_kpc_2_height.pickle'
-	data_names += [dataname]
-	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=False, cosmological=cosmological, r_max=r_max, Lz_hat=Lz_hat, disk_height=disk_height, startnum=startnum, endnum=endnum, implementation=implementation)
+	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
+	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.load()
+	dust_avg.save()
+
+	dust_evo_data += [dust_avg]
+	
 
 # Now plot a comparison of each of the runs
-# dust_data_vs_time(['DZ','source'], [[0,1.],[1E-2,1.1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_dust_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-# dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_dust_comp_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_spec_all_data_vs_time.pdf', \
-	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_spec_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -94,21 +91,18 @@ implementation = 'elemental'
 # Now preload the time evolution data
 snap_dirs = [main_dir + i + '/output/' for i in names] 
 
-data_names = []
+dust_evo_data = []
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
-	dataname = implementation+'_'+name+'_data_'+str(r_max)+'_kpc_2_height.pickle'
-	data_names += [dataname]
-	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=False, cosmological=cosmological, r_max=r_max, Lz_hat=Lz_hat, disk_height=disk_height, startnum=startnum, endnum=endnum, implementation=implementation)
+	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
+	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.load()
+	dust_avg.save()
+	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-# dust_data_vs_time(['DZ','source'], [[0,1.],[1E-2,1.1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_dust_data_vs_time.pdf', \
-#                      labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-# dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_dust_comp_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='creation_elem_all_data_vs_time.pdf', \
-	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_elem_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -126,21 +120,18 @@ cosmological = False
 # Now preload the time evolution data
 snap_dirs = [main_dir + i + '/output/' for i in names] 
 
-data_names = []
+dust_evo_data = []
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
-	dataname = implementation+'_'+name+'_data_'+str(r_max)+'_kpc_2_height.pickle'
-	data_names += [dataname]
-	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=False, cosmological=cosmological, r_max=r_max, Lz_hat=Lz_hat, disk_height=disk_height, startnum=startnum, endnum=endnum, implementation=implementation)
+	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
+	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.load()
+	dust_avg.save()
+	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-# dust_data_vs_time(['DZ','source'], [[0,1.],[1E-2,1.1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_dust_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-# dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_dust_comp_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_spec_all_data_vs_time.pdf', \
-	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_spec_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -157,21 +148,18 @@ implementation = 'elemental'
 # Now preload the time evolution data
 snap_dirs = [main_dir + i + '/output/' for i in names] 
 
-data_names = []
+dust_evo_data = []
 for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
-	dataname = implementation+'_'+name+'_data_'+str(r_max)+'_kpc_2_height.pickle'
-	data_names += [dataname]
-	compile_dust_data(snap_dir, foutname=dataname, mask=True, overwrite=False, cosmological=cosmological, r_max=r_max, Lz_hat=Lz_hat, disk_height=disk_height, startnum=startnum, endnum=endnum, implementation=implementation)
+	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
+	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.load()
+	dust_avg.save()
+	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-# dust_data_vs_time(['DZ','source'], [[0,1.],[1E-2,1.1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_dust_data_vs_time.pdf', \
-#                      labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-# dust_data_vs_time(['DZ','species'], [[0,1.],[0,1]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_dust_comp_data_vs_time.pdf', \
-# 	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], [[0,1.],[1E-2,1.1],[0,1.]], implementation=implementation, datanames=data_names, data_dir='data/', foutname='acc_elem_all_data_vs_time.pdf', \
-	                     labels=labels, time=True, cosmological=cosmological, log=True, std_bars=False)
+dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 
@@ -193,104 +181,46 @@ labels += ['Elemental', 'Elemental Low Acc.']
 
 implementations = ['species','species','elemental','elemental']
 
-image_dir = './non_cosmo_species_images/'
-sub_dir = 'compare_snapshots/' # subdirectory 
-
-
 cosmological = False
-
-Tcut = 300
-
-# First create ouput directory if needed
-try:
-    # Create target Directory
-    os.mkdir(image_dir)
-    print "Directory " + image_dir +  " Created " 
-except:
-    print "Directory " + image_dir +  " already exists"
-try:
-    # Create target Directory
-    os.mkdir(image_dir + sub_dir)
-    print "Directory " + image_dir + sub_dir + " Created " 
-except:
-    print "Directory " + image_dir + sub_dir + " already exists"
 
 
 # List of snapshots to compare
 snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
-r_max_phys = 40 # kpc
+r_max = 40 # kpc
 disk_height = 4 # kpc
-Lz_hat = [0.,0.,1.] # direction of disk
 
 for i, num in enumerate(snaps):
 	print(num)
-	Gas_snaps = []; Star_snaps = []; Headers = []; masks = []; centers = []; r_maxes = []; Lz_hats = []; disk_heights = []; Rds = [];
+	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
 		print snap_dir
-
-		H = readsnap(snap_dir, num, 0, header_only=1, cosmological=cosmological)
-		Headers += [H]
-		G = readsnap(snap_dir, num, 0, cosmological=cosmological)
-		Gas_snaps += [G]
-		S = readsnap(snap_dir, num, 4, cosmological=cosmological)
-		# Need to remember the stars in the inital conditions
-		S1 = readsnap(snap_dir, num, 2, cosmological=cosmological)
-		S2 = readsnap(snap_dir, num, 3, cosmological=cosmological)
-		for key in ['m','p']:
-			S[key] = np.append(S[key],S1[key],axis=0)
-			S[key] = np.append(S[key],S2[key],axis=0)
-		Star_snaps += [S]
+		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy.load()
+		galaxies += [galaxy]
 
 
 
-		# Since this is a shallow copy, this fixes G['p'] as well
-		coords = G['p']
-		# Recenter coords at center of periodic box
-		boxsize = H['boxsize']
-		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
-		# This also changes G['p'] as well
-		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
-		center = np.average(coords, weights = G['m'], axis = 0)
-		centers += [center]
+	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
 
+	DZ_vs_params(['r'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_DZ_vs_radius.pdf', std_bars=True, style='color', \
+				include_obs=True, CO_opt='S12')
 
-		coords = S['p']
-		# Recenter coords at center of periodic box
-		mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
-		# This also changes G['p'] as well
-		coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2; 
+	observed_DZ_vs_param(['sigma_gas'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color', include_obs=True, CO_opt='S12')
 
-
-		Rds += [calc_stellar_Rd(S, center, r_max_phys, Lz_hat=Lz_hat, disk_height=disk_height, bin_nums=30)]
-
-		r_maxes += [r_max_phys]
-		disk_heights += [disk_height]
-		Lz_hats += [Lz_hat]
-
-	DZ_vs_params(['nH'], [[1E-2,1000]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='DZ_vs_nH.pdf', std_bars=True, style='color', log=False, include_obs=True)
-
-	DZ_vs_params(['r'], [[0,20]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='S12_DZ_vs_radius.pdf', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='S12')
-
-	observed_DZ_vs_param(['sigma_gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='S12_obs_DZ_vs_surf.pdf', std_bars=True, style='color', log=False, include_obs=True, CO_opt='S12')
-
-	DZ_vs_params(['r'], [[0,20]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='B13_DZ_vs_radius.pdf', std_bars=True, style='color', log=False, include_obs=True, Rd=Rds, CO_opt='B13')
+	DZ_vs_params(['r'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_DZ_vs_radius.pdf', std_bars=True, style='color', \
+				include_obs=True, CO_opt='B13')
 	
-	observed_DZ_vs_param(['sigma_gas'], [[1,100]], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=40, time=False, depletion=False, \
-				cosmological=False, labels=labels, foutname='B13_obs_DZ_vs_surf.pdf', std_bars=True, style='color', log=False, include_obs=True, CO_opt='B13')
+	observed_DZ_vs_param(['sigma_gas'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color', include_obs=True, CO_opt='B13')
 
 	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_param(elems, 'nH', [1E-2,1E3], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
-			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
-			foutname='obs_elemental_dep_vs_dens.pdf', std_bars=True, style='color', log=True, include_obs=True)
-	elem_depletion_vs_param(elems, 'fH2', [0,1], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, \
-			bin_nums=50, time=False, depletion=False, cosmological=False, labels=labels, \
-			foutname='obs_elemental_dep_vs_fH2.pdf', std_bars=True, style='color', log=True, include_obs=True)
+	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
+						std_bars=True, style='color', include_obs=True)
+	elem_depletion_vs_param(elems, 'fH2', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_fH2.pdf', \
+						std_bars=True, style='color', include_obs=True)
 
-	dust_acc_diag(['inst_dust_prod','g_timescale'], Gas_snaps, Headers, centers, r_maxes, Lz_list = Lz_hats, height_list = disk_heights, bin_nums=100, time=False, \
-           cosmological=False, Tmin=1, Tmax=1E5, Tcut=Tcut, labels=labels, implementation=implementations, log=False)
+
+	dust_acc_diag(['inst_dust_prod','g_timescale'], galaxies, bin_nums=100, labels=labels, implementation=implementations, foutname=plot_dir+'dust_acc_diag.png')

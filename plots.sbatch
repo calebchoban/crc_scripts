@@ -15,4 +15,4 @@ pwd
 date
 
 
-python cosmo_plots.py
+python paper_plots.py

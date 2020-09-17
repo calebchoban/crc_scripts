@@ -2,19 +2,21 @@ import config
 import numpy as np
 
 
-def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
+def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ingore_invalid=True):
     """
     Calculates percentiles associated with a (possibly weighted) array
 
     Parameters
     ----------
-    a : array-like
-        The input array from which to calculate percents
-    percentiles : array-like
+    a : array
+        The 1D input array from which to calculate percents
+    percentiles : array
         The percentiles to calculate (0.0 - 100.0)
-    weights : array-like, optional
+    weights : array, optional
         The weights to assign to values of a.  Equal weighting if None
         is specified
+    ingore_invalid : boolean, optional
+        Set wether invalid values (inf,NaN) are not considered in calculation
 
     Returns
     -------
@@ -26,10 +28,19 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
     if len(a)==0:
         return np.full(len(percentiles), np.nan)
 
-    # Standardize and sort based on values in a
-    percentiles = percentiles
     if weights is None:
         weights = np.ones(a.size)
+    if ingore_invalid:
+        mask_a = np.ma.masked_invalid(a) 
+        weights = weights[~mask_a.mask]
+        a = mask_a[~mask_a.mask]
+        # Deal with the case that no data is valid
+        if len(a) == 0:
+            return np.zeros(len(percentiles))
+
+    # Standardize and sort based on values in a
+    percentiles = percentiles
+
     idx = np.argsort(a)
     a_sort = a[idx]
     w_sort = weights[idx]
@@ -41,33 +52,64 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
     return values
 
 
-def set_labels(axis, xlabel, ylabel):
+def bin_values(bin_data, data_vals, bin_lims, bin_nums=50, weight_vals=None, log=True):
     """
-    Sets the labels and ticks for the given axis.
+    Bins data_vals given bin_data
 
     Parameters
     ----------
-    axis : Matplotlib axis
-        Axis of plot
-    xlabel : array-like
-        X axis label
-    ylabel : array-like, optional
-        Y axis label
+    bin_data : array
+        Data over which binning will take place
+    data_vals : array
+        Data to be binned
+    bin_lims : array
+        Limits for bins
+    bin_num : int
+        Number of
+    weight_vals : array, optional
+        The weights to be sued when binning data_vals.  Equal weighting if None
+        is specified
+    log : boolean, optional
+        Set if the binning is over log space
 
     Returns
     -------
-    None
+    bin_vals: array
+        Values of bins used
+    mean_data : array
+        50th percentile of data binned
+    std_data : array
+        16th and 84th percentiles of data binned
+
     """
-    axis.set_xlabel(xlabel, fontsize = Large_Font)
-    axis.set_ylabel(ylabel, fontsize = Large_Font)
-    axis.minorticks_on()
-    axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-    axis.tick_params(axis='both', which='major', labelsize=Small_Font)
-    axis.tick_params(axis='both', which='minor', labelsize=Small_Font)
+
+    if log:
+        bins = np.logspace(np.log10(bin_lims[0]),np.log10(bin_lims[1]),bin_nums)
+    else:
+        bins = np.linspace(bin_lims[0], bin_lims[1], bin_nums)
+
+    bin_vals = (bins[1:] + bins[:-1]) / 2.
+    digitized = np.digitize(bin_data,bins)
+
+    mean_data = np.zeros(bin_nums - 1)
+    # 16th and 84th percentiles
+    std_data = np.zeros([bin_nums - 1,2])
+
+    for i in range(1,len(bins)):
+        if len(bin_data[digitized==i])==0:
+            mean_data[i-1] = np.nan
+            std_data[i-1,0] = np.nan; std_data[i-1,1] = np.nan;
+            continue
+        else:
+            weights = weight_vals[digitized == i] if weight_vals is not None else None
+            values = data_vals[digitized == i]
+            mean_data[i-1],std_data[i-1,0],std_data[i-1,1] = weighted_percentile(values, weights=weights)
+
+    return bin_vals, mean_data, std_data
 
 
 # cosmic time in a flat cosmology
-def quick_lookback_time(a, sp=sp):
+def quick_lookback_time(a, sp):
     
     h = sp.hubble
     omega = sp.omega
@@ -78,8 +120,9 @@ def quick_lookback_time(a, sp=sp):
     
     return t
 
+
 # calculate stellar ages
-def get_stellar_ages(sft, sp=sp):
+def get_stellar_ages(sft, sp):
     
     if (sp.cosmological==1):
         t_form = quick_lookback_time(sft, sp=sp)
@@ -92,7 +135,7 @@ def get_stellar_ages(sft, sp=sp):
 
 
 # calculate star formation history
-def SFH(sft, m, dt=0.01, cum=0, sp=sp):
+def SFH(sft, m, sp, dt=0.01, cum=0):
     
     if (sp.cosmological==1):
         tform = quick_lookback_time(sft, sp=sp)
@@ -131,7 +174,6 @@ def gas_temperature(u, ne, keV=0):
 
     g_gamma= 5.0/3.0
     g_minus_1= g_gamma-1.0
-
     mu = gas_mu(ne);
     MeanWeight= mu*config.PROTONMASS
     T= MeanWeight/config.BoltzMann_ergs * g_minus_1 * u * config.UnitVelocity_in_cm_per_s**2
@@ -147,25 +189,25 @@ def gas_temperature(u, ne, keV=0):
 def calc_fH2(G):
     # Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
 
-    Z = G['z'][:,0] #metal mass (everything not H, He)
+    Z = G.z[:,0] #metal mass (everything not H, He)
     # dust mean mass per H nucleus
     mu_H = 2.3E-24# grams
     # standard effective number of particle kernel neighbors defined in parameters file
     N_ngb = 32.
     # Gas softening length
-    hsml = G['h']*config.UnitLength_in_cm
-    density = G['rho']*config.UnitDensity_in_cgs
+    hsml = G.h*config.UnitLength_in_cm
+    density = G.rho*config.UnitDensity_in_cgs
 
     sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
 
     #  dust optical depth 
-    tau = np.multiply(sobColDens,Z*1E-21/SOLAR_Z)/mu_H
-    tau[tau==0]=EPSILON #avoid divide by 0
+    tau = np.multiply(sobColDens,Z*1E-21/config.SOLAR_Z)/mu_H
+    tau[tau==0]=config.EPSILON #avoid divide by 0
 
-    chi = 3.1 * (1+3.1*np.power(Z/SOLAR_Z,0.365)) / 4.1 # Approximation
+    chi = 3.1 * (1+3.1*np.power(Z/config.SOLAR_Z,0.365)) / 4.1 # Approximation
 
     s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6 *tau) )
-    s[s==-4.] = -4.+EPSILON # Avoid divide by zero
+    s[s==-4.] = -4.+config.EPSILON # Avoid divide by zero
     fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
     fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0
     

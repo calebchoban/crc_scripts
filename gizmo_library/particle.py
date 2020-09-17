@@ -79,12 +79,14 @@ class Particle:
                 nh = np.zeros(npart, dtype='float')
                 ne = np.zeros(npart, dtype='float')
             if (sp.Flag_Metals):
-                z = np.zeros(npart, dtype='float')
+                z = np.zeros((npart,sp.Flag_Metals), dtype='float')
             if (sp.Flag_DustMetals):
                 dz = np.zeros((npart,sp.Flag_DustMetals-4), dtype='float')
                 dzs = np.zeros((npart,4), dtype='float')
             if (sp.Flag_DustSpecies):
-                spec = np.zeros((npart,4), dtype='float')
+                spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
+            else:
+                spec = np.zeros((npart,2), dtype='float')
             if (sp.Flag_Sfr):
                 sfr = np.zeros(npart, dtype='float')
             
@@ -92,7 +94,7 @@ class Particle:
             if (sp.Flag_StellarAge):
                 sft = np.zeros(npart, dtype='float')
             if (sp.Flag_Metals):
-                z = np.zeros(npart, dtype='float')
+                z = np.zeros((npart,sp.Flag_Metals), dtype='float')
 
         # do the reading
         nL = 0
@@ -116,12 +118,15 @@ class Particle:
                     nh[nL:nR] = grp['NeutralHydrogenAbundance'][...]
                     ne[nL:nR] = grp['ElectronAbundance'][...]
                 if (sp.Flag_Metals):
-                    z[nL:nR] = grp['Metallicity'][:,0]
+                    z[nL:nR] = grp['Metallicity']
                 if (sp.Flag_DustMetals):
                     dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
                 if (sp.Flag_DustSpecies):
                     spec[nL:nR] = grp['DustSpecies'][...]
+                else:
+                    spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
+                    spec[nL:nR,0] = dz[nL:nR,2]
                 if (sp.Flag_Sfr):
                     sfr[nL:nR] = grp['StarFormationRate'][...]
             
@@ -129,7 +134,7 @@ class Particle:
                 if (sp.Flag_StellarAge):
                     sft[nL:nR] = grp['StellarFormationTime'][...]
                 if (sp.Flag_Metals):
-                    z[nL:nR] = grp['Metallicity'][:,0]
+                    z[nL:nR] = grp['Metallicity']
             
             f.close()
             nL = nR
@@ -141,6 +146,8 @@ class Particle:
         self.k = 1
         self.npart = npart
         self.p = p
+        if self.sp.pb_fix:
+            self.pb_fix()
         self.v = v
         self.m = m
         self.id = id
@@ -158,11 +165,12 @@ class Particle:
                 self.nh = nh
             if (sp.Flag_Metals):
                 self.z = z
-            if (sp.Flag_DustMetals):
-                self.dz = dz
-                self.dzs = dzs
-            if (sp.Flag_DustSpecies):
-                self.spec = spec
+                if (sp.Flag_DustMetals):
+                    self.dz = dz
+                    self.dzs = dzs
+                    if (sp.Flag_DustDepl):
+                        self.z += self.dz
+                    self.spec = spec
             if (sp.Flag_Sfr):
                 self.sfr = sfr
     
@@ -185,30 +193,36 @@ class Particle:
         self.npart = len(self.m)
         self.id = self.id[mask]
 
-        if (ptype==0):
+        if (self.ptype==0):
+            self.h = self.h[mask]
             self.u = self.u[mask]
             self.rho = self.rho[mask]
-            if (sp.Flag_Cooling):
+            if (self.sp.Flag_Cooling):
                 self.T = self.T[mask]
                 self.ne = self.ne[mask]
                 self.nh = self.nh[mask]
-            if (sp.Flag_Metals):
+            if (self.sp.Flag_Metals):
                 self.z = self.z[mask]
-            if (sp.Flag_DustMetals):
+            if (self.sp.Flag_DustMetals):
                 self.dz = self.dz[mask]
                 self.dzs = self.dzs[mask]
-            if (sp.Flag_DustSpecies):
                 self.spec = self.spec[mask]
-            if (sp.Flag_Sfr):
+            if (self.sp.Flag_Sfr):
                 self.sfr = self.sfr[mask]
     
-        if (ptype==4):
-            if (sp.Flag_StellarAge):
-                if (sp.cosmological==0):
-                self.sft = self.sft[mask]
-                self.age = self.age[mask]
-            if (sp.Flag_Metals):
+        if (self.ptype==4):
+            if (self.sp.Flag_StellarAge):
+                if (self.sp.cosmological==0):
+                    self.sft = self.sft[mask]
+                    self.age = self.age[mask]
+            if (self.sp.Flag_Metals):
                 self.z = self.z[mask]
+
+        return
+
+    # Centers coordinates given origin coordinates
+    def center(self, origin):
+        self.p -= origin
 
         return
 
@@ -224,9 +238,9 @@ class Particle:
     # Fixes coordinate issue for non-cosmological periodic BCs
     def pb_fix(self):
         p = self.p       
-        boxsize = self.boxsize
-        mask1 = p > sp.boxsize/2; mask2 = p <= sp.boxsize/2
-        p[mask1] -= sp.boxsize/2; p[mask2] += sp.boxsize/2;
+        boxsize = self.sp.boxsize
+        mask1 = p > boxsize/2; mask2 = p <= boxsize/2
+        p[mask1] -= boxsize/2; p[mask2] += boxsize/2;
         self.p = p
 
         return

@@ -4,17 +4,18 @@ import os
 import utils
 import config
 from particle import Header,Particle
-from galaxy import Halo
+from galaxy import Halo,Disk
 
 class Snapshot:
 
-    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False):
+    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False, dust_depl=False):
         
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological
         self.nsnap = self.check_snap_exist()
         self.k = -1 if self.nsnap==0 else 1
+        self.Flag_DustDepl = dust_depl
 
         # In case the sim was non-cosmological and used periodic BC which causes
         # galaxy to be split between the 4 corners of the box
@@ -62,6 +63,13 @@ class Snapshot:
         except:
             self.Flag_DustMetals = 0
             self.Flag_DustSpecies = 0
+        # Determine if the snapshot came from a simulations with on-the-fly dust
+        if self.Flag_Metals and self.Flag_DustSpecies:
+            self.dust_impl = 'species'
+        elif self.Flag_Metals:
+            self.dust_impl = 'elemental'
+        else:
+            self.dust_impl = None
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         f.close()
 
@@ -71,16 +79,22 @@ class Snapshot:
         return
 
 
-    def loadpart(self, ptype, header_only=0):
+    def loadpart(self, ptype):
 
-        part = self.header if header_only else self.part[ptype]
+        part = self.part[ptype]
         part.load()
-        if self.pb_fix:
-            part.pb_fix()
 
         return part
-    
-    
+
+
+    def loadheader(self):
+
+        header = self.header
+        header.load()
+
+        return header
+
+
     def viewpart(self, ptype, field='None', method='simple', **kwargs):
         
         if (self.k==-1): return -1
@@ -164,6 +178,47 @@ class Snapshot:
         hl.load(mode=mode, nclip=nclip)
     
         return hl
+
+
+    def loaddisk(self, id=-1, mode='AHF', hdir=None, nclip=1000, rmax=20, height=5):
+    
+        # non-cosmological, use the only galaxy attribute
+        if (self.cosmological==0):
+            disk = Disk(self, id=id,rmax=rmax,height=height)
+            disk.load()
+
+            return disk
+        
+        # cosmological, use AHF
+        if (mode=='AHF'):
+            id = self.AHF.get_valid_halo_id(id, hdir=hdir)
+            if (id<0): return
+        
+            if (id in self.AHFhaloIDs):
+                index = self.AHFhaloIDs.index(id)
+                disk = self.AHFhalos[index]
+            else:
+                disk = Disk(self, id=id,rmax=rmax,height=height)
+                self.AHFhaloIDs.append(id)
+                self.AHFhalos.append(disk)
+        
+        # cosmological, use rockstar
+        else:
+        
+            id = self.rockstar.get_valid_halo_id(id)
+            if (id<0): return
+        
+            if (id in self.rockstarhaloIDs):
+                index = self.rockstarhaloIDs.index(id)
+                disk = self.rockstarhalos[index]
+            else:
+                disk = Disk(self, id=id,rmax=rmax,height=height)
+                self.rockstarhaloIDs.append(id)
+                self.rockstarhalos.append(disk)
+                    
+        disk.load(mode=mode, nclip=nclip)
+    
+        return disk
 
 
     # SFH in the whole box
