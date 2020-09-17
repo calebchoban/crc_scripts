@@ -220,6 +220,7 @@ class Particle:
 
         return
 
+
     # Centers coordinates given origin coordinates
     def center(self, origin):
         self.p -= origin

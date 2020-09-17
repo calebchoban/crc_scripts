@@ -9,7 +9,7 @@ from galaxy import Halo,Disk
 class Snapshot:
 
     def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False, dust_depl=False):
-        
+
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological

@@ -123,7 +123,7 @@ def quick_lookback_time(a, sp):
 
 # calculate stellar ages
 def get_stellar_ages(sft, sp):
-    
+
     if (sp.cosmological==1):
         t_form = quick_lookback_time(sft, sp=sp)
         t_now = quick_lookback_time(sp.time, sp=sp)

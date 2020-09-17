@@ -45,7 +45,7 @@ class Halo(object):
             self.zc = sp.boxsize/2.
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
-        
+
             return
 
         # cosmological, use AHF
@@ -89,6 +89,7 @@ class Halo(object):
                 self.Lhat = np.array([0,0,1.])
     
         return
+
 
     # Returns the maximum radius
     def get_rmax(self):
@@ -259,7 +260,6 @@ class Halo(object):
         return xc, yc, zc
 
 
-
 class Disk(Halo):
 
     def __init__(self, sp, id=0, rmax=20, height=5):
@@ -369,4 +369,3 @@ class Disk(Halo):
     # Returns the maximum radius
     def get_rmax(self):
         return self.rmax
-
