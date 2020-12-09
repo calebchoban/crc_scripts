@@ -8,7 +8,7 @@ from scipy.stats import binned_statistic_2d
 from scipy.optimize import curve_fit
 import pickle
 import os
-import observations as obs
+import observations.dust_obs as obs
 from analytic_dust_yields import *
 import plot_setup as plt_set
 
@@ -57,10 +57,18 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'nH':
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=False)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=False)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
 	elif param == 'sigma_dust':
 		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
@@ -88,10 +96,19 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'depletion':
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+		axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		if elem == 'C':
+			dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
+			in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+			axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
+			in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
+			axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)	
 	elif param == 'sigma_Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print("D/Z vs Z observations have not been implemented yet")

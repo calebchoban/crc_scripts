@@ -1,8 +1,6 @@
 import numpy as np
 import utils
 
-SOLAR_Z= 0.02
-
 CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
 
 def Dwek_2014_M31_dust_dens_vs_radius():
@@ -53,17 +51,22 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	return r_val, sigma_dust
 
 
-def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
+def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	"""
 	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Note that
-	for C the depletion is increased by factor of 2 due to findings in Sofia et al. (2011) and Parvathi et al. (2012).
+	for C the depletion is increased by factor of 2 (if C_corr=True) due to findings in Sofia et al. (2011) and Parvathi et al. (2012).
 	Can also output physical density instead using results from Zhukovska (2016).
 	"""
+
+	# This is the range the relation was observed, used when plotting to contrast with extrapolated range
+	obs_range = np.array([np.power(10,-1.7), np.power(10,0.8)])
 
 	avg_nH = np.logspace(-2,3,num=50)
 	# Get physical nH value with conversion from Zhukovska (2016).
 	# This may not be accurate so use with caution.
-	phys_nH = 147.234*np.power(avg_nH,1.054)
+	if phys_dens:
+		phys_nH = 147.234*np.power(avg_nH,1.054)
+		obs_range = 147.234*np.power(obs_range,1.054)
 	F_star = 0.772 + 0.461*np.log10(avg_nH) 
 
 	amu_H = 1.008
@@ -75,8 +78,11 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 	solar_Mx_MH = np.power(10,solar-12)*amu/amu_H
 	total_Z = np.sum(solar_Mx_MH)
 	# Fit parameters for depletions
+	factor = 0.
+	if C_corr:
+		factor = np.log10(2)
 	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
-	Bx = np.array([-0.193-np.log10(2),-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	Bx = np.array([-0.193-factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
 	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
 
 	# Depletion factor of element x at a given F_star
@@ -96,9 +102,9 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 		return 
 
 	if phys_dens:
-		return phys_nH, DZ_vals
+		return phys_nH, obs_range, DZ_vals
 	else:
-		return avg_nH, DZ_vals
+		return avg_nH, obs_range, DZ_vals
 
 
 def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):

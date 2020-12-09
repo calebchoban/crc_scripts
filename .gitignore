@@ -1,6 +1,5 @@
 dust_evo_data/
 analytic_dust_yields/
-observations/
 
 *.pyc
 *.e

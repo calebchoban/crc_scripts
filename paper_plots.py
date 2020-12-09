@@ -46,7 +46,6 @@ disk_height = 2 # kpc
 pb_fix=True
 dust_depl=False
 
-
 ###############################################################################
 # Species Implementation w/ creation efficienc variations
 ###############################################################################
@@ -79,7 +78,7 @@ dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plo
 
 
 ###############################################################################
-# Elemental Implementation w/ creation efficienc variations
+# Elemental Implementation w/ creation efficiency variations
 ###############################################################################
 
 
@@ -161,7 +160,6 @@ for i,snap_dir in enumerate(snap_dirs):
 
 # Now plot a comparison of each of the runs
 dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
-
 
 ###############################################################################
 # Plot last snapshot D/Z values vs observations
