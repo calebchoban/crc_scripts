@@ -1,5 +1,6 @@
 import config
 import numpy as np
+import shieldLengths as SL
 
 
 def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ingore_invalid=True):
@@ -185,8 +186,10 @@ def gas_temperature(u, ne, keV=0):
     return T
 
 
-# returns H1,H2,and Hion masses
-def calc_fH2(G):
+# returns H2 mass fraction using the given option
+# 'sheild': Use recalculated shielding lengths (Cell+Sobolev) use in FIRE. Not entirely accurate but close
+# 'scale': Use just the cell length for the shielding length. Underproduced H2 mass
+def calc_fH2(G, option='shield'):
     # Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
 
     Z = G.z[:,0] #metal mass (everything not H, He)
@@ -198,15 +201,22 @@ def calc_fH2(G):
     hsml = G.h*config.UnitLength_in_cm
     density = G.rho*config.UnitDensity_in_cgs
 
-    sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
+    if option == 'scale':
+        sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
+    elif option == 'shield':
+        shieldLength = SL.FindShieldLength(G.p*config.UnitLength_in_cm, density*0.76) # use just H density
+        sobColDens = np.multiply(shieldLength,density)
+    else:
+        print("%s is not a valid option for calc_fH2()"%option)
+        return
 
     #  dust optical depth 
-    tau = np.multiply(sobColDens,Z*1E-21/config.SOLAR_Z)/mu_H
+    tau = np.multiply(sobColDens,(0.1+Z/config.SOLAR_Z))*1E-21/mu_H
     tau[tau==0]=config.EPSILON #avoid divide by 0
 
     chi = 3.1 * (1+3.1*np.power(Z/config.SOLAR_Z,0.365)) / 4.1 # Approximation
 
-    s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6 *tau) )
+    s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6*tau) )
     s[s==-4.] = -4.+config.EPSILON # Avoid divide by zero
     fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
     fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0

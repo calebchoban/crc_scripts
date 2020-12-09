@@ -31,7 +31,7 @@ PROTONMASS					= H_MASS
 SOLAR_Z						= 0.02
 BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
-
+Cm_to_pc					= 3.24078e-19
 
 # Small and large fonts for plots
 SMALL_FONT					= 18
@@ -43,7 +43,7 @@ DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir']
 DUST_SOURCES				= ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 # Houses labels, limits, and if they should be plotted in log space for possible parameters
-PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0,1.], 		False],
+PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0.,1.], 		False],
 								 'r': ['Radius (kpc)', 									[0,20,], 		False],
 							   'r25': [r'Radius (R$_{25}$)', 							[0,2], 			False],
 					     'sigma_gas': [r'$\Sigma_{gas}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E0,1E2], 		True],
@@ -52,9 +52,10 @@ PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0,1.], 		False],
 						  'sigma_H2': [r'$\Sigma_{H2}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
 						  	  'time': ['Time (Gyr)',									[1E-2,1E1],		True],
 						  'redshift': ['z',												[1E-1,100],		True],
-						 		 'M': [r'$M_{gas}$',									[1E4,1E7],		True],
-						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 							[1E-2,1E3], 	True],
-						         'T': [r'T (K)', 										[1E1,1E5], 		True],
+						 		 'm': [r'$M_{gas}$',									[1E1,1E7],		True],
+						 	   'mH2': [r'$M_{H_2}$',									[1E1,1E7],		True],
+						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 							[1E-2,1E4], 	True],
+						         'T': [r'T (K)', 										[0.9*1E1,1E5], 	True],
 						         'Z': [r'Z (Z$_{\odot}$)', 								[1E-3,5E0], 	True],
 						        'DZ': ['D/Z Ratio', 									[0,1], 			False],
 						 'depletion': [r'[X/H]$_{gas}$', 								[1E-3,1E0], 	True],

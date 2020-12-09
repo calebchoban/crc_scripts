@@ -46,6 +46,7 @@ disk_height = 2 # kpc
 pb_fix=True
 dust_depl=False
 
+
 ###############################################################################
 # Species Implementation w/ creation efficienc variations
 ###############################################################################
@@ -162,7 +163,6 @@ for i,snap_dir in enumerate(snap_dirs):
 dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
 
 
-
 ###############################################################################
 # Plot last snapshot D/Z values vs observations
 ###############################################################################
@@ -197,10 +197,7 @@ for i, num in enumerate(snaps):
 	for j,snap_dir in enumerate(snap_dirs):
 		print snap_dir
 		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
-		galaxy.load()
 		galaxies += [galaxy]
-
-
 
 	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
 
@@ -224,3 +221,4 @@ for i, num in enumerate(snaps):
 
 
 	dust_acc_diag(['inst_dust_prod','g_timescale'], galaxies, bin_nums=100, labels=labels, implementation=implementations, foutname=plot_dir+'dust_acc_diag.png')
+

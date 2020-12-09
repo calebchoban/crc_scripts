@@ -5,6 +5,7 @@ import utils
 import config
 from particle import Header,Particle
 from galaxy import Halo,Disk
+from AHF import AHF
 
 class Snapshot:
 
@@ -36,7 +37,7 @@ class Snapshot:
         # initialize catalogs and/or halos
         if (self.cosmological==1):
             # we support AHF
-            self.AHF = AHF.AHF(self)
+            self.AHF = AHF(self)
             self.AHFhaloIDs = []
             self.AHFhalos = []
         else:
@@ -161,22 +162,6 @@ class Snapshot:
                 self.AHFhaloIDs.append(id)
                 self.AHFhalos.append(hl)
         
-        # cosmological, use rockstar
-        else:
-        
-            id = self.rockstar.get_valid_halo_id(id)
-            if (id<0): return
-        
-            if (id in self.rockstarhaloIDs):
-                index = self.rockstarhaloIDs.index(id)
-                hl = self.rockstarhalos[index]
-            else:
-                hl = Halo(self, id=id)
-                self.rockstarhaloIDs.append(id)
-                self.rockstarhalos.append(hl)
-                    
-        hl.load(mode=mode, nclip=nclip)
-    
         return hl
 
 
@@ -201,22 +186,12 @@ class Snapshot:
                 disk = Disk(self, id=id,rmax=rmax,height=height)
                 self.AHFhaloIDs.append(id)
                 self.AHFhalos.append(disk)
-        
-        # cosmological, use rockstar
+
         else:
-        
-            id = self.rockstar.get_valid_halo_id(id)
-            if (id<0): return
-        
-            if (id in self.rockstarhaloIDs):
-                index = self.rockstarhaloIDs.index(id)
-                disk = self.rockstarhalos[index]
-            else:
-                disk = Disk(self, id=id,rmax=rmax,height=height)
-                self.rockstarhaloIDs.append(id)
-                self.rockstarhalos.append(disk)
+            disk = Disk(self, id=id,rmax=rmax,height=height)
+    
                     
-        disk.load(mode=mode, nclip=nclip)
+        disk.load(mode=mode)
     
         return disk
 

@@ -728,7 +728,12 @@ def calc_phase_hist(param, G, bin_nums=100):
 	elif param == 'fH2':
 		fH2 = utils.calc_fH2(G)
 		bin_data = fH2
-	elif param == 'M':
+	elif param == 'mH2':
+		MH2 = utils.calc_fH2(G)*G.m*1E10
+		MH2[MH2<=0] = config.EPSILON
+		bin_data = MH2
+		func = np.sum
+	elif param == 'm':
 		M = G.m*1E10
 		bin_data = M
 		func = np.sum

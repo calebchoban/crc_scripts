@@ -42,6 +42,9 @@ class Particle:
         self.k = -1 if sp.k==-1 else 0
         self.ptype = ptype
 
+        # Used to make sure particles isn't centered twice
+        self.centered = False
+
         return
 
 
@@ -51,6 +54,7 @@ class Particle:
 
         # class basic info
         sp = self.sp
+
         ptype = self.ptype
         npart = sp.npart[ptype]
 
@@ -124,7 +128,7 @@ class Particle:
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
                 if (sp.Flag_DustSpecies):
                     spec[nL:nR] = grp['DustSpecies'][...]
-                else:
+                elif (sp.Flag_DustMetals):
                     spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
                     spec[nL:nR,0] = dz[nL:nR,2]
                 if (sp.Flag_Sfr):
@@ -223,6 +227,10 @@ class Particle:
 
     # Centers coordinates given origin coordinates
     def center(self, origin):
+
+        if self.centered: return
+
+        self.centered = True
         self.p -= origin
 
         return

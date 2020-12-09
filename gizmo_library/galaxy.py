@@ -100,8 +100,6 @@ class Halo(object):
     def loadpart(self, ptype):
 
         part = self.part[ptype]
-        # If particle already loaded return
-        if part.k != 0: return part
 
         part.load()
         part.center([self.xc,self.yc,self.zc])
@@ -277,7 +275,7 @@ class Disk(Halo):
         if (self.k!=0): return # already loaded
 
         sp = self.sp
-
+        
         # non-cosmological snapshots
         if (sp.cosmological==0):
 
@@ -344,13 +342,10 @@ class Disk(Halo):
         return
 
 
-
     # load all particles in the galactic disk
     def loadpart(self, ptype):
 
         part = self.part[ptype]
-        # If particle already loaded return
-        if part.k != 0: return part
 
         part.load()
         part.center([self.xc,self.yc,self.zc])
@@ -361,8 +356,8 @@ class Disk(Halo):
         r_z[:,2] = zmag*self.Lhat[2]
         r_s = np.subtract(part.p,r_z)
         smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-        in_halo = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
-        part.mask(in_halo)
+        in_disk = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
+        part.mask(in_disk)
 
         return part
 
