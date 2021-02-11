@@ -39,31 +39,33 @@ LARGE_FONT					= 26
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
 
-DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir']
+DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir','Iron Inclusions']
 DUST_SOURCES				= ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 # Houses labels, limits, and if they should be plotted in log space for possible parameters
-PARAM_INFO  				= {'fH2': [r'$f_{H2}$', 									[0.,1.], 		False],
-								 'r': ['Radius (kpc)', 									[0,20,], 		False],
-							   'r25': [r'Radius (R$_{25}$)', 							[0,2], 			False],
-					     'sigma_gas': [r'$\Sigma_{gas}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E0,1E2], 		True],
-						   'sigma_Z': [r'$\Sigma_{metals}$ (M$_{\odot}$ pc$^{-2}$)', 	[1E-3,1E0], 	True],
-						'sigma_dust': [r'$\Sigma_{dust}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  'sigma_H2': [r'$\Sigma_{H2}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
-						  	  'time': ['Time (Gyr)',									[1E-2,1E1],		True],
-						  'redshift': ['z',												[1E-1,100],		True],
-						 		 'm': [r'$M_{gas}$',									[1E1,1E7],		True],
-						 	   'mH2': [r'$M_{H_2}$',									[1E1,1E7],		True],
-						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 							[1E-2,1E3], 	True],
-						         'T': [r'T (K)', 										[0.9*1E1,1E5], 	True],
-						         'Z': [r'Z (Z$_{\odot}$)', 								[1E-3,5E0], 	True],
-						        'DZ': ['D/Z Ratio', 									[0,1], 			False],
-						 'depletion': [r'[X/H]$_{gas}$', 								[1E-3,1E0], 	True],
-				     'cum_dust_prod': [r'Cumulative Dust Ratio $(M_{dust}/M_{\star})$', [1E-6,1E-2], 	True],
-					'inst_dust_prod': [r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$', [0,2], 			False],
-					   'g_timescale': [r'$\tau_{g}$ (Gyr)',								[1E-4,1E0],		True],
-				  'g_timescale_frac': [r'Fraction of Gas < $\tau_{g}$',					[0,1.05],		False],
-					   'source_frac': ['Source Mass Fraction', 							[1E-2,1.05], 	True],
-					     'spec_frac': ['Species Mass Fraction', 						[0,1.05], 		False],
-					          'Si/C': ['Sil-to-C Ratio', 								[0,10], 		False]
+PARAM_INFO  				= {'fH2': [r'$f_{H_2}$', 										[0.,1.], 		False],
+							   'fMC': [r'$f_{\rm MC}$', 									[0.,1.], 		False],
+							 'CinCO': [r'$f_{\rm C in CO}$', 								[0.,1.], 		False],
+								 'r': ['Radius (kpc)', 										[0,20,], 		False],
+							   'r25': [r'Radius (R$_{25}$)', 								[0,2], 			False],
+					     'sigma_gas': [r'$\Sigma_{\rm gas}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E0,1E2], 		True],
+						   'sigma_Z': [r'$\Sigma_{\rm metals}$ (M$_{\odot}$ pc$^{-2}$)', 	[1E-3,1E0], 	True],
+						'sigma_dust': [r'$\Sigma_{\rm dust}$ (M$_{\odot}$ pc$^{-2}$)', 		[1E-3,1E0], 	True],
+						  'sigma_H2': [r'$\Sigma_{H_2}$ (M$_{\odot}$ pc$^{-2}$)', 			[1E-3,1E0], 	True],
+						  	  'time': ['Time (Gyr)',										[1E-2,1E1],		True],
+						  'redshift': ['z',													[1E-1,100],		True],
+						 		 'm': [r'$M_{gas}$',										[1E1,1E7],		True],
+						 	   'mH2': [r'$M_{H_2}$',										[1E1,1E7],		True],
+						        'nH': [r'$n_{H}$ (cm$^{-3}$)', 								[1E-2,1E3], 	True],
+						         'T': [r'T (K)', 											[0.9*1E1,1E5], 	True],
+						         'Z': [r'Z (Z$_{\odot}$)', 									[1E-3,5E0], 	True],
+						        'DZ': ['D/Z Ratio', 										[0,1], 			False],
+						 'depletion': [r'[X/H]$_{\rm gas}$', 								[1E-3,1E0], 	True],
+				     'cum_dust_prod': [r'Cumulative Dust Ratio $(M_{\rm dust}/M_{\star})$', [1E-6,1E-2], 	True],
+					'inst_dust_prod': [r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$', 	[0,2], 			False],
+					   'g_timescale': [r'$\tau_{\rm g}$ (Gyr)',								[1E-4,1E0],		True],
+				  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',					[0,1.05],		False],
+					   'source_frac': ['Source Mass Fraction', 								[1E-2,1.05], 	True],
+					     'spec_frac': ['Species Mass Fraction', 							[0,1.05], 		False],
+					          'Si/C': ['Sil-to-C Ratio', 									[0,10], 		False]
 					     }

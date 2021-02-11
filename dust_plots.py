@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 import pickle
 import os
 import observations.dust_obs as obs
-from analytic_dust_yields import *
+import analytical_models.stellar_yields as st_yields
 import plot_setup as plt_set
 
 import gizmo_library.config as config
@@ -57,18 +57,25 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
 	elif param == 'nH':
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=False)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=False)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], DZ_vals[in_range], label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=False)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=False)
+		axis.scatter(nH_val,1.-WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+		
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=False)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=True)
+		axis.scatter(nH_val,1.-WNM_depl, marker='D',c='xkcd:grey', zorder=2)
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:grey', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+		
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
 	elif param == 'sigma_dust':
 		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
@@ -96,19 +103,26 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 	elif param == 'depletion':
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
-		in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-		axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+		axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+		axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=False)
+		axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+
 		if elem == 'C':
-			dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
-			in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-			axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-			dens_vals, obs_range, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
-			in_range = np.where(np.logical_and(dens_vals>=obs_range[0], dens_vals<=obs_range[1]))
-			axis.plot(dens_vals[in_range], 1.-DZ_vals[in_range], label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)	
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True)
+			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:grey', zorder=2)
+			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:grey', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+
+
+
 	elif param == 'sigma_Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print("D/Z vs Z observations have not been implemented yet")
@@ -529,6 +543,10 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 			H = snap.loadheader()
 			param_vals,mean_DZ,std_DZ = calc_DZ_vs_param(param, G, bin_nums=bin_nums, elem=elem)
 
+			# Adjust limits for C and O since they have lower depletion levels than most other elements
+			if elem in ['C','O']:
+				axis.set_ylim([1E-1,1E0])
+
 			# Only need to label the seperate simulations in the first plot
 			if i==0 and labels is not None: label = labels[j];
 			else:    						label = None;
@@ -813,12 +831,12 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 	for Z in Z_list:
 		name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 		if not os.path.isfile(data_dirc + name):
-			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="elemental")
+			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="elemental")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
 		name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 		if not os.path.isfile(data_dirc +name):
-			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="species")
+			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="species")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
 
@@ -1113,3 +1131,164 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 	plt.savefig(foutname)
 	plt.close()   
 
+
+
+
+def dmol_vs_params(mol_param, params, snaps, bin_nums=50, time=None, labels=None, foutname='dmol_vs_param.png', std_bars=True, style='color'):
+	"""
+	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	mol_param: string
+		Name of molecular parameter to plot (fH2, fMC, CinCO)
+	params: array
+		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
+	snaps : array
+	    Array of snapshots to plot
+	bin_nums : int
+		Number of bins to use
+	time : string
+		Option for printing time in corner of plot (None, one, all)
+	labels : array
+		Array of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+
+	"""	
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
+
+	for i, x_param in enumerate(params):
+		# Set up for each plot
+		axis = axes[i]
+		y_param = mol_param
+		plt_set.setup_axis(axis, x_param, y_param)
+
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+
+
+			param_vals,mean_dmol,std_dmol = calc_dmol_vs_param(mol_param, x_param, G, bin_nums=bin_nums)
+
+			# Only need to label the seperate simulations in the first plot
+			if i==0 and labels is not None: label = labels[j];
+			else:    						label = None;
+			axis.plot(param_vals, mean_dmol, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if std_bars:
+				axis.fill_between(param_vals, std_dmol[:,0], std_dmol[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+		# Setup legend
+		axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
+
+		# Print time in corner of plot if applicable
+		if time=='one' and i==0:
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+		elif time=='all':
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+
+	plt.tight_layout()	
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+
+def calc_dmol_vs_param(mol_param, param, G, bin_nums=50, param_lims=None):
+	"""
+	Calculate the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	param: string
+		Name of parameter to get D/Z values for
+	G : dict
+	    Snapshot gas data structure
+	bin_nums : int
+		Number of bins to use
+	elem : string, optional
+		Can specify the D/Z ratio for a specific element. Default is all metals.
+
+	Returns
+	-------
+	mean_DZ : array
+		Array of mean D/Z values vs parameter given
+	std_DZ : array
+		Array of 16th and 84th percentiles D/Z values
+	param_vals : array
+		Parameter values D/Z values are taken over
+
+	"""	
+
+
+	if param_lims is None:
+		param_lims = config.PARAM_INFO[param][1]
+		log_bins = config.PARAM_INFO[param][2]
+	else:
+		if param_lims[1] > 20*param_lims[0]: 	log_bins=True
+		else:								  	log_bins=False
+
+	# Get D/Z values over number density of Hydrogen (nH)
+	if param == 'nH':
+		nH = G.rho*config.UnitDensity_in_cgs * (1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+		bin_data = nH
+		log_bins=True
+	# Get D/Z values over gas temperature
+	elif param == 'T':
+		T = G.T
+		bin_data = T
+		log_bins=True
+	# Get D/Z valus over radius of galaxy from the center
+	elif param == 'r' or param == 'r25':
+		# TODO: implement r25 bins and r for halo objects 
+		r = np.sqrt(np.power(G.p[:,0],2) + np.power(G.p[:,1],2))
+		bin_data = r
+		if param_lims[1]>40: log_bins=True
+		else:			     log_bins=False
+	# Get D/Z values vs total metallicty of gas
+	elif param == 'Z':
+		Z = G.z[:,0]/config.SOLAR_Z
+		bin_data = Z
+		log_bins=True
+	# Get D/Z values vs H2 mass fraction of gas
+	elif param == 'fH2':
+		fH2 = utils.calc_fH2(G)
+		bin_data = fH2
+		log_bins=False
+	else:
+		print("Parameter given to calc_dmol_vs_param is not supported:",param)
+		return None,None,None
+
+	if mol_param=='fH2':
+		dmol = G.dust_mol[:,0]
+	elif mol_param=='fMC':
+		dmol = G.dust_mol[:,1]
+	elif mol_param=='CinCO':
+		dmol = G.dust_mol[:,2]/G.z[:,2]
+	else:
+		print('Invalid mol_param given to calc_dmol_vs_param:',mol_param)
+		return None,None,None
+
+	dmol[dmol > 1] = 1.
+
+	bin_vals, mean_dmol, std_dmol = utils.bin_values(bin_data, dmol, param_lims, bin_nums=bin_nums, weight_vals=G.m, log=log_bins)
+
+	return bin_vals, mean_dmol, std_dmol

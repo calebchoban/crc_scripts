@@ -51,6 +51,54 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	return r_val, sigma_dust
 
 
+
+def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
+	"""
+	Gives the depletion for Mg, Si, or Fe in the WNM based on comparison of Jenkins (2009)
+	with Savage & Sembach (1996a)
+	"""
+
+	# Typical nH for WNM
+	nH_dens = 0.5 # cm^-3
+	# F_star value for "warm disk" environment from Savage & Sembach (1996)
+	F_star = 0.12
+
+	amu_H = 1.008
+	elems = ['C','N','O','Mg','Si','P','Cl','Ti','Cr','Mn','Fe','Ni','Cu','Zn','Ge','Kr']
+	# All values are for C,N,O,Mg,Si,P,Cl,Ti,Cr,Mn,Fe,Ni,Cu,Zn,Ge,Kr respectively
+	amu = np.array([12.01,14.01,16,24.3,28.085,30.973762,35.45,47.867,51.9961,54.938044,55.845,58.6934,63.546,65.38,72.63,83.798])
+	# 12+log(X/H)_solar values
+	solar = np.array([8.46,7.9,8.76,7.62,7.61,5.54,5.33,5,5.72,5.58,7.54,6.29,4.34,4.7,3.7,3.36])
+	solar_Mx_MH = np.power(10,solar-12)*amu/amu_H
+	total_Z = np.sum(solar_Mx_MH)
+	# Fit parameters for depletions
+	factor = 0.
+	if C_corr:
+		factor = np.log10(2)
+	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
+	Bx = np.array([-0.193-factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
+
+	# Depletion factor of element x at a given F_star
+	x_depl = Bx + Ax*(F_star - zx)
+
+	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
+
+	if elem == 'Z':
+		dust_to_H = np.sum(solar_Mx_MH - obs_Mx_MH)
+		WNM_depl = dust_to_H/total_Z
+	elif elem in elems:
+		index = elems.index(elem)
+		elem_to_H = solar_Mx_MH[index] - obs_Mx_MH[index]
+		WNM_depl = elem_to_H/solar_Mx_MH[index]
+	else:
+		print("Given element is not included in Jenkins (2009)\n")
+		return None, None
+
+	return nH_dens, 1.-WNM_depl
+
+
+
 def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	"""
 	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Note that
@@ -61,12 +109,13 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	# This is the range the relation was observed, used when plotting to contrast with extrapolated range
 	obs_range = np.array([np.power(10,-1.7), np.power(10,0.8)])
 
-	avg_nH = np.logspace(-2,3,num=50)
+	avg_nH = np.logspace(-2,3,num=200)
 	# Get physical nH value with conversion from Zhukovska (2016).
 	# This may not be accurate so use with caution.
 	if phys_dens:
 		phys_nH = 147.234*np.power(avg_nH,1.054)
-		obs_range = 147.234*np.power(obs_range,1.054)
+		# This conversion is only valid for a certain range of densities
+		obs_range = np.array([10, 1E3])
 	F_star = 0.772 + 0.461*np.log10(avg_nH) 
 
 	amu_H = 1.008
@@ -88,6 +137,10 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	# Depletion factor of element x at a given F_star
 	x_depl = Bx + Ax*(F_star.reshape([-1,1]) - zx)
 
+	# Decrease all converted depletions by 0.2 dex to account for contribution from WNM along line of sight
+	if phys_dens and (elem in ['Mg','Si','Fe']):
+		x_depl -= 0.2
+
 	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
 
 	if elem == 'Z':
@@ -99,12 +152,15 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 		DZ_vals = elem_to_H/solar_Mx_MH[index]
 	else:
 		print("Given element is not included in Jenkins (2009)\n")
-		return 
+		return None, None
 
+	
 	if phys_dens:
-		return phys_nH, obs_range, DZ_vals
+		in_range = np.where(np.logical_and(phys_nH>=obs_range[0], phys_nH<=obs_range[1]))
+		return phys_nH[in_range], DZ_vals[in_range]
 	else:
-		return avg_nH, obs_range, DZ_vals
+		in_range = np.where(np.logical_and(avg_nH>=obs_range[0], avg_nH<=obs_range[1]))
+		return avg_nH[in_range], DZ_vals[in_range]
 
 
 def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):

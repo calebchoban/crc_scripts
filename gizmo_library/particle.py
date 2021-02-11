@@ -87,6 +87,7 @@ class Particle:
             if (sp.Flag_DustMetals):
                 dz = np.zeros((npart,sp.Flag_DustMetals-4), dtype='float')
                 dzs = np.zeros((npart,4), dtype='float')
+                dust_mol = np.zeros((npart,3), dtype='float')
             if (sp.Flag_DustSpecies):
                 spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
             else:
@@ -126,11 +127,13 @@ class Particle:
                 if (sp.Flag_DustMetals):
                     dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
+                if 'DustMolecular' in grp:
+                    dust_mol[nL:nR] = grp['DustMolecular'][...]
                 if (sp.Flag_DustSpecies):
                     spec[nL:nR] = grp['DustSpecies'][...]
                 elif (sp.Flag_DustMetals):
                     spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
-                    spec[nL:nR,0] = dz[nL:nR,2]
+                    spec[nL:nR,1] = dz[nL:nR,2]
                 if (sp.Flag_Sfr):
                     sfr[nL:nR] = grp['StarFormationRate'][...]
             
@@ -175,6 +178,7 @@ class Particle:
                     if (sp.Flag_DustDepl):
                         self.z += self.dz
                     self.spec = spec
+                    self.dust_mol = dust_mol
             if (sp.Flag_Sfr):
                 self.sfr = sfr
     
@@ -211,6 +215,7 @@ class Particle:
                 self.dz = self.dz[mask]
                 self.dzs = self.dzs[mask]
                 self.spec = self.spec[mask]
+                self.dust_mol = self.dust_mol[mask]
             if (self.sp.Flag_Sfr):
                 self.sfr = self.sfr[mask]
     
