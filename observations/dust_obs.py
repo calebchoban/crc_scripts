@@ -99,6 +99,58 @@ def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
 
 
 
+
+def Parvathi_2012_C_Depl(solar_abund='max'):
+	"""
+	Gives C depletion data vs <nH> from sightlines in Parvathi+ (2012).
+
+	Parameters
+	----------
+	solar_abund : string
+	  	What to use as the assumed abundace of C 'max'=maximum of data set, 'solar'=Lodders03, 'young_star'=young star abundance from Sofia & Meyer (2001)
+
+	Returns
+	------
+	C_depl : array
+		C depletions for all sightlines
+	C_err : array
+		Errors for each C depeltions
+	nH : array
+		Average sight line density (cm^-3) for each sightline
+	"""	
+
+	solar_C = 228
+	young_star_C = 358
+
+	# Number abundances of gas-phase C along with their errors and average sightline densities
+	gas_phase_C = np.array([382,202,116,365,275,112,173,138,193,290,85,464,131,321,317,93,92,99,98,215,69],dtype=float)
+	C_error     = np.array([56, 24, 102, 94, 96, 19, 34, 24, 31, 58, 28, 57, 27, 70, 46, 32, 38, 36, 23, 54, 21],dtype=float)
+	nH          = np.power(10,np.array([0.41,-0.73,-1.15,-0.47,-0.69,-0.41,0.08,-0.27,-0.13,-0.90,0.55,-0.03,0.04,-0.70,-0.92,0.53,0.61,0.66,1.11,-0.28,0.40]))
+
+	if solar_abund=='max':
+		i_max = np.argmax(gas_phase_C)
+		# Propagate error
+		C_error = np.sqrt(np.power(C_error/gas_phase_C,2)+np.power(C_error[i_max]/gas_phase_C[i_max],2))
+		C_depl = gas_phase_C/np.max(gas_phase_C)
+		C_error *= C_depl
+	elif solar_abund=='solar':
+		C_depl = gas_phase_C/solar_C
+		C_error /= solar_C
+	elif solar_abund=='young_star':
+		C_depl = gas_phase_C/young_star_C
+		C_error /= young_star_C
+	else:
+		print("%s is not a valid argument for Parvathi_2012_C_Depl()"%solar_abund)
+		return None,None,None
+
+	print C_depl
+	print C_error
+	print nH
+
+	return C_depl, C_error, nH
+
+
+
 def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	"""
 	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Note that
@@ -108,6 +160,9 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 
 	# This is the range the relation was observed, used when plotting to contrast with extrapolated range
 	obs_range = np.array([np.power(10,-1.7), np.power(10,0.8)])
+	# C data is especially scarce so limit the relation to only the observed range
+	if elem == 'C':
+		obs_range = np.array([np.power(10,-0.9), np.power(10,0.8)])
 
 	avg_nH = np.logspace(-2,3,num=200)
 	# Get physical nH value with conversion from Zhukovska (2016).
@@ -116,6 +171,8 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 		phys_nH = 147.234*np.power(avg_nH,1.054)
 		# This conversion is only valid for a certain range of densities
 		obs_range = np.array([10, 1E3])
+		if elem == 'C':
+			obs_range = np.array([17, 1E3])
 	F_star = 0.772 + 0.461*np.log10(avg_nH) 
 
 	amu_H = 1.008
@@ -161,6 +218,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	else:
 		in_range = np.where(np.logical_and(avg_nH>=obs_range[0], avg_nH<=obs_range[1]))
 		return avg_nH[in_range], DZ_vals[in_range]
+
 
 
 def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):
@@ -222,6 +280,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 			data[name] = [r_data,dust_data]
 
 	return data
+
 
 
 def Chiang_2020_dust_surf_dens_vs_param(param):

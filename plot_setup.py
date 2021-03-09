@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from gizmo_library import config
 
@@ -235,3 +236,96 @@ def setup_2D_hist_fig(hist_proj = True):
 		axes = np.array([axHist2D,axHistx,axHisty])
 
 	return fig,axes
+
+
+
+
+def setup_projection(num_plots,L,Lz=None,time=None):
+
+	axes = []
+	base_size = 10
+	# Ratio of color bar size to projection plot
+	cbar_ratio = 0.05
+
+	if num_plots > 4:
+		num_rows = int(np.ceil(num_plots/4))
+		gs0 = gridspec.GridSpec(num_rows, 1)
+		for i in range(num_rows):
+			gs00 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=gs0[i])
+		fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
+		for i in range(int(np.ceil(num_plots/4))):
+			gs = gridspec.GridSpec(2,4,height_ratios=height_ratios, width_ratios=[1,1])
+	# X-Y and X-Z Projection
+	if Lz != None:
+		gs = gridspec.GridSpec(3,num_plots,height_ratios=[L,Lz,cbar_ratio*L])
+		gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
+		ratio = 1+1.0*Lz/L + 2*cbar_ratio
+		fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
+		for i in range(num_plots):
+			ax1 = plt.subplot(gs[0,i])
+			ax1.xaxis.set_visible(False)
+			ax1.yaxis.set_visible(False)
+			ax2 = plt.subplot(gs[1,i])
+			ax2.xaxis.set_visible(False)
+			ax2.yaxis.set_visible(False)
+			cbarax = plt.subplot(gs[2,i])
+			axes += [[ax1,ax2,cbarax]]
+	# Only X-Y Projection
+	else:
+		gs = gridspec.GridSpec(2,num_plots,height_ratios=[L,cbar_ratio*L],hspace=0.0,wspace=0.025,top=0.975, bottom=0.025, left=0.025, right=0.975)
+		ratio = 1.+cbar_ratio
+		fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
+		for i in range(num_plots):
+			ax = plt.subplot(gs[0,i])
+			ax1.xaxis.set_visible(False)
+			ax1.yaxis.set_visible(False)
+			cbarax = plt.subplot(gs[1,i])
+			axes += [[ax,cbarax]]
+
+
+	
+	return fig, np.array(axes)
+
+
+
+# find appropriate scale bar and label
+def find_scale_bar(L):
+
+    if (L>=10000):
+        bar = 1000.; label = '1 Mpc'
+    elif (L>=1000):
+        bar = 100.; label = '100 kpc'
+    elif (L>=500):
+        bar = 50.; label = '50 kpc'
+    elif (L>=200):
+        bar = 20.; label = '20 kpc'
+    elif (L>=100):
+        bar = 10.; label = '10 kpc'
+    elif (L>=50):
+        bar = 5.; label = '5 kpc'
+    elif (L>=20):
+        bar = 2.; label = '2 kpc'
+    elif (L>=10):
+        bar = 1.; label = '1 kpc'
+    elif (L>=5):
+        bar = 0.5; label = '500 pc'
+    elif (L>=2):
+        bar = 0.2; label = '200 pc'
+    elif (L>=1):
+        bar = 0.1; label = '100 pc'
+    elif (L>0.5):
+        bar = 0.05; label = '50 pc'
+    elif (L>0.2):
+        bar = 0.02; label = '20 pc'
+    elif (L>0.1):
+        bar = 0.01; label = '10 pc'
+    elif (L>0.05):
+        bar = 0.005; label = '5 pc'
+    elif (L>0.02):
+        bar = 0.002; label = '2 pc'
+    elif (L>0.01):
+        bar = 0.001; label = '1 pc'
+    else:
+        bar = 0.0005; label = '0.5 pc'
+
+    return bar, label

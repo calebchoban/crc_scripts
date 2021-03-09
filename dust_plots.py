@@ -3,6 +3,7 @@ import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+from matplotlib.colorbar import Colorbar
 plt.switch_backend('agg')
 from scipy.stats import binned_statistic_2d
 from scipy.optimize import curve_fit
@@ -14,6 +15,7 @@ import plot_setup as plt_set
 
 import gizmo_library.config as config
 import gizmo_library.utils as utils
+
 
 
 
@@ -117,9 +119,10 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-			nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True)
-			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:grey', zorder=2)
-			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:grey', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='solar')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='D', c='xkcd:grey', elinewidth=1, markersize=6, zorder=2)
+
 
 
 
@@ -175,7 +178,7 @@ def DZ_vs_params(params, snaps, bin_nums=50, time=None, labels=None, foutname='D
 	for i, x_param in enumerate(params):
 		# Set up for each plot
 		axis = axes[i]
-		y_param = 'DZ'
+		y_param = 'D/Z'
 		plt_set.setup_axis(axis, x_param, y_param)
 
 		# First plot observational data if applicable
@@ -340,7 +343,7 @@ def observed_DZ_vs_param(params, snaps, pixel_res=2, bin_nums=50, time=None, lab
 	for i, x_param in enumerate(params):
 		# Set up for each plot
 		axis = axes[i]
-		y_param = 'DZ'
+		y_param = 'D/Z'
 		plt_set.setup_axis(axis, x_param, y_param)
 
 		# First plot observational data if applicable
@@ -608,7 +611,7 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 		plt_set.setup_axis(axis, x_param, y_param)
 
 		param_labels=None
-		if y_param == 'DZ':
+		if y_param == 'D/Z':
 			param_id = 'DZ_ratio'
 		elif y_param == 'source_frac':
 			param_id = 'source_frac'
@@ -764,15 +767,15 @@ def calc_phase_hist(param, G, bin_nums=100):
 		fH2 = utils.calc_fH2(G)
 		bin_data = fH2
 	elif param == 'mH2':
-		MH2 = utils.calc_fH2(G)*G.m*1E10
+		MH2 = utils.calc_fH2(G)*G.m*confg.UnitMass_in_Msolar
 		MH2[MH2<=0] = config.EPSILON
 		bin_data = MH2
 		func = np.sum
 	elif param == 'm':
-		M = G.m*1E10
+		M = G.m*confg.UnitMass_in_Msolar
 		bin_data = M
 		func = np.sum
-	elif param == 'DZ':
+	elif param == 'D/Z':
 		DZ = G.dz[:,0]/G.z[:,0]
 		DZ[DZ > 1] = 1.
 		bin_data = DZ
@@ -1292,3 +1295,233 @@ def calc_dmol_vs_param(mol_param, param, G, bin_nums=50, param_lims=None):
 	bin_vals, mean_dmol, std_dmol = utils.bin_values(bin_data, dmol, param_lims, bin_nums=bin_nums, weight_vals=G.m, log=log_bins)
 
 	return bin_vals, mean_dmol, std_dmol
+
+
+
+def dust_projections(param, snap, bin_nums=100, param_lims=None):
+	"""
+	Face-on and edge-on projection of dust in galaxy snapshot.
+
+	Parameters
+	----------
+	param: list
+		List of dust parameters (D/Z,carbon,silicate,total)
+	snap : dict
+	    Snapshot gas data structure
+	bin_nums : int
+		Number of bins to use
+	param_lims : list
+		Limits for each dust parameter
+
+	Returns
+	-------
+	None
+
+	"""	
+	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
+	axis_2D_hist = axes[0]
+	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
+	axis_2D_hist.set_facecolor('xkcd:grey')
+
+	G = snap.loadpart(0)
+	H = snap.loadheader()
+
+	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
+	param_lims = config.PARAM_INFO[param][1]
+	log_param = config.PARAM_INFO[param][2]
+	if log_param:
+		norm = mpl.colors.LogNorm()
+	else:
+		norm = None
+
+	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), vmin=param_lims[0], vmax=param_lims[1], norm=norm)
+	axis_2D_hist.autoscale('tight')
+
+	bar_label =  config.PARAM_INFO[param][0]
+	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
+
+	# Print time in corner of plot if applicable
+	if time=='all':
+		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+		axis_2D_hist.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+	plt.tight_layout()
+
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, labels=None, color_map='inferno', foutname='snap_projection.png', **kwargs):
+	"""
+	Plots face on and edge on projections for one snapshots for the chosen parameters
+
+	Parameters
+	----------
+	param: list
+		List of dust parameters (D/Z,carbon,silicate,total)
+	snaps : array
+	    Array of snapshots to plot
+	bin_nums : int
+		Number of bins to use
+	time : string
+		Option for printing time in corner of plot (None, one, all)
+	foutname: str, optional
+		Name of file to be saved
+	# other available keywords:
+    ## cen  - center of the image
+    ## L    - side length along x and y direction
+    ## Lz   - depth along z direction, for particle trimming
+    ## Nx   - number of pixels along x and y direction, default 250
+    ## vmin - minimum scaling of the colormap
+    ## vmax - maximum scaling of the colormap
+    ## theta, phi - viewing angle
+	Returns
+	-------
+	None
+
+	"""	
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_projection(len(params), L, Lz=Lz)
+
+	for i, param in enumerate(params):
+		ax1 = axes[i,0]; ax2 = axes[i,1]; cbar_ax = axes[i,2];
+		text_label = labels[i]
+
+		param_lim = config.PARAM_INFO[param][1]
+		log_param = config.PARAM_INFO[param][2]
+		if log_param:
+			norm = mpl.colors.LogNorm()
+		else:
+			norm = None
+		cbar_label =  config.PARAM_INFO[param][0]
+
+
+
+		# If first plot add scale bar
+
+		# If labels given add to corner of each projection
+		if labels != None:
+			ax1.annotate(text_label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
+
+		# Plot x-y projection on top
+		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
+		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
+		img = ax1.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+           aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+		ax1.set_xlim(xedges[-1], xedges[0])
+		ax1.set_ylim(yedges[-1], yedges[0])
+
+		# Plot x-z projection below
+		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [Lz,L,L], pixel_res=pixel_res, proj='xz')
+		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
+		ax2.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+           aspect='auto', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+		ax2.set_xlim(xedges[-1], xedges[0])
+		ax2.set_ylim(yedges[-1], yedges[0])
+
+		cbar = Colorbar(ax = cbar_ax, mappable = img, orientation = 'horizontal', ticklocation = 'bottom')
+		cbar.ax.set_xlabel(cbar_label, fontsize=config.LARGE_FONT)
+		cbar.ax.minorticks_off() 
+		cbar.ax.tick_params(axis='both',which='both',direction='in', pad=10)
+		cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
+	  	cbar.outline.set_linewidth(2)
+
+
+	plt.savefig(foutname)
+	plt.close()
+
+
+def calc_obs_projection(param, snap, side_lens, pixel_res=2, proj='xy'):
+	"""
+	Calculate the average dust-to-metals ratio vs radius, gas , H2 , metal, or dust surface density
+	given code values of center and viewing direction for multiple simulations/snapshots
+
+	Parameters
+	----------
+	param: string
+		name of parameter to project
+	snap : Snapshot
+	    Simulations snapshot
+	side_len : list
+		Size of box to consider (L1, L2, Lz), L1 ands L2 are side lengths and Lz depth is depth of box
+	pixel_res : double
+		Size resolution of each pixel bin in kpc
+	bin_nums : int
+		Number of bins for param
+	proj : string
+		What coordinates you want to project (xy,yz,zx)
+
+	Returns
+	-------
+	pixel_data : array
+		Projected data for each pixel
+	coord1_bins : array
+		Bins for first coordinate
+	coord2_bins : array
+		Bins for second coordinate
+	"""	
+
+	L1 = side_lens[0]
+	L2 = side_lens[1]
+	Lz = side_lens[2]
+
+	if 'star' in param:
+		S = snap.loadpart(4)
+		M = S.m*config.UnitMass_in_Msolar
+		x = S.p[:,0];y=S.p[:,1];z=S.p[:,2]
+	else:
+		G = snap.loadpart(0)
+		M = G.m*config.UnitMass_in_Msolar
+		x = G.p[:,0];y=G.p[:,1];z=G.p[:,2]
+
+	# Set up coordinates to project
+	if   proj=='xy': coord1 = x; coord2 = y; coord3 = z; 
+	elif proj=='yz': coord1 = y; coord2 = z; coord3 = x; 
+	elif proj=='xz': coord1 = x; coord2 = z; coord3 = y; 
+	else:
+		print("Projection must be xy, yz, or xz for calc_obs_projection()")
+		return None
+
+	# Only include particles in the box
+	mask = (coord1>-L1) & (coord1<L1) & (coord2>-L2) & (coord2<L2) & (coord3>-Lz) & (coord3<Lz)
+
+	pixel_bins = int(np.ceil(2*L1/pixel_res)) + 1
+	coord1_bins = np.linspace(-L1,L1,pixel_bins)
+	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
+	coord2_bins = np.linspace(-L2,L2,pixel_bins)
+
+	pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
+
+	# Get the data to be projected
+	if param in ['D/Z','fH2','fMC']:
+		if param == 'D/Z':
+			proj_data1 = G.dz[:,0]*M
+			proj_data2 = G.z[:,0]*M
+		#TODO: Add support for fH2 and fMC
+
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic[0]/binned_stats.statistic[1]
+
+	else:
+		if   param == 'sigma_dust': proj_data = G.dz[:,0]*M
+		elif param == 'sigma_gas': 	proj_data = M
+		elif param == 'sigma_H2': 	proj_data = utils.calc_fH2(G)*G.m*(1-(G.z[:,0]+G.z[:,1]))
+		elif param == 'sigma_Z': 	proj_data = G.z[:,0]*M
+		elif param == 'sigma_sil': 	proj_data = G.spec[:,0]*M
+		elif param == 'sigma_sil+': proj_data = (np.sum(G.spec,axis=1)-G.spec[:,1])*M
+		elif param == 'sigma_carb': proj_data = G.spec[:,1]*M
+		elif param == 'sigma_SiC': proj_data = G.spec[:,2]*M
+		elif param == 'sigma_iron': proj_data = G.spec[:,3]*M
+		elif param == 'sigma_O': proj_data = G.spec[:,4]*M
+		elif param == 'sigma_star': proj_data = M
+		else:
+			print("%s is not a supported parameter in calc_obs_projection()."%param)
+			return None
+
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic/pixel_area
+
+	return pixel_stats, coord1_bins, coord2_bins
