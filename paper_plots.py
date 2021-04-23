@@ -186,8 +186,8 @@ cosmological = False
 snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
-r_max = 40 # kpc
-disk_height = 4 # kpc
+r_max = 20 # kpc
+disk_height = 2 # kpc
 
 for i, num in enumerate(snaps):
 	print(num)

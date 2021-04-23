@@ -6,13 +6,18 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 # Set style of plots
 plt.style.use('seaborn-talk')
-# Set personal color cycle
-BLACK = 'xkcd:black'
+# Set base colors, linewidths, and styles for plotting
+BASE_COLOR = 'xkcd:black'
+BASE_LINEWIDTH = 2.0
+BASE_LINESTYLE = '-'
+BASE_MARKERSTYLE = 'o'
+
+# Set personal color, linewidths, and styles cycle
 LINE_COLORS = ["xkcd:azure", "xkcd:tomato", "xkcd:green", "xkcd:orchid", "xkcd:teal", "xkcd:sienna"]
 MARKER_COLORS = ["xkcd:orange", "xkcd:teal", "xkcd:sienna", "xkcd:gold", "xkcd:magenta"]
 LINE_STYLES = ['-','--',':','-.',(0, (3, 5, 1, 5, 1, 5))]
 MARKER_STYLES = ['o','^','X','s','v']
-LINE_WIDTHS = [0.5,1.0,1.5,2.0,2.5,3.0]
+LINE_WIDTHS = np.array([0.25,0.5,0.75,1.0,1.25,1.5])*BASE_LINEWIDTH
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
 
@@ -72,5 +77,6 @@ PARAM_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 									[0.,1.], 		False],
 				  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',					[0,1.05],		False],
 					   'source_frac': ['Source Mass Fraction', 								[1E-2,1.05], 	True],
 					     'spec_frac': ['Species Mass Fraction', 							[0,1.05], 		False],
-					          'Si/C': ['Sil-to-C Ratio', 									[0,10], 		False]
+					          'Si/C': ['Sil-to-C Ratio', 									[0,10], 		False],
+					 	 'mass_frac': ['Mass Fraction',										[0,1],			False]
 					     }

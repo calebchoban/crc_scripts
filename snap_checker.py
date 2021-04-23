@@ -6,15 +6,17 @@ from dust_plots import *
 
 # Directory of snap file
 snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/output/']
+
+snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/nano_Fe/output/','/oasis/tscc/scratch/cchoban/non_cosmo/Species/fiducial/output/']
 # Snapshots to check
-snap_num = 260
+snap_num = 80
 
 cosmological = False
 pb_fix=True
 dust_depl=False
 
 # Label for test plots
-labels = ['Species Fidcuial']
+labels = ['Species Nano Fe', 'Species Fiducial']
 
 
 # Maximum radius, disk, height, and disk orientation used for getting data
@@ -32,6 +34,8 @@ for j,snap_dir in enumerate(snap_dirs):
 	print("Snap Dirc: ",snap_dir)
 	galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 	galaxies += [galaxy]
+
+	print("NumParts:", galaxy.sp.npart)
 
 
 	print("Dust Implementation:", galaxy.sp.dust_impl)
@@ -216,7 +220,7 @@ for j,snap_dir in enumerate(snap_dirs):
 
 	if flag_species and galaxy.sp.Flag_DustSpecies>4:
 		print("Particle with Max O Reservoir...")
-		max_ind = np.argmax(G.spec[:,4])
+		max_ind = np.nanargmax(G.spec[:,4])
 		print("\t D/Z:",G.dz[max_ind]/G.z[max_ind,:11])
 		print("\t Dust Metals:",G.dz[max_ind])
 		print("\t Metals:",G.z[max_ind])
@@ -227,17 +231,21 @@ for j,snap_dir in enumerate(snap_dirs):
 		print("\t Sum of Species: %e \t Sum of Elements: %e Total Dust: %e\n"%(np.sum(G.spec[max_ind]),np.sum(G.dz[max_ind,2:]),G.dz[max_ind,0]))
 		print("\t fH2: %e \t fMC: %e \t CinCO: %e \n"%(G.dust_mol[max_ind,0],G.dust_mol[max_ind,1],G.dust_mol[max_ind,2]/G.z[max_ind,2]))
 
+	
 
 
 
-	print("Creating dust plots to check by eye...")
+print("Creating dust plots to check by eye...")
+for galaxy in galaxies:
+	binned_phase_plot('m', galaxy, bin_nums=200, time=None, color_map='inferno', hist_proj=False, foutname='snap_'+str(snap_num)+'_phase_plot.png')
+	binned_phase_plot('D/Z', galaxy, bin_nums=200, time=None, color_map='inferno', hist_proj=False, foutname='snap_'+str(snap_num)+'_DZ_phase_plot.png')	
 
-	dmol_vs_params('fH2', ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=None, foutname='check_snap_'+str(snap_num)+'_fH2_vs_nH_T.png', std_bars=True, style='color')
-	dmol_vs_params('fMC', ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=None, foutname='check_snap_'+str(snap_num)+'_fMC_vs_nH_T.png', std_bars=True, style='color')
-	dmol_vs_params('CinCO', ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=None, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True, style='color')
+dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
 
-	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
+dmol_vs_params('CinCO', ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=None, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True, style='color')
 
-	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
-						std_bars=True, style='color', include_obs=True)
+DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
+
+elems = ['Mg','Si','Fe','O','C']
+elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
+					std_bars=True, style='color', include_obs=True)

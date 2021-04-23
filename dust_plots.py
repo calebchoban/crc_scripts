@@ -44,13 +44,15 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'r':
-		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=15, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'r25':
 		data = obs.Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
@@ -58,26 +60,20 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'nH':
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=False)
-		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=False)
-		axis.scatter(nH_val,1.-WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
-		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
-		
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=False)
-		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		
+		# Plot J09 with Zhuk16/18 conversion to physical density
 		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
-		axis.plot(dens_vals, DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=True)
-		axis.scatter(nH_val,1.-WNM_depl, marker='D',c='xkcd:grey', zorder=2)
-		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:grey', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
-		
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
+		# range of C depeletions since they are not observed for this regime
+		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=True)
+		axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D', elinewidth=2, markersize=8,zorder=2)	
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Plot J09 relation to use as upper bound
 		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
-		axis.plot(dens_vals, DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+	
 	elif param == 'sigma_dust':
 		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
@@ -85,8 +81,9 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+	
 	elif param == 'sigma_gas':
-		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=True)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=15, log=True, goodSNR=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
@@ -97,6 +94,7 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			for i, gal_name in enumerate(data.keys()):
 				sigma_vals = data[gal_name][0]; DZ = data[gal_name][1]
 				axis.scatter(sigma_vals, DZ, c=config.MARKER_COLORS[i], marker=config.MARKER_STYLES[i], s=2, zorder=0, alpha=0.4)	
+	
 	elif param == 'sigma_H2':
 		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
@@ -104,27 +102,30 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+	
 	elif param == 'depletion':
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-		axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
-		axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
-		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-		nH_val, WNM_depl = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=False)
-		axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
-		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
-
 		if elem == 'C':
+			# J09 C relation is derived from only a handful of sightlines over a limited range so just plot the relation over the observed range and no
+			# WNM depeltion approximation
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:grey', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:grey', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			# Add in data from Parvathi which sampled twice as many sightlines 
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=1, markersize=6, zorder=2)
 
-			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='solar')
-			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='D', c='xkcd:grey', elinewidth=1, markersize=6, zorder=2)
 
 
-
+		else:
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=False)
+			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
+			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
 
 	elif param == 'sigma_Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
@@ -204,10 +205,10 @@ def DZ_vs_params(params, snaps, bin_nums=50, time=None, labels=None, foutname='D
 		# Print time in corner of plot if applicable
 		if time=='one' and i==0:
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
 		elif time=='all':
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
 
 	plt.tight_layout()	
 	plt.savefig(foutname)
@@ -292,6 +293,7 @@ def calc_DZ_vs_param(param, G, bin_nums=50, param_lims=None, elem='Z'):
 	DZ = G.dz[:,elem_indx]/G.z[:,elem_indx]
 	DZ[DZ > 1] = 1.
 	
+
 	bin_vals, mean_DZ, std_DZ = utils.bin_values(bin_data, DZ, param_lims, bin_nums=bin_nums, weight_vals=G.m, log=log_bins)
 
 	return bin_vals, mean_DZ, std_DZ
@@ -362,18 +364,19 @@ def observed_DZ_vs_param(params, snaps, pixel_res=2, bin_nums=50, time=None, lab
 			if std_bars:
 				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		# Setup legend
-		if include_obs: ncol=2;
-		else: 			ncol=1;
-		axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+		if i==0:
+			# Setup legend
+			if include_obs: ncol=2;
+			else: 			ncol=1;
+			axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
 		# Print time in corner of plot if applicable
 		if time=='one' and i==0:
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
 		elif time=='all':
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
 
 	plt.tight_layout()	
 	plt.savefig(foutname)
@@ -550,6 +553,14 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 			if elem in ['C','O']:
 				axis.set_ylim([1E-1,1E0])
 
+			# C needs an extra legend label for Parvathi data
+			# Only needed if it's not the first plot
+			if elem=='C' and i!=0 and include_obs:
+				# Get the one handle and label we want for the legend
+				handles, labels = axis.get_legend_handles_labels()
+				handles = [handles[-1]]; labels = [labels[-1]];
+				axis.legend(handles, labels, loc=0, fontsize=config.SMALL_FONT, frameon=False)
+
 			# Only need to label the seperate simulations in the first plot
 			if i==0 and labels is not None: label = labels[j];
 			else:    						label = None;
@@ -563,12 +574,12 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 				else: 			ncol=1;
 				axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
-		axis.text(.10, .30, elem, color="xkcd:black", fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+		axis.text(.10, .30, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 		# Print time in corner of plot if applicable
 		if time=='all':
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
 
 	plt.tight_layout()
 	plt.savefig(foutname)
@@ -635,7 +646,7 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 			# Check if parameter has subparameters
 			data_vals = data.get_data(y_param)
 			if param_labels is None:
-				axis.plot(time_data, data_vals, color='xkcd:black', linestyle=config.LINE_STYLES[j], label=labels[j], zorder=3)
+				axis.plot(time_data, data_vals, color=config.BASE_COLOR, linestyle=config.LINE_STYLES[j], label=labels[j], zorder=3)
 			else:
 				for k in range(np.shape(data_vals)[1]):
 					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], zorder=3)
@@ -712,7 +723,7 @@ def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno',
 	# Print time in corner of plot if applicable
 	if time=='all':
 		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-		axis_2D_hist.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
 	plt.tight_layout()
 
 	plt.savefig(foutname)
@@ -772,7 +783,7 @@ def calc_phase_hist(param, G, bin_nums=100):
 		bin_data = MH2
 		func = np.sum
 	elif param == 'm':
-		M = G.m*confg.UnitMass_in_Msolar
+		M = G.m*config.UnitMass_in_Msolar
 		bin_data = M
 		func = np.sum
 	elif param == 'D/Z':
@@ -887,7 +898,7 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 			lines += [mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[1],label='Species')]
 			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT)
 		#  Add label for dust species
-		axis.text(.95, .05, name, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'right', transform=axis.transAxes)
+		axis.text(.95, .05, name, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'right', transform=axis.transAxes)
 
 		for j,Z in enumerate(Z_list):
 			name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
@@ -1124,7 +1135,7 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 			for k,key in enumerate(sorted(weight_vals.keys())):
 				axis.hist(x_vals[key], bins=bins, weights=weight_vals[key], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
 				         linewidth=linewidths[0], linestyle=linestyles[k])
-				lines += [mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[k],label=key)]
+				lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[k],label=key)]
 
 			# Want legend only on first plot
 			if i == 0:
@@ -1137,16 +1148,16 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 
 
 
-def dmol_vs_params(mol_param, params, snaps, bin_nums=50, time=None, labels=None, foutname='dmol_vs_param.png', std_bars=True, style='color'):
+def dmol_vs_params(mol_params, params, snaps, labels=None, bin_nums=50, time=None, foutname='dmol_vs_param.png', std_bars=True):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
+	Plots the molecular parameters (fH2, fMC, CinCO) vs the parameters given for one snapshot 
 
 	Parameters
 	----------
-	mol_param: string
-		Name of molecular parameter to plot (fH2, fMC, CinCO)
+	mol_params: string
+		Array of molecular parameter to plot (fH2, fMC, CinCO) on y axis
 	params: array
-		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
+		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25) on x axis
 	snaps : array
 	    Array of snapshots to plot
 	bin_nums : int
@@ -1171,41 +1182,46 @@ def dmol_vs_params(mol_param, params, snaps, bin_nums=50, time=None, labels=None
 	"""	
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
-
+	handles,linewidths,colors,linestyles = plt_set.setup_legend_handles(labels, params=mol_params, style='color-line')
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(params))
 
 	for i, x_param in enumerate(params):
-		# Set up for each plot
+		# Set up axes and label legends for each plot
 		axis = axes[i]
-		y_param = mol_param
+		lines = []
+		if len(mol_params) > 1:
+			y_param = 'mass_frac'
+		else:
+			y_param = mol_params[0]
+
 		plt_set.setup_axis(axis, x_param, y_param)
 
 		for j,snap in enumerate(snaps):
 			G = snap.loadpart(0)
 			H = snap.loadheader()
-
-
-			param_vals,mean_dmol,std_dmol = calc_dmol_vs_param(mol_param, x_param, G, bin_nums=bin_nums)
-
-			# Only need to label the seperate simulations in the first plot
-			if i==0 and labels is not None: label = labels[j];
-			else:    						label = None;
-			axis.plot(param_vals, mean_dmol, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
-			if std_bars:
-				axis.fill_between(param_vals, std_dmol[:,0], std_dmol[:,1], alpha = 0.3, color=colors[j], zorder=1)
-
-		# Setup legend
-		axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
+			for k,mol_param in enumerate(mol_params):
+				if len(mol_params) == 1:
+					index = j
+				else:
+					index = j*len(snaps)+k
+				
+				param_vals,mean_dmol,std_dmol = calc_dmol_vs_param(mol_param, x_param, G, bin_nums=bin_nums)
+				axis.plot(param_vals, mean_dmol, color=colors[index], linestyle=linestyles[index], zorder=3)
+				if std_bars:
+					axis.fill_between(param_vals, std_dmol[:,0], std_dmol[:,1], alpha = 0.3, color=colors[index], zorder=1)
+		
+		# Setup legend on first axis
+		if i == 0 and len(handles)>1:
+			axis.legend(handles=handles, loc=0, fontsize=config.SMALL_FONT, frameon=False)
 
 		# Print time in corner of plot if applicable
 		if time=='one' and i==0:
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
 		elif time=='all':
 			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-			axis.text(.05, .95, time_str, color="xkcd:black", fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
 
 	plt.tight_layout()	
 	plt.savefig(foutname)
@@ -1344,7 +1360,7 @@ def dust_projections(param, snap, bin_nums=100, param_lims=None):
 	# Print time in corner of plot if applicable
 	if time=='all':
 		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-		axis_2D_hist.text(.05, .95, time_str, color="xkcd:black", fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
 	plt.tight_layout()
 
 	plt.savefig(foutname)

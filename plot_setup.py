@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import matplotlib.lines as mlines
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from gizmo_library import config
 
@@ -30,11 +31,11 @@ def setup_plot_style(num_sets, style='color'):
 
 
 	if num_sets == 1:
-		linewidths = np.full(num_sets,2)
+		linewidths = np.full(num_sets,config.BASE_LINE_WIDTHS)
 		colors = config.LINE_COLORS
 		linestyles = config.LINE_STYLES
 	elif style == 'color':
-		linewidths = np.full(num_sets,2)
+		linewidths = np.full(num_sets,config.BASE_LINE_WIDTHS)
 		colors = config.LINE_COLORS
 		linestyles = config.LINE_STYLES
 	elif style == 'size':
@@ -46,6 +47,87 @@ def setup_plot_style(num_sets, style='color'):
 		return None,None,None
 
 	return linewidths, colors, linestyles
+
+
+def setup_legend_handles(snap_labels, params=[], style='color-line'):
+	"""
+	Sets up the handles for plot legend with specified style and parameters being plotted.
+
+	Parameters
+	----------
+	snap_labels : list
+		List of snapshot names to be plotted
+	params: list
+		List of paramters that will also be plotted on the same plot if applicable
+	style : string
+		The style which will be used to differentiate the data sets. 
+		'color': each snapshot has different color
+		'size': each snapshot has different line width
+		'line': each snapshot had different line style
+		'color-line': each snapshot had different color and line style
+
+	Returns
+	-------
+	handles : array
+		List of handles to be given to plot legend
+	linewidths : array
+		List of linewidths for each data set.
+	colors : array
+		List of colors for each data set.		
+	linestyles : array
+		List of linestyles for each data set.
+
+	"""	
+
+	handles = []
+	# First case just plottinng one snapshot so no need for legend handles
+	if len(snap_labels) == 1 and len(params)<=1:
+		linewidths = np.full(1,config.BASE_LINEWIDTH)
+		colors = [config.BASE_COLOR]
+		linestyles = [config.BASE_LINESTYLE]
+
+	# In the rare case that we are plotting one snapshot with multiple params follow the style choice to differentiate params
+	elif len(snap_labels) == 1:
+		colors = [config.BASE_COLOR]*len(params)
+		linestyles = [config.BASE_LINESTYLE]*len(params)
+		linewidths = [config.BASE_LINEWIDTH]*len(params)
+		if 'color' in style:
+			colors = config.LINE_COLORS[:len(params)]
+		if 'line' in style:
+			linestyles = config.LINE_STYLES[:len(params)]
+		if 'size' in style:
+			linewidths = config.LINE_WIDTHS[:len(params)]
+		for i, param in enumerate(params):
+			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=config.PARAM_INFO[param][0])]	
+	
+	# If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
+	elif len(params) <= 1:
+		colors = [config.BASE_COLOR]*len(snap_labels)
+		linestyles = [config.BASE_LINESTYLE]*len(snap_labels)
+		linewidths = [config.BASE_LINEWIDTH]*len(snap_labels)
+		if 'color' in style:
+			colors = config.LINE_COLORS[:len(snap_labels)]
+		if 'line' in style:
+			linestyles = config.LINE_STYLES[:len(snap_labels)]
+		if 'size' in style:
+			linewidths = config.LINE_WIDTHS[:len(snap_labels)]
+		for i, label in enumerate(snap_labels):
+			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=label)]		
+	
+	# If there are multiple snapshots and parameters then need to force each snapshot as a different linestyle and each parameter as a different color
+	else:
+		colors = []; linewidths = []; linestyles = [];
+		for i, param in enumerate(snap_labels):
+			colors += [config.LINE_COLORS[i]]*len(params)
+			linewidths += [config.BASE_LINEWIDTH]*len(params)
+			linestyles += config.LINE_STYLES[:len(params)]
+		for i, param in enumerate(params):
+			handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=config.LINE_STYLES[i],label=config.PARAM_INFO[param][0])]
+		for i, label in enumerate(snap_labels):
+			handles += [mlines.Line2D([], [], color=config.LINE_COLORS[i], linestyle=config.BASE_LINESTYLE,label=label)]
+
+
+	return handles, linewidths, colors, linestyles
 
 
 

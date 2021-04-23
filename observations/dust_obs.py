@@ -2,6 +2,7 @@ import numpy as np
 import utils
 
 CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
+OBS_DIR = './observations/'
 
 def Dwek_2014_M31_dust_dens_vs_radius():
 	"""
@@ -85,17 +86,25 @@ def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
 	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
 
 	if elem == 'Z':
-		dust_to_H = np.sum(solar_Mx_MH - obs_Mx_MH)
-		WNM_depl = dust_to_H/total_Z
+		# Need error bars since C depletion has few observations 
+		# Assume all C-20% in CO in dust or no C in dust for error bars
+		# Set 'average' value
+		min_val=0.2; max_val=1.; avg_val=(min_val+max_val)/2.
+		obs_Mx_MH[0] = np.power(10,solar[0]+np.log10(avg_val)-12)*amu[0]/amu_H
+		WNM_depl = np.sum(solar_Mx_MH - obs_Mx_MH)/total_Z	
+		obs_Mx_MH[0] = np.power(10,solar[0]+np.log10(max_val)-12)*amu[0]/amu_H
+		WNM_error = np.abs(np.sum(solar_Mx_MH - obs_Mx_MH)/total_Z - WNM_depl)
 	elif elem in elems:
 		index = elems.index(elem)
 		elem_to_H = solar_Mx_MH[index] - obs_Mx_MH[index]
 		WNM_depl = elem_to_H/solar_Mx_MH[index]
+		WNM_error = 0.
 	else:
 		print("Given element is not included in Jenkins (2009)\n")
 		return None, None
 
-	return nH_dens, 1.-WNM_depl
+
+	return nH_dens, 1.-WNM_depl, WNM_error
 
 
 
@@ -142,10 +151,6 @@ def Parvathi_2012_C_Depl(solar_abund='max'):
 	else:
 		print("%s is not a valid argument for Parvathi_2012_C_Depl()"%solar_abund)
 		return None,None,None
-
-	print C_depl
-	print C_error
-	print nH
 
 	return C_depl, C_error, nH
 
@@ -234,7 +239,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
 
-	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
 	ID = data['gal']
 	if DZ:
 		vals = np.power(10,data['dtm'])
@@ -284,7 +289,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 
 
 def Chiang_2020_dust_surf_dens_vs_param(param):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+"Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
 	if param == 'gas':
 		vals = np.power(10,data['gas'])
 	elif param == 'H2':
@@ -310,9 +315,9 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 
-def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=30, log=True, goodSNR=True):
+def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
 	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
-	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas':
 		vals = np.power(10,data['gas'])
@@ -338,6 +343,9 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
+	# Remove IC342 since it's a bit odd
+	IDs = IDs[IDs!='IC342']
+
 	SNR = data['GOODSNR']
 
 	# Check whether to use all data or only that with good SNR
