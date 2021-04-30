@@ -1,14 +1,13 @@
-images/
-halos/
-data/
-utils/
-dust_yields/
+dust_evo_data/
+analytic_dust_yields/
+vis_test.py
 
 *.pyc
 *.e
 *.o
 *.hdf5
 *.csv
+*.pickle
 
 *.png
 *.pdf

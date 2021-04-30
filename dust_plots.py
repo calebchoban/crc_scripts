@@ -1,74 +1,22 @@
 import numpy as np
 import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+from matplotlib.colorbar import Colorbar
 plt.switch_backend('agg')
 from scipy.stats import binned_statistic_2d
 from scipy.optimize import curve_fit
 import pickle
 import os
-from readsnap import readsnap
-from astropy.table import Table
-import gas_temperature as gas_temp
-from tasz import *
-from observations import *
-from analytic_dust_yields import *
+import observations.dust_obs as obs
+import analytical_models.stellar_yields as st_yields
 import plot_setup as plt_set
 
-from config import *
+import gizmo_library.config as config
+import gizmo_library.utils as utils
 
 
-def calc_rotate_matrix(vec1, vec2):
-	""""
-	Gives the rotation matrix between two unit vectors
-	"""
-	a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
-	v = np.cross(a, b)
-	c = np.dot(a, b)
-	s = np.linalg.norm(v)
-	kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-	rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
-	return rotation_matrix
-
-
-
-def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None):
-	"""
-	Calculates percentiles associated with a (possibly weighted) array
-
-	Parameters
-	----------
-	a : array-like
-	    The input array from which to calculate percents
-	percentiles : array-like
-	    The percentiles to calculate (0.0 - 100.0)
-	weights : array-like, optional
-	    The weights to assign to values of a.  Equal weighting if None
-	    is specified
-
-	Returns
-	-------
-	values : np.array
-	    The values associated with the specified percentiles.  
-	"""
-
-	# First deal with empty array
-	if len(a)==0:
-		return np.full(len(percentiles), np.nan)
-
-	# Standardize and sort based on values in a
-	percentiles = percentiles
-	if weights is None:
-		weights = np.ones(a.size)
-	idx = np.argsort(a)
-	a_sort = a[idx]
-	w_sort = weights[idx]
-
-	# Get the percentiles for each data point in array
-	p=1.*w_sort.cumsum()/w_sort.sum()*100
-	# Get the value of a at the given percentiles
-	values=np.interp(percentiles, p, a_sort)
-	return values
 
 
 def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', goodSNR=True):
@@ -90,101 +38,119 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 
 	"""
 	if param == 'fH2':
-		data = Chiang_20_DZ_vs_param(param, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(param, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			fH2_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(fH2_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'r':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=30, log=False, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=15, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'r25':
-		data = Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)
+	
 	elif param == 'nH':
-		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=True)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=LINE_STYLES[0], linewidth=LINE_WIDTHS[5], zorder=2)
-		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(phys_dens=False)
-		axis.plot(dens_vals, DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=LINE_STYLES[1], linewidth=LINE_WIDTHS[5], zorder=2)
+		# Plot J09 with Zhuk16/18 conversion to physical density
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
+		# range of C depeletions since they are not observed for this regime
+		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=True)
+		axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D', elinewidth=2, markersize=8,zorder=2)	
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+		# Plot J09 relation to use as upper bound
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+	
 	elif param == 'sigma_dust':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+	
 	elif param == 'sigma_gas':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=True)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=15, log=True, goodSNR=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
 		if not goodSNR:
-			data = Chiang_20_DZ_vs_param(param, bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
+			data = obs.Chiang_20_DZ_vs_param(param, bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
 			for i, gal_name in enumerate(data.keys()):
 				sigma_vals = data[gal_name][0]; DZ = data[gal_name][1]
-				axis.scatter(sigma_vals, DZ, c=MARKER_COLORS[i], marker=MARKER_STYLES[i], s=2, zorder=0, alpha=0.4)	
+				axis.scatter(sigma_vals, DZ, c=config.MARKER_COLORS[i], marker=config.MARKER_STYLES[i], s=2, zorder=0, alpha=0.4)	
+	
 	elif param == 'sigma_H2':
-		data = Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=MARKER_COLORS[i], fmt=MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+				std_DZ[std_DZ == 0] = config.EPSILON
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i], elinewidth=1, markersize=6,zorder=2)	
+	
 	elif param == 'depletion':
-		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09', c='xkcd:black', linestyle=LINE_STYLES[1], linewidth=LINE_WIDTHS[5], zorder=2)
-		dens_vals, DZ_vals = Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True)
-		axis.plot(dens_vals, 1.-DZ_vals, label='Jenkins09 w/ Phys. Dens.', c='xkcd:black', linestyle=LINE_STYLES[0], linewidth=LINE_WIDTHS[5], zorder=2)
+		if elem == 'C':
+			# J09 C relation is derived from only a handful of sightlines over a limited range so just plot the relation over the observed range and no
+			# WNM depeltion approximation
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09_corr $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			# Add in data from Parvathi which sampled twice as many sightlines 
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=1, markersize=6, zorder=2)
+
+
+
+		else:
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.LINE_WIDTHS[5], zorder=2)
+			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=False)
+			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
+			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
+
 	elif param == 'sigma_Z':
 		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
 		print("D/Z vs Z observations have not been implemented yet")
 	else:
 		print("D/Z vs %s observational data is not available."%param)
 
+	return
 
 
-def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=50, time=False, depletion=False, \
-	          cosmological=True, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12', Rd=None):
+
+def DZ_vs_params(params, snaps, bin_nums=50, time=None, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', include_obs=True, CO_opt='S12'):
 	"""
 	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
 
 	Parameters
 	----------
-	param: array
+	params: array
 		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
-	param_lims: array
-		Limits for each parameter given in params
-	gas : array
-	    Array of snapshot gas data structures
-	header : array
-		Array of snapshot header structures
-	center_list : array
-		array of 3-D coordinate of center of circles
-	r_max_list : array
-		array of maximum radii
-	Lz_list : array
-		List of Lz unit vectors if selecting particles in disk
-	height_list : array
-		List of disk heights if applicable
+	snaps : array
+	    Array of snapshots to plot
 	bin_nums : int
 		Number of bins to use
-	time : bool
-		Print time in corner of plot (useful for movies)
-	depletion: bool, optional
-		Was the simulation run with the DEPLETION option
-	cosmological : bool
-		Is the simulation cosmological
+	time : string
+		Option for printing time in corner of plot (None, one, all)
 	labels : array
 		Array of labels for each data set
 	foutname: str, optional
@@ -195,20 +161,17 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 		Plotting style when plotting multiple data sets
 		'color' - gives different color and linestyles to each data set
 		'size' - make all lines solid black but with varying line thickness
-	log : boolean
-		Plot log of D/Z
 	include_obs : boolean
 		Overplot observed data if available
-	 Rd : array
-		Array of stellar scale radii to be used in plots vs radius
 
 	Returns
 	-------
 	None
+
 	"""	
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(params))
@@ -216,56 +179,46 @@ def DZ_vs_params(params, param_lims, gas, header, center_list, r_max_list, Lz_li
 	for i, x_param in enumerate(params):
 		# Set up for each plot
 		axis = axes[i]
-		x_lim = param_lims[i]
-
-		y_param = 'DZ'
-		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		y_param = 'D/Z'
+		plt_set.setup_axis(axis, x_param, y_param)
 
 		# First plot observational data if applicable
-		if include_obs:
-			plot_observational_data(axis, x_param, log=log, CO_opt=CO_opt, goodSNR=True)
+		if include_obs: plot_observational_data(axis, x_param, CO_opt=CO_opt, goodSNR=True);
 
-		for j in range(len(gas)):
-			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
-			if Lz_list != None:
-				Lz_hat = Lz_list[j]; disk_height = height_list[j];
-			else:
-				Lz_hat = None; disk_height = None;
-
-			mean_DZ,std_DZ,param_vals = calc_DZ_vs_param(x_param, x_lim, G, center, r_max, Lz_hat=Lz_hat, disk_height=disk_height, depletion=depletion)
-			# Replace zeros with small values since we are taking the log of the values
-			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-				mean_DZ[mean_DZ == 0] = EPSILON
-			if x_param == 'r25':
-				param_vals = param_vals/(4.*Rd[j])
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+			param_vals,mean_DZ,std_DZ = calc_DZ_vs_param(x_param, G, bin_nums=bin_nums)
 
 			# Only need to label the seperate simulations in the first plot
-			if i==0:
-				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
-			else:
-				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if i==0 and labels is not None: label = labels[j];
+			else:    						label = None;
+			axis.plot(param_vals, mean_DZ, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		if include_obs:
-			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
-		else:
-			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
+		# Setup legend
+		if include_obs: ncol=2;
+		else: 			ncol=1;
+		axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
-	if time:
-		if cosmological:
-			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)
-		else:
-			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+		# Print time in corner of plot if applicable
+		if time=='one' and i==0:
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+		elif time=='all':
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+
 	plt.tight_layout()	
 	plt.savefig(foutname)
-	plt.close()	
+	plt.close()
+
+	return
 
 
-def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_height=5, bin_nums=50, depletion=False):
+
+def calc_DZ_vs_param(param, G, bin_nums=50, param_lims=None, elem='Z'):
 	"""
 	Calculate the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
 
@@ -275,18 +228,11 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 		Name of parameter to get D/Z values for
 	G : dict
 	    Snapshot gas data structure
-	center : array
-		3-D coordinate of center of circle
-	r_max : double
-		maximum radii of gas particles to use
-	Lz_hat: array
-		Unit vector of Lz to be used to mask only 
-	disk_height: double
-		Height of disk to mask if Lz_hat is given, default is 5 kpc
 	bin_nums : int
 		Number of bins to use
-	depletion : bool, optional
-		Was the simulation run with the DEPLETION option
+	elem : string, optional
+		Can specify the D/Z ratio for a specific element. Default is all metals.
+
 	Returns
 	-------
 	mean_DZ : array
@@ -295,208 +241,103 @@ def calc_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_heig
 		Array of 16th and 84th percentiles D/Z values
 	param_vals : array
 		Parameter values D/Z values are taken over
+
 	"""	
 
-	param_min = param_lims[0]; param_max = param_lims[1]; 
+	# First make sure the element given is valid
+	if elem not in config.ELEMENTS:
+		print('%s is not a valid element to calculate D/Z for. Valid elements are'%elem)
+		print(config.ELEMENT)
+		return None,None,None
+	
+	elem_indx = config.ELEMENTS.index(elem)
 
-	coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-	coords -= center
-	# Get only data of particles in sphere/disk since those are the ones we care about
-	# Also gives a nice speed-up
-	# Get paticles in disk
-	if Lz_hat != None:
-		zmag = np.dot(coords,Lz_hat)
-		r_z = np.zeros(np.shape(coords))
-		r_z[:,0] = zmag*Lz_hat[0]
-		r_z[:,1] = zmag*Lz_hat[1]
-		r_z[:,2] = zmag*Lz_hat[2]
-		r_s = np.subtract(coords,r_z)
-		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-		in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-	# Get particles in sphere otherwise
+	if param_lims is None:
+		param_lims = config.PARAM_INFO[param][1]
+		log_bins = config.PARAM_INFO[param][2]
 	else:
-		in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-	M = G['m'][in_galaxy]*1E10
-	coords = coords[in_galaxy]
-	if depletion:
-		DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
-	else:
-		DZ = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
-
-	mean_DZ = np.zeros(bin_nums - 1)
-	# 16th and 84th percentiles
-	std_DZ = np.zeros([bin_nums - 1,2])
+		if param_lims[1] > 20*param_lims[0]: 	log_bins=True
+		else:								  	log_bins=False
 
 	# Get D/Z values over number density of Hydrogen (nH)
 	if param == 'nH':
-		if depletion:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1]+G['dz'][:,0][in_galaxy])) / H_MASS
-		else:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-
-		# Make bins for nH 
-		nH_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
-		param_vals = (nH_bins[1:] + nH_bins[:-1]) / 2.
-		digitized = np.digitize(nH,nH_bins)
-
-		for j in range(1,len(nH_bins)):
-			if len(nH[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
-
+		nH = G.rho*config.UnitDensity_in_cgs * (1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+		bin_data = nH
+		log_bins=True
 	# Get D/Z values over gas temperature
 	elif param == 'T':
-		T = gas_temp.gas_temperature(G)
-		T = T[in_galaxy]
-
-		# Make bins for T
-		T_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
-		param_vals = (T_bins[1:] + T_bins[:-1]) / 2.
-		digitized = np.digitize(T,T_bins)
-
-		for j in range(1,len(T_bins)):
-			if len(T[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
-
+		T = G.T
+		bin_data = T
+		log_bins=True
 	# Get D/Z valus over radius of galaxy from the center
 	elif param == 'r' or param == 'r25':
-		r_bins = np.linspace(0, r_max, num=bin_nums)
-		param_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-
-		for j in range(bin_nums-1):
-			# find all coordinates within shell
-			r_min = r_bins[j]; r_max = r_bins[j+1];
-
-			# If disk get particles in annulus
-			if Lz_hat!=None:
-				zmag = np.dot(coords,Lz_hat)
-				r_z = np.zeros(np.shape(coords))
-				r_z[:,0] = zmag*Lz_hat[0]
-				r_z[:,1] = zmag*Lz_hat[1]
-				r_z[:,2] = zmag*Lz_hat[2]
-				r_s = np.subtract(coords,r_z)
-				smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-				in_shell = np.where((np.abs(zmag) <= disk_height) & (smag <= r_max) & (smag > r_min))
-			# Else get particles in shell
-			else:
-				in_shell = np.logical_and(np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.), np.sum(np.power(coords,2),axis=1) > np.power(r_min,2.))
-			weights = M[in_shell]
-			values = DZ[in_shell]
-			if len(values) > 0:
-				mean_DZ[j],std_DZ[j,0],std_DZ[j,1] = weighted_percentile(values, weights=weights)
-			else:
-				mean_DZ[j] = np.nan
-				std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
-
+		# TODO: implement r25 bins and r for halo objects 
+		r = np.sqrt(np.power(G.p[:,0],2) + np.power(G.p[:,1],2))
+		bin_data = r
+		if param_lims[1]>40: log_bins=True
+		else:			     log_bins=False
 	# Get D/Z values vs total metallicty of gas
 	elif param == 'Z':
-		solar_Z = 0.02
-		if depletion:
-			Z = (G['z'][:,0]+G['dz'][:,0])[in_galaxy]/solar_Z
-		else:
-			Z = G['z'][:,0][in_galaxy]/solar_Z
-
-		Z_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
-		param_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
-		digitized = np.digitize(Z,Z_bins)
-
-		for j in range(1,len(Z_bins)):
-			if len(Z[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+		Z = G.z[:,0]/config.SOLAR_Z
+		bin_data = Z
+		log_bins=True
 	# Get D/Z values vs H2 mass fraction of gas
 	elif param == 'fH2':
-		NH1,NHion,NH2 = calc_H_fracs(G)
-		fH2 = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
-		fH2_bins = np.logspace(np.log10(param_min),np.log10(param_max),bin_nums)
-		param_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
-		digitized = np.digitize(fH2,fH2_bins)
-
-		if depletion:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1]+G['dz'][:,0][in_galaxy])) / H_MASS
-		else:
-			nH = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-
-
-		for j in range(1,len(fH2_bins)):
-			if len(fH2[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				weights = M[digitized == j]
-				values = DZ[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=weights)
+		fH2 = utils.calc_fH2(G)
+		bin_data = fH2
+		log_bins=False
 	else:
 		print("Parameter given to calc_DZ_vs_param is not supported:",param)
 		return None,None,None
 
-	return mean_DZ, std_DZ, param_vals
+	DZ = G.dz[:,elem_indx]/G.z[:,elem_indx]
+	DZ[DZ > 1] = 1.
+	
+
+	bin_vals, mean_DZ, std_DZ = utils.bin_values(bin_data, DZ, param_lims, bin_nums=bin_nums, weight_vals=G.m, log=log_bins)
+
+	return bin_vals, mean_DZ, std_DZ
 
 
-def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_list, Lz_list=None, \
-			height_list=None, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
-			foutname='obs_DZ_vs_param.png', std_bars=True, style='color', log=True, include_obs=True, CO_opt='S12'):
+
+def observed_DZ_vs_param(params, snaps, pixel_res=2, bin_nums=50, time=None, labels=None, foutname='obs_DZ_vs_param.png', \
+						 std_bars=True, style='color', include_obs=True, CO_opt='S12'):
 	"""
 	Plots mock observations of dust-to-metals vs various parameters for multiple simulations 
 
 	Parameters
 	----------
-	gas : array
-	    Array of snapshot gas data structures
-	header : array
-		Array of snapshot header structures
-	center_list : array
-		array of 3-D coordinate of center of circles
-	r_max_list : array
-		array of maximum radii
-	bin_nums : int
+	params: array
+		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
+	snaps : array
+	    Array of snapshots to plot
+	pixel_res : double, optional
+		Resolution of simulated pixels in kpc
+	bin_nums : int, optional
 		Number of bins to use
-	time : bool
-		Print time in corner of plot (useful for movies)
-	depletion: bool, optional
-		Was the simulation run with the DEPLETION option
-	cosmological : bool
-		Is the simulation cosmological
-	labels : array
+	time : string, optional
+		Option for printing time in corner of plot (None, one, all)
+	labels : array, optional
 		Array of labels for each data set
-	foutname: str, optional
+	foutname: str, optional, optional
 		Name of file to be saved
-	std_bars : bool
+	std_bars : bool, optional
 		Include standard deviation bars for the data
-	style : string
+	style : string, optional
 		Plotting style when plotting multiple data sets
 		'color' - gives different color and linestyles to each data set
 		'size' - make all lines solid black but with varying line thickness
-	log : boolean
-		Plot log of D/Z
-	include_obs : boolean
+	include_obs : boolean, optional
 		Overplot observed data if available
 
 	Returns
 	-------
 	None
+
 	"""	
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(params))
@@ -504,53 +345,47 @@ def observed_DZ_vs_param(params, param_lims, gas, header, center_list, r_max_lis
 	for i, x_param in enumerate(params):
 		# Set up for each plot
 		axis = axes[i]
-		x_lim = param_lims[i]
-		y_param = 'DZ'
-		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		y_param = 'D/Z'
+		plt_set.setup_axis(axis, x_param, y_param)
 
 		# First plot observational data if applicable
-		if include_obs:
-			plot_observational_data(axis, x_param, log=log, CO_opt=CO_opt, goodSNR=False)
+		if include_obs: plot_observational_data(axis, x_param, CO_opt=CO_opt, goodSNR=True);
 
-		for j in range(len(gas)):
-			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j]; 
-			if Lz_list != None:
-				Lz_hat = Lz_list[j]; disk_height = height_list[j];
-			else:
-				Lz_hat = None; disk_height = None;
-
-			mean_DZ,std_DZ,param_vals = calc_obs_DZ_vs_param(x_param, x_lim, G, center, r_max, Lz_hat=Lz_hat, disk_height=disk_height, depletion=depletion)
-			# Replace zeros with small values since we are taking the log of the values
-			if log:
-				std_DZ[std_DZ == 0] = EPSILON
-				mean_DZ[mean_DZ == 0] = EPSILON
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+			r_max = snap.get_rmax()
+			param_vals,mean_DZ,std_DZ = calc_obs_DZ_vs_param(x_param, G, r_max, bin_nums=bin_nums, pixel_res=pixel_res)
 
 			# Only need to label the seperate simulations in the first plot
-			if i==0:
-				axis.plot(param_vals, mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
-			else:
-				axis.plot(param_vals, mean_DZ, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if i==0 and labels is not None: label = labels[j];
+			else:    						label = None;
+			axis.plot(param_vals, mean_DZ, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(param_vals, std_DZ[:,0], std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		if include_obs:
-			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
-		else:
-			axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)	
+		if i==0:
+			# Setup legend
+			if include_obs: ncol=2;
+			else: 			ncol=1;
+			axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
-	if time:
-		if cosmological:
-			z = H['redshift']
-			axes[0].text(.05, .95, 'z = ' + '%.2g' % z, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes ,zorder=4)
-		else:
-			t = H['time']
-			axes[0].text(.05, .95, 't = ' + '%2.2g Gyr' % t, color="xkcd:black", fontsize = LARGE_FONT, ha = 'left', transform=axes[0].transAxes, zorder=4)	
+		# Print time in corner of plot if applicable
+		if time=='one' and i==0:
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+		elif time=='all':
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+
 	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()	
 
+	return
 
-def calc_obs_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_height=5, param_bins=50, pixel_res = 2, depletion=False):
+
+def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=None):
 	"""
 	Calculate the average dust-to-metals ratio vs radius, gas , H2 , metal, or dust surface density
 	given code values of center and viewing direction for multiple simulations/snapshots
@@ -559,22 +394,17 @@ def calc_obs_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_
 	----------
 	param: string
 		Name of parameter to get D/Z values for
-	G : dict
+	G : Particle
 	    Snapshot gas data structure
-	center : array
-		3-D coordinate of center of circle
 	r_max : double
-		maximum radii of gas particles to use
-	Lz_hat: array
-		Unit vector of Lz to be used to mask only 
-	disk_height: double
-		Height of disk to mask if Lz_hat is given, default is 5 kpc
-	param_bins : int
-		Number of bins to use for physical param
+		Maximum radius from the center of the simulated observation
 	pixel_res : double
 		Size resolution of each pixel bin in kpc
-	depletion : bool, optional
-		Was the simulation run with the DEPLETION option
+	bin_nums : int
+		Number of bins for param
+	param_bins : int
+		Number of bins to use for physical param
+
 	Returns
 	-------
 	mean_surf_dens : array
@@ -585,210 +415,558 @@ def calc_obs_DZ_vs_param(param, param_lims, G, center, r_max, Lz_hat=None, disk_
 		Parameter values dust surface density values are taken over
 	"""	
 
-	param_min = param_lims[0]; param_max = param_lims[1]; 
-
-	coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-	coords -= center
-	# Get only data of particles in sphere/disk since those are the ones we care about
-	# Also gives a nice speed-up
-	# Get paticles in disk
-	if Lz_hat != None:
-		zmag = np.dot(coords,Lz_hat)
-		r_z = np.zeros(np.shape(coords))
-		r_z[:,0] = zmag*Lz_hat[0]
-		r_z[:,1] = zmag*Lz_hat[1]
-		r_z[:,2] = zmag*Lz_hat[2]
-		r_s = np.subtract(coords,r_z)
-		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-		in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-	# Get particles in sphere otherwise
+	if param_lims is None:
+		param_lims = config.PARAM_INFO[param][1]
+		log_bins = config.PARAM_INFO[param][2]
 	else:
-		in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+		if param_lims[1] > 20*param_lims[0]: 	log_bins=True
+		else:								  	log_bins=False
 
-	NH1,NHion,NH2=calc_H_fracs(G)
-	NH1=NH1[in_galaxy];NHion=NHion[in_galaxy];NH2=NH2[in_galaxy];
-	M = G['m'][in_galaxy]*1E10
-	coords = coords[in_galaxy]
-	dust_mass = G['dz'][in_galaxy,0]*M
-	if depletion:
-		Z_mass = G['z'][in_galaxy,0] * M + dust_mass
-	else:
-		Z_mass = G['z'][in_galaxy,0] * M
+	M = G.m*config.UnitMass_in_Msolar
+	dust_mass = G.dz[:,0]*M
+	Z_mass = G.z[:,0]*M
 
-	x = coords[:,0];y=coords[:,1];
+	x = G.p[:,0];y=G.p[:,1];
 	pixel_bins = int(np.ceil(2*r_max/pixel_res))
 	x_bins = np.linspace(-r_max,r_max,pixel_bins)
 	y_bins = np.linspace(-r_max,r_max,pixel_bins)
 	x_vals = (x_bins[1:] + x_bins[:-1]) / 2.
 	y_vals = (y_bins[1:] + y_bins[:-1]) / 2.
 	pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
-	
-	mean_DZ = np.zeros(param_bins - 1)
-	std_DZ = np.zeros([param_bins - 1,2])
 
+	# This data will always be needed so set it here
+	bin_data = [Z_mass,dust_mass]
 
 	if param == 'sigma_dust':
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass], statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
 		dust_pixel = ret[1].flatten()/pixel_area
-
-		# Now bin the data 
-		dust_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
-		param_vals = (dust_bins[1:] + dust_bins[:-1]) / 2.
-		digitized = np.digitize(dust_pixel,dust_bins)
-
-		for j in range(1,len(dust_bins)):
-			if len(dust_pixel[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				values = DZ_pixel[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=None)
+		pixel_data = dust_pixel
 
 	elif param=='sigma_gas':
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass,M], statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		bin_data += [M]
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
 		M_pixel = ret[2].flatten()/pixel_area
-
-		# Now bin the data 
-		gas_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
-		param_vals = (gas_bins[1:] + gas_bins[:-1]) / 2.
-		digitized = np.digitize(M_pixel,gas_bins)
-
-		for j in range(1,len(gas_bins)):
-			if len(M_pixel[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				values = DZ_pixel[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=None)
+		pixel_data = M_pixel
 
 	elif param=='sigma_H2':
-		MH2=2*NH2*H_MASS*Grams_to_Msolar
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass,MH2], statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		MH2 = utils.calc_fH2(G)*G.m*(G.z[:,0]+G.z[:,1])
+		bin_data += [MH2]
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
 		MH2_pixel = ret[2].flatten()/pixel_area
+		pixel_data = MH2_pixel
 
-		# Now bin the data 
-		gas_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
-		param_vals = (gas_bins[1:] + gas_bins[:-1]) / 2.
-		digitized = np.digitize(MH2_pixel,gas_bins)
+	elif param == 'sigma_Z':
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		Z_pixel = ret[0].flatten()/pixel_area
+		pixel_data = Z_pixel
 
-		for j in range(1,len(gas_bins)):
-			if len(MH2_pixel[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				values = DZ_pixel[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=None)
+	elif param == 'fH2':
+		fH2 = utils.calc_fH2(G)
+		MH2 = fH2*G.m*(G.z[:,0]+G.z[:,1])
+		MH1 = (1-fH2)*G.m*(G.z[:,0]+G.z[:,1])
+		bin_data += [MH2,MH1]
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		fH2_pixel = ret[2].flatten()/(ret[2].flatten()+ret[3].flatten())
+		pixel_data = fH2_pixel
 
 	elif param == 'r':
 		mean_DZ = np.zeros(pixel_bins/2 - 1)
 		std_DZ = np.zeros([pixel_bins/2 - 1,2])
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass], statistic=np.sum, bins=[x_bins,y_bins],expand_binnumbers=True)
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins],expand_binnumbers=True)
 		DZ_pixel = ret.statistic[1].flatten()/ret.statistic[0].flatten()
 		# Get the average r coordinate for each pixel in kpc
 		pixel_r_vals = np.array([np.sqrt(np.power(np.abs(y_vals),2) + np.power(np.abs(x_vals[k]),2)) for k in range(len(x_vals))]).flatten()
-
-		r_bins = np.linspace(0, r_max, num=pixel_bins/2)
-		param_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-
-		for j in range(pixel_bins/2-1):
-			# find all coordinates within shell
-			r_min = r_bins[j]; r_max = r_bins[j+1];
-			in_shell = np.where((pixel_r_vals <= r_max) & (pixel_r_vals > r_min))
-			values = DZ_pixel[in_shell]
-			if len(values) > 0:
-				mean_DZ[j],std_DZ[j,0],std_DZ[j,1] = weighted_percentile(values, weights=None)
-			else:
-				mean_DZ[j] = np.nan
-				std_DZ[j,0] = np.nan; std_DZ[j,1] = np.nan;
-
-	elif param == 'fH2':
-		MH1=NH1*H_MASS*Grams_to_Msolar
-		MH2=2*NH2*H_MASS*Grams_to_Msolar
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass,MH2,MH1], statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
-		fH2_pixel = ret[2].flatten()/(ret[2].flatten()+ret[3].flatten())
-
-		# Now bin the data 
-		fH2_bins = np.linspace(param_min,param_max,param_bins)
-		param_vals = (fH2_bins[1:] + fH2_bins[:-1]) / 2.
-		digitized = np.digitize(fH2_pixel,fH2_bins)
-
-		for j in range(1,len(fH2_bins)):
-			if len(fH2_pixel[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				values = DZ_pixel[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=None)
-
-	elif param == 'sigma_Z':
-		ret = binned_statistic_2d(x, y, [Z_mass,dust_mass], statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
-		Z_pixel = ret[0].flatten()/pixel_area
-
-		# Now bin the data 
-		Z_bins = np.logspace(np.log10(param_min),np.log10(param_max),param_bins)
-		param_vals = (Z_bins[1:] + Z_bins[:-1]) / 2.
-		digitized = np.digitize(Z_pixel,Z_bins)
-
-		for j in range(1,len(Z_bins)):
-			if len(Z_pixel[digitized==j])==0:
-				mean_DZ[j-1] = np.nan
-				std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-				continue
-			else:
-				values = DZ_pixel[digitized == j]
-				mean_DZ[j-1],std_DZ[j-1,0],std_DZ[j-1,1] = weighted_percentile(values, weights=None)
+		pixel_data = pixel_r_vals
+		# Makes more sense to force the number of bins for this
+		bin_nums = pixel_bins/2
 	else:
-		print("Parameter given to calc_dust_dens_vs_param is not supported:",param)
+		print("Parameter given to calc_obs_DZ_vs_param is not supported:",param)
 		return None,None,None
 
-	return mean_DZ, std_DZ, param_vals
+	bin_vals, mean_DZ, std_DZ = utils.bin_values(pixel_data, DZ_pixel, param_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)
+
+	return bin_vals, mean_DZ, std_DZ
 
 
 
-def calc_H_fracs(G):
-	# Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
+def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=None, \
+			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', include_obs=True):
+	"""
+	Plots mock observations of specified elemental depletion vs various parameters for multiple simulations 
+
+	Parameters
+	----------
+	elems : array
+		Array of which elements you want to plot depletions for
+	params: string
+		Parameters to plot depletion against (fH2, nH)
+	snaps : array
+	    Array of snapshots to plot
+	pixel_res : double, optional
+		Resolution of simulated pixels in kpc
+	bin_nums : int, optional
+		Number of bins to use
+	time : string, optional
+		Option for printing time in corner of plot (None, all)
+	labels : array, optional
+		Array of labels for each data set
+	foutname: str, optional, optional
+		Name of file to be saved
+	std_bars : bool, optional
+		Include standard deviation bars for the data
+	style : string, optional
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	include_obs : boolean, optional
+		Overplot observed data if available
+
+	Returns
+	-------
+	None
+	"""	
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(elems))
+
+	for i,elem in enumerate(elems):
+		axis = axes[i]
+		plt_set.setup_axis(axis, param, 'depletion')
+
+		if include_obs and param == 'nH':
+			plot_observational_data(axis, param='depletion', elem=elem)
+
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+			param_vals,mean_DZ,std_DZ = calc_DZ_vs_param(param, G, bin_nums=bin_nums, elem=elem)
+
+			# Adjust limits for C and O since they have lower depletion levels than most other elements
+			if elem in ['C','O']:
+				axis.set_ylim([1E-1,1E0])
+
+			# C needs an extra legend label for Parvathi data
+			# Only needed if it's not the first plot
+			if elem=='C' and i!=0 and include_obs:
+				# Get the one handle and label we want for the legend
+				handles, labels = axis.get_legend_handles_labels()
+				handles = [handles[-1]]; labels = [labels[-1]];
+				axis.legend(handles, labels, loc=0, fontsize=config.SMALL_FONT, frameon=False)
+
+			# Only need to label the seperate simulations in the first plot
+			if i==0 and labels is not None: label = labels[j];
+			else:    						label = None;
+			axis.plot(param_vals, 1.-mean_DZ, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if std_bars:
+				axis.fill_between(param_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+			# Setup legend
+			if i == 0:
+				if include_obs: ncol=2;
+				else: 			ncol=1;
+				axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+
+		axis.text(.10, .30, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+
+		# Print time in corner of plot if applicable
+		if time=='all':
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+
+	return
 
 
-	Z = G['z'][:,0] #metal mass (everything not H, He)
-	# dust mean mass per H nucleus
-	mu_H = 2.3E-24# grams
-	# standard effective number of particle kernel neighbors defined in parameters file
-	N_ngb = 32.
-	# Gas softening length
-	hsml = G['h']*UnitLength_in_cm
-	density = G['rho']*UnitDensity_in_cgs
 
-	sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
+def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels=None, style='color', time=True):
+	"""
+	Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
-	#  dust optical depth 
-	tau = np.multiply(sobColDens,Z*1E-21/SOLAR_Z)/mu_H
-	tau[tau==0]=EPSILON #avoid divide by 0
+	Parameters
+	----------
+	params : array
+		List of parameters to plot over time
+	data_objs : array
+		Array of Dust_Evo objects with data to plot
+	foutname: str, optional
+		Name of file to be saved
 
-	chi = 3.1 * (1+3.1*np.power(Z/SOLAR_Z,0.365)) / 4.1 # Approximation
+	Returns
+	-------
+	None
+	"""
 
-	s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6 *tau) )
-	s[s==-4.] = -4.+EPSILON # Avoid divide by zero
-	fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
-	fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(data_objs), style=style)
 
-	fHe = G['z'][:,1]
-	fMetals = G['z'][:,0]
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
 
-	# Gives number of H1, H2, and Hion atoms
-	NH1   =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1. - fH2) / H_MASS
-	NH2   =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * fH2 / (2*H_MASS)
-	NHion =  G['m'] * UnitMass_in_g * (1. - fHe - fMetals) * (1.-G['nh']) / H_MASS
+	for i, y_param in enumerate(params):
+		# Set up for each plot
+		axis = axes[i]		
+		if time:
+			x_param = 'time'
+		else:
+			x_param = 'redshift'
+		plt_set.setup_axis(axis, x_param, y_param)
+
+		param_labels=None
+		if y_param == 'D/Z':
+			param_id = 'DZ_ratio'
+		elif y_param == 'source_frac':
+			param_id = 'source_frac'
+			param_labels = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+		elif y_param=='spec_frac':
+			param_id = 'spec_frac'
+			param_labels = ['Silicates','Carbon','SiC','Iron','O Reservoir']
+		elif y_param == 'Si/C':
+			param_id = 'sil_to_C_ratio'
+		else:
+			print("%s is not a valid parameter for dust_data_vs_time()\n"%y_param)
+			return()
+
+		for j,data in enumerate(data_objs):
+			
+			if time:
+				time_data = data.get_data('time')
+			else:
+				time_data = data.get_data('redshift')
+
+			# Check if parameter has subparameters
+			data_vals = data.get_data(y_param)
+			if param_labels is None:
+				axis.plot(time_data, data_vals, color=config.BASE_COLOR, linestyle=config.LINE_STYLES[j], label=labels[j], zorder=3)
+			else:
+				for k in range(np.shape(data_vals)[1]):
+					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], zorder=3)
+			axis.set_xlim([time_data[0],time_data[-1]])
+		# Only need to label the seperate simulations in the first plot
+		if i==0 and len(data_objs)>1:
+			axis.legend(loc=0, frameon=False, fontsize=config.SMALL_FONT)
+		# If there are subparameters need to make their own legend
+		if param_labels is not None:
+			param_lines = []
+			for j, label in enumerate(param_labels):
+				param_lines += [mlines.Line2D([], [], color=config.LINE_COLORS[j], label=label)]
+			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=config.SMALL_FONT)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+
+
+
+def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno', hist_proj=True, foutname='phase_plot.png'):
+	"""
+	Plots the a 2D histogram for nH vs T using the specified parameter as weights
+
+	Parameters
+	----------
+	params : array
+		The parameters for the x axis, y axis, and weights respectively
+	snap : Snapshot/Halo/Disk
+	    Snapshot gas data structure
+	bin_nums: int, optional
+		Number of bins to use
+	color_map : string, optional
+		Color mapping for plot
+	hist_proj : boolean, optional
+		Add additional 1D histogram projection along x and y axis
+	founame : string, optional
+		File name for saved figure
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# TODO : Include 1D hist projects along each axis
+	# Make this work for dynamic x and y params notable D/Z vs Z
+	# Also fix cbar ticks for log space. Might be an issue with matplotlib version
+
+	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
+	axis_2D_hist = axes[0]
+	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
+	axis_2D_hist.set_facecolor('xkcd:grey')
+
+	G = snap.loadpart(0)
+	H = snap.loadheader()
+
+	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
+	param_lims = config.PARAM_INFO[param][1]
+	log_param = config.PARAM_INFO[param][2]
+	if log_param:
+		norm = mpl.colors.LogNorm()
+	else:
+		norm = None
+
+	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), vmin=param_lims[0], vmax=param_lims[1], norm=norm)
+	axis_2D_hist.autoscale('tight')
+
+	bar_label =  config.PARAM_INFO[param][0]
+	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
+
+	# Print time in corner of plot if applicable
+	if time=='all':
+		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+	plt.tight_layout()
+
+	plt.savefig(foutname)
+	plt.close()
+
+
+
+def calc_phase_hist(param, G, bin_nums=100):
+	"""
+	Calculate the 2D histogram for the given params and data from gas particle
+
+	Parameters
+	----------
+	params : array
+		The parameters for the x axis, y axis, and weights respectively
+	snap : Snapshot/Halo/Disk
+	    Snapshot gas data structure
+	bin_nums: int, optional
+		Number of bins to use
+	color_map : string, optional
+		Color mapping for plot
+	hist_proj : boolean, optional
+		Add additional 1D histogram projection along x and y axis
+	founame : string, optional
+		File name for saved figure
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# Set up x and y data, limits, and bins
+	nH_data = G.rho*config.UnitDensity_in_cgs * (1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+	T_data = G.T
+	nH_bin_lims = config.PARAM_INFO['nH'][1]
+	T_bin_lims = config.PARAM_INFO['T'][1]
+	if config.PARAM_INFO['nH'][2]:
+		nH_bins = np.logspace(np.log10(nH_bin_lims[0]),np.log10(nH_bin_lims[1]),bin_nums)
+	else:
+		nH_bins = np.linspace(nH_bin_lims[0], nH_bin_lims[1], bin_nums)
+	if config.PARAM_INFO['T'][2]:
+		T_bins = np.logspace(np.log10(T_bin_lims[0]),np.log10(T_bin_lims[1]),bin_nums)
+	else:
+		T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)
+
+	func = np.mean
+	if param == 'Z':
+		Z = G.z[:,0]/config.SOLAR_Z
+		bin_data = Z
+	elif param == 'fH2':
+		fH2 = utils.calc_fH2(G)
+		bin_data = fH2
+	elif param == 'mH2':
+		MH2 = utils.calc_fH2(G)*G.m*confg.UnitMass_in_Msolar
+		MH2[MH2<=0] = config.EPSILON
+		bin_data = MH2
+		func = np.sum
+	elif param == 'm':
+		M = G.m*config.UnitMass_in_Msolar
+		bin_data = M
+		func = np.sum
+	elif param == 'D/Z':
+		DZ = G.dz[:,0]/G.z[:,0]
+		DZ[DZ > 1] = 1.
+		bin_data = DZ
+	else:
+		print("Parameter given to calc_phase_hist is not supported:",param)
+		return None
 	
-	return NH1,NHion,NH2
+	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
+
+	return ret
+
+
+
+
+def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color', foutname='creation_routine_compare.png'):
+	"""
+	Plots comparison of stellar dust creation for the given stellar metallicities
+
+	Parameters
+	----------
+	Z_list : list
+		List of metallicities to compare in solar units
+	dust_species : list
+		List of dust species to plot individually (carbon, silicates, iron, SiC, silicates+)
+	data_dirc: string
+		Name of directory to store calculated yields files
+	FIRE_ver : int
+		Version of FIRE metals yields to use in calculations
+	transition_age : double
+		Age at which stellar yields switch from O/B to AGB stars
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# First create ouput directory if needed
+	try:
+	    # Create target Directory
+	    os.mkdir(data_dirc)
+	    print("Directory " + data_dirc +  " Created")
+	except:
+	    print("Directory " + data_dirc +  " already exists")
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(Z_list), style=style)
+
+	N = 10000 # number of steps 
+	max_t = 10. # max age of stellar population to compute yields
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	# First make simulated data if it hasn't been made already
+	for Z in Z_list:
+		name = '/FIRE'+str(FIRE_ver)+'_elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		if not os.path.isfile(data_dirc + name):
+			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="elemental")
+			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
+
+		name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		if not os.path.isfile(data_dirc +name):
+			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="species")
+			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
+
+
+	# Set transition age which is different for each version of FIRE
+	transition_age = 0.03753 if FIRE_ver<=2 else 0.044
+
+
+	# Compare routine carbon yields between routines
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(dust_species))
+	x_param = 'star_age'; y_param = 'cum_dust_prod'
+	x_lim = [0,max_t]
+
+	for i, species in enumerate(dust_species):
+		axis = axes[i]
+		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
+		if species == 'carbon':
+			name = 'Carbonaceous'
+			indices = np.array([1])
+		elif species == 'silicates':
+			name = 'Silicates'
+			indices = np.array([0])
+		elif species == 'silicates+':
+			name = 'Silicates+Others'
+			indices = np.array([0,2,3])
+		elif species == 'iron':
+			name = 'Iron'
+			indices = np.array([3])
+		elif species == 'SiC':
+			name = 'SiC'
+			indices = np.array([2])
+		else:
+			print("%s is not a valid dust species for compare_dust_creation()\n"%species)
+			return()
+
+		# Add extra lines emphazising the time regimes for SNe II or AGB+SNe Ia
+		axis.axvline(transition_age, color='xkcd:grey',lw=3)
+		# Only need labels and legend for first plot
+		if i == 0:
+			y_arrow = 1E-5
+			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
+			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/2), xycoords="data", xytext=(0.2*transition_age, y_arrow/2), 
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
+			# Make legend
+			lines = []
+			for j in range(len(Z_list)):
+				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
+			lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1],label='Species')]
+			legend = axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT, edgecolor=config.BASE_COLOR)
+			legend.get_frame().set_lw(config.AXIS_BORDER_WIDTH)
+		#  Add label for dust species
+		axis.text(.95, .05, name, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'right', transform=axis.transAxes)
+
+		for j,Z in enumerate(Z_list):
+			name = '/FIRE'+str(FIRE_ver)+'_elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			data = pickle.load(open(data_dirc + name, "rb" ))
+			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
+			elem_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
+			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonposy = 'clip', linewidth = linewidths[j])
+
+			name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			data = pickle.load(open(data_dirc + name, "rb" ))
+			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
+			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
+			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonposy = 'clip', linewidth = linewidths[j])
+
+		axis.set_ylim([1E-7,1E-2])
+		axis.set_xlim([time[0], time[-1]])
+
+	plt.savefig(foutname, transparent=False, bbox_inches='tight')
+	plt.close()
+
+
+
+def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
+	
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(elems))
+
+	N = 10000 # number of steps 
+	max_t = 10. # max age of stellar population to compute yields
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	# Compare routine carbon yields between routines
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(1)
+	x_param = 'star_age'; y_param = 'cum_metal_yield'
+
+	axis = axes[0]
+	plt_set.setup_axis(axis, x_param, y_param)
+
+	FIRE2_yields,_,_ = st_yields.onlySNeYields(max_t, N, Z, FIRE_ver=2)
+	FIRE3_yields,_,_ = st_yields.onlySNeYields(max_t, N, Z, FIRE_ver=3)
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	lines = []
+	lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='FIRE-2'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1], label='FIRE-3')]
+
+	for i, elem in enumerate(elems):
+		elem_indx = config.ELEMENTS.index(elem)
+		
+		plt.plot(time,FIRE2_yields[:,elem_indx], c=colors[i], linestyle=linestyles[0])
+		plt.plot(time,FIRE3_yields[:,elem_indx], c=colors[i], linestyle=linestyles[1])
+		
+		lines += [mlines.Line2D([], [], color=colors[i], label=elems[i])]
+		
+
+	axis.legend(handles=lines, loc=0, frameon=False, ncol=2, fontsize=config.SMALL_FONT)
+	plt.savefig(foutname, transparent=False, bbox_inches='tight')
+	plt.close()
 
 
 
@@ -901,7 +1079,7 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 				in_pixel = np.logical_and(binx == x+1, biny == y+1)
 				values = dust_mass[in_pixel]/Z_mass[in_pixel]
 				weights = M[in_pixel]
-				mean_DZ[y*len(x_vals)+x],std_DZ[y*len(x_vals)+x,0],std_DZ[y*len(x_vals)+x,1] = weighted_percentile(values, weights=weights)
+				mean_DZ[y*len(x_vals)+x],std_DZ[y*len(x_vals)+x,0],std_DZ[y*len(x_vals)+x,1] = utils.weighted_percentile(values, weights=weights)
 
 		# Now set pixel indices so we start at the center pixel and spiral outward
 		N = np.sqrt(np.shape(pixel_num)[0])
@@ -923,349 +1101,13 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 		axis.plot(pixel_num, DZ_pixel[indices], label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
 		
 
-	axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
+	axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
 	plt.savefig(foutname)
 	plt.close()	
 
 
 
-def elem_depletion_vs_param(elems, param, param_lim, gas, header, center_list, r_max_list, Lz_list=None, \
-			height_list=None, bin_nums=50, time=False, depletion=False, cosmological=True, labels=None, \
-			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', log=True, include_obs=True):
-	"""
-	Plots mock observations of specified elemental depletion vs various parameters for multiple simulations 
-
-	Parameters
-	----------
-	elems : array
-		Array of which elements you want to plot depletions for
-	param : string
-		Name of parameter to get depletion values for
-	param_lim : array
-		Limits for plotting parameter
-	gas : array
-	    Array of snapshot gas data structures
-	header : array
-		Array of snapshot header structures
-	center_list : array
-		array of 3-D coordinate of center of circles
-	r_max_list : array
-		array of maximum radii
-	bin_nums : int
-		Number of bins to use
-	time : bool
-		Print time in corner of plot (useful for movies)
-	depletion: bool, optional
-		Was the simulation run with the DEPLETION option
-	cosmological : bool
-		Is the simulation cosmological
-	labels : array
-		Array of labels for each data set
-	phys_dens : boolean
-		Use physical 3D densities or mean sight-line densities
-	foutname: str, optional
-		Name of file to be saved
-	std_bars : bool
-		Include standard deviation bars for the data
-	style : string
-		Plotting style when plotting multiple data sets
-		'color' - gives different color and linestyles to each data set
-		'size' - make all lines solid black but with varying line thickness
-	log : boolean
-		Plot log of depletion
-	include_obs : boolean
-		Overplot observed data if available
-
-	Returns
-	-------
-	None
-	"""	
-
-	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
-
-	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(elems))
-
-	for i,elem in enumerate(elems):
-		axis = axes[i]
-		elem_indx = ELEMENTS.index(elem)
-		plt_set.setup_axis(axis, param, 'depletion', x_lim=param_lim)
-
-		if include_obs and param == 'nH':
-			plot_observational_data(axis, param='depletion', elem=elem, log=log)
-
-		for j in range(len(gas)):
-			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j];
-			if Lz_list != None:
-				Lz_hat = Lz_list[j]; disk_height = height_list[j];
-			else:
-				Lz_hat = None; disk_height = None;
-
-			coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-			coords -= center
-			# Get only data of particles in sphere/disk since those are the ones we care about
-			# Also gives a nice speed-up
-			# Get paticles in disk
-			if Lz_hat != None:
-				zmag = np.dot(coords,Lz_hat)
-				r_z = np.zeros(np.shape(coords))
-				r_z[:,0] = zmag*Lz_hat[0]
-				r_z[:,1] = zmag*Lz_hat[1]
-				r_z[:,2] = zmag*Lz_hat[2]
-				r_s = np.subtract(coords,r_z)
-				smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-				in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-			# Get particles in sphere otherwise
-			else:
-				in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-			coords = coords[in_galaxy]
-			M = G['m'][in_galaxy]
-
-			if param == 'nH':
-				param_data = G['rho'][in_galaxy]*UnitDensity_in_cgs * ( 1. - (G['z'][:,0][in_galaxy]+G['z'][:,1][in_galaxy])) / H_MASS
-				param_bins = np.logspace(np.log10(param_lim[0]),np.log10(param_lim[1]),bin_nums)
-				param_vals = (param_bins[1:] + param_bins[:-1]) / 2.
-
-			elif param == 'fH2':
-				NH1,NHion,NH2 = calc_H_fracs(G)
-				param_data = 2*NH2[in_galaxy]/(NH1[in_galaxy]+2*NH2[in_galaxy])
-				param_bins = np.linspace(param_lim[0],param_lim[1],bin_nums)
-				param_vals = (param_bins[1:] + param_bins[:-1]) / 2.
-
-
-			mean_DZ = np.zeros(bin_nums-1)
-			std_DZ = np.zeros([bin_nums-1,2])
-		
-			if depletion:
-				DZ = (G['dz'][:,elem_indx]/(G['z'][:,elem_indx]+G['dz'][:,elem_indx]))[in_galaxy]
-			else:
-				DZ = (G['dz'][:,elem_indx]/G['z'][:,elem_indx])[in_galaxy]
-
-			# Deal with DZ>1 values
-			DZ[DZ>1] = 1.
-
-			digitized = np.digitize(param_data,param_bins)
-
-
-			for k in range(1,len(param_bins)):
-				if len(param_data[digitized==k])==0:
-					mean_DZ[k-1] = np.nan
-					std_DZ[k-1,0] = np.nan; std_DZ[k-1,1] = np.nan;
-					continue
-				else:
-					weights = M[digitized == k]
-					values = DZ[digitized == k]
-					mean_DZ[k-1],std_DZ[k-1,0],std_DZ[k-1,1] = weighted_percentile(values, weights=weights)
-			axis.plot(param_vals, 1.-mean_DZ, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
-			if std_bars:
-				axis.fill_between(param_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
-
-		# Only need legend on first plot
-		if i == 0:
-			if include_obs:
-				axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False, ncol=2)
-			else:
-				axis.legend(loc=0, fontsize=SMALL_FONT, frameon=False)
-
-		axis.text(.10, .40, elem, color="xkcd:black", fontsize = 2*LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
-
-	plt.tight_layout()
-	plt.savefig(foutname)
-
-
-
-"""
-def inst_dust_prod(gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, log = False, \
-	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='inst_dust_prod.png', style='color', implementation='species', \
-	           t_ref_factors = None):
-
-	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
-
-	Parameters
-	----------
-	gas : array
-	    Array of snapshot gas data structure
-	header : array
-		Array of snapshot header structure
-	bin_nums: int
-		Number of bins to use
-	time : bool, optional
-		Print time in corner of plot (useful for movies)
-	style : string
-		Plotting style when plotting multiple data sets
-		'color' - gives different color and linestyles to each data set
-		'size' - make all lines solid black but with varying line thickness
-
-	Returns
-	-------
-	None
-
-
-	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
-
-	fig,axes = plt.subplots(1, 1, figsize=(12,10))
-
-	for i in range(len(gas)):
-		if t_ref_factors != None:
-			t_ref_factor = t_ref_factors[i]
-		else:
-			t_ref_factor = 1.
-
-		if isinstance(implementation, list):
-			imp = implementation[i]
-		else:
-			imp = implementation
-
-		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
-		if Lz_list != None:
-			Lz_hat = Lz_list[i]; disk_height = height_list[i];
-		else:
-			Lz_hat = None; disk_height = None;
-
-		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-		coords -= center
-		# Get only data of particles in sphere/disk since those are the ones we care about
-		# Also gives a nice speed-up
-		# Get paticles in disk
-		if Lz_hat != None:
-			zmag = np.dot(coords,Lz_hat)
-			r_z = np.zeros(np.shape(coords))
-			r_z[:,0] = zmag*Lz_hat[0]
-			r_z[:,1] = zmag*Lz_hat[1]
-			r_z[:,2] = zmag*Lz_hat[2]
-			r_s = np.subtract(coords,r_z)
-			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-		# Get particles in sphere otherwise
-		else:
-			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-
-		T = gas_temp.gas_temperature(G)
-		T = T[in_galaxy]
-		M = G['m'][in_galaxy]
-
-		dust_prod = calc_dust_acc(G,implementation=imp,, CNM_thresh=0.95, CO_frac=0.2, nano_iron=False, depletion=False)
-
-		if depletion:
-			DZ = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
-		else:
-			DZ = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
-
-		if imp == 'species':
-			# First get silicates
-			t_ref = 2.45E6*t_ref_factor;
-			dust_formula_mass = 0.0
-			atomic_mass = np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
-			elem_num_dens = np.multiply(G['z'][in_galaxy,:len(atomic_mass)], G['rho'][in_galaxy, np.newaxis]*UnitDensity_in_cgs) / (atomic_mass*H_MASS)
-			sil_elems_index = np.array([4,6,7,10]) # O,Mg,Si,Fe
-			# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
-			# with olivine fraction of 0.32 and Mg fraction of 0.8
-			sil_num_atoms = np.array([3.63077,1.06,1.,0.570769]) # O, Mg, Si, Fe
-
-
-			for k in range(4): dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]];
-			sil_num_dens = elem_num_dens[:,sil_elems_index] 
-			# Find element with lowest number density factoring in number of atoms needed to make one formula unit of the dust species
-			key = np.argmin(sil_num_dens / sil_num_atoms, axis = 1)
-			key_num_dens = sil_num_dens[range(sil_num_dens.shape[0]),key]
-			key_elem = sil_elems_index[key]
-			key_DZ = G['dz'][in_galaxy,key_elem]/G['z'][in_galaxy,key_elem]
-			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
-			key_in_dust = sil_num_atoms[key]
-			key_mass = atomic_mass[key_elem]
-			cond_dens = 3.13
-			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
-			sil_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
-			sil_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
-			sil_dust_prod *= dust_formula_mass / atomic_mass[key_elem]
-			sil_dust_prod[T>Tcut] = 0.
-
-			# Now carbon dust
-			CO_frac = 0.2; # Fraction of C locked in CO
-			t_ref = 2.45E6*t_ref_factor
-			key_elem = 2
-			key_DZ = G['dz'][in_galaxy,key_elem]/((1-CO_frac)*G['z'][in_galaxy,key_elem])
-			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
-			key_in_dust = 1
-			key_mass = atomic_mass[key_elem]
-			dust_formula_mass = key_mass
-			cond_dens = 2.25
-			key_num_dens = elem_num_dens[:,key_elem]*(1-CO_frac)
-			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
-			carbon_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
-			carbon_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
-			carbon_dust_prod[T>Tcut] = 0.
-
-			# Now iron dust
-			t_ref = 2.45E6*t_ref_factor
-			key_elem = 10
-			key_DZ = G['dz'][in_galaxy,key_elem]/G['z'][in_galaxy,key_elem]
-			key_M_dust = G['dz'][in_galaxy,key_elem]*M*1E10
-			key_in_dust = 1
-			dust_formula_mass = atomic_mass[key_elem]
-			cond_dens = 7.86
-			key_num_dens = elem_num_dens[:,key_elem]
-			key_mass = atomic_mass[key_elem]
-			growth_time = t_ref * key_in_dust * np.sqrt(key_mass) / dust_formula_mass * (cond_dens/3) * (1E-2/key_num_dens) * np.power(300/T,0.5)
-			iron_dust_prod = (1.-key_DZ)*key_M_dust/growth_time
-			iron_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
-			iron_dust_prod[T>Tcut] = 0.
-
-
-		# Elemental implementation
-		else:
-			t_ref = 0.2E9*t_ref_factor; T_ref = 20; dens_ref = H_MASS;
-			dens = G['rho'][in_galaxy]*UnitDensity_in_cgs
-			growth_time = t_ref * (dens_ref/dens) * np.power(T_ref/T,0.5)
-			sil_DZ = G['dz'][:,[4,6,7,10]][in_galaxy]/G['z'][:,[4,6,7,10]][in_galaxy]
-			sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = 1.
-			sil_dust_mass = np.multiply(G['dz'][:,[4,6,7,10]][in_galaxy],M[:,np.newaxis]*1E10)
-			sil_dust_prod = np.sum((1.-sil_DZ)*sil_dust_mass/growth_time[:,np.newaxis],axis=1)
-			CO_frac = 0.2; # Fraction of C locked in CO
-			C_DZ = G['dz'][:,2][in_galaxy]/((1-CO_frac)*G['z'][:,2][in_galaxy])
-			C_dust_mass = G['dz'][:,2][in_galaxy]*M*1E10
-			carbon_dust_prod = (1.-C_DZ)*C_dust_mass/growth_time
-			carbon_dust_prod[np.logical_or(C_DZ <= 0,C_DZ >= 1)] = 0.
-			iron_dust_prod = np.zeros(len(sil_dust_prod))
-
-
-		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=sil_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
-			         linewidth=linewidths[0], linestyle=linestyles[0])
-		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=carbon_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
-			         linewidth=linewidths[0], linestyle=linestyles[1])
-		axes.hist(nH, bins=np.logspace(np.log10(1E-2),np.log10(1E3),bin_nums), weights=iron_dust_prod, histtype='step', cumulative=True, label=labels[i], color=colors[i], \
-			         linewidth=linewidths[0], linestyle=linestyles[2])
-
-	lines = []
-	for i in range(len(labels)):
-		lines += [mlines.Line2D([], [], color=colors[i], label=labels[i])]
-	lines += [mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[0],label='Silicate'), \
-		      mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[1],label='Carbon'), \
-		      mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[2],label='Iron')]
-
-	axes.legend(handles=lines,loc=2, frameon=False)
-	axes.set_xlim([1E-2,1E3])
-	xlabel = r'$n_H$ (cm$^{-3}$)'; ylabel = r'Cumulative Inst. Dust Prod. $(M_{\odot}/yr)$'
-	plt_set.setup_labels(axes,xlabel,ylabel)
-	if log:
-		axes.set_yscale('log')
-		axes.set_ylim([1E-3,1E1])
-	axes.set_xscale('log')
-
-	plt.savefig(foutname)
-	plt.close()
-"""
-
-
-
-
-def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, log = False, \
-	           cosmological=True, Tmin=1, Tmax=1E5, Tcut=300, labels=None, foutname='dust_acc_diag.png', style='color', implementation='species', \
-	           t_ref_factors = None):
+def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_diag.png', style='color', implementation='species'):
 	"""
 	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
 
@@ -1273,14 +1115,10 @@ def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, h
 	----------
 	params : array
 		List of parameters to plot diagnostics for (inst_dust_prod, growth_timescale, )
-	gas : array
-	    Array of snapshot gas data structure
-	header : array
-		Array of snapshot header structure
+	snaps : array
+	    Array of snapshots to use
 	bin_nums: int
 		Number of bins to use
-	time : bool, optional
-		Print time in corner of plot (useful for movies)
 	style : string
 		Plotting style when plotting multiple data sets
 		'color' - gives different color and linestyles to each data set
@@ -1292,7 +1130,7 @@ def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, h
 	"""
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(gas), style=style)
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(params))
@@ -1305,53 +1143,23 @@ def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, h
 			plt_set.setup_axis(axis, param, 'g_timescale_frac')
 
 
-		for j in range(len(gas)):
-
+		for j,snap in enumerate(snaps):
 			if isinstance(implementation, list):
 				imp = implementation[j]
 			else:
 				imp = implementation
 
-			G = gas[j]; H = header[j]; center = center_list[j]; r_max = r_max_list[j];
-			if Lz_list != None:
-				Lz_hat = Lz_list[j]; disk_height = height_list[j];
-			else:
-				Lz_hat = None; disk_height = None;
+			G =	snap.loadpart(0)
+			H = snap.loadheader()
 
-			coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-			coords -= center
-			# Get only data of particles in sphere/disk since those are the ones we care about
-			# Also gives a nice speed-up
-			# Get paticles in disk
-			if Lz_hat != None:
-				zmag = np.dot(coords,Lz_hat)
-				r_z = np.zeros(np.shape(coords))
-				r_z[:,0] = zmag*Lz_hat[0]
-				r_z[:,1] = zmag*Lz_hat[1]
-				r_z[:,2] = zmag*Lz_hat[2]
-				r_s = np.subtract(coords,r_z)
-				smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-				in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-			# Get particles in sphere otherwise
-			else:
-				in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-
-			T = gas_temp.gas_temperature(G)
-			T = T[in_galaxy]
-			M = G['m'][in_galaxy]
-
-			if depletion:
-				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1]+G['dz'][:,0])) / H_MASS
-			else:
-				nH = G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1])) / H_MASS
+			nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
 
 			if param == 'inst_dust_prod':
-				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False, depletion=False)
+				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False)
 				x_vals = dict.fromkeys(weight_vals.keys(), nH)
 			elif param == 'g_timescale':
 				if imp == 'species':
-					x_vals = calc_spec_acc_timescale(G, depletion=False, CNM_thresh=1.0, nano_iron=False)
+					x_vals = calc_spec_acc_timescale(G, CNM_thresh=1.0, nano_iron=False)
 				else:
 					x_vals = calc_elem_acc_timescale(G)
 				for key in x_vals.keys(): 
@@ -1373,632 +1181,411 @@ def dust_acc_diag(params, gas, header, center_list, r_max_list,  Lz_list=None, h
 				bins = np.linspace(limits[0],limits[1],bin_nums)
 
 			for k,key in enumerate(sorted(weight_vals.keys())):
-				axis.hist(x_vals[key][in_galaxy], bins=bins, weights=weight_vals[key][in_galaxy], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
+				axis.hist(x_vals[key], bins=bins, weights=weight_vals[key], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
 				         linewidth=linewidths[0], linestyle=linestyles[k])
-				lines += [mlines.Line2D([], [], color='xkcd:black', linestyle =linestyles[k],label=key)]
+				lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[k],label=key)]
 
-		# Want legend only on first plot
+			# Want legend only on first plot
 			if i == 0:
 				axis.legend(handles=lines,loc=2, frameon=False)
 
 
 	plt.savefig(foutname)
+	plt.close()   
+
+
+
+
+def dmol_vs_params(mol_params, params, snaps, labels=None, bin_nums=50, time=None, foutname='dmol_vs_param.png', std_bars=True):
+	"""
+	Plots the molecular parameters (fH2, fMC, CinCO) vs the parameters given for one snapshot 
+
+	Parameters
+	----------
+	mol_params: string
+		Array of molecular parameter to plot (fH2, fMC, CinCO) on y axis
+	params: array
+		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25) on x axis
+	snaps : array
+	    Array of snapshots to plot
+	bin_nums : int
+		Number of bins to use
+	time : string
+		Option for printing time in corner of plot (None, one, all)
+	labels : array
+		Array of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	std_bars : bool
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+
+	"""	
+
+	# Get plot stylization
+	handles,linewidths,colors,linestyles = plt_set.setup_legend_handles(labels, params=mol_params, style='color-line')
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
+
+	for i, x_param in enumerate(params):
+		# Set up axes and label legends for each plot
+		axis = axes[i]
+		lines = []
+		if len(mol_params) > 1:
+			y_param = 'mass_frac'
+		else:
+			y_param = mol_params[0]
+
+		plt_set.setup_axis(axis, x_param, y_param)
+
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+			for k,mol_param in enumerate(mol_params):
+				if len(mol_params) == 1:
+					index = j
+				else:
+					index = j*len(snaps)+k
+				
+				param_vals,mean_dmol,std_dmol = calc_dmol_vs_param(mol_param, x_param, G, bin_nums=bin_nums)
+				axis.plot(param_vals, mean_dmol, color=colors[index], linestyle=linestyles[index], zorder=3)
+				if std_bars:
+					axis.fill_between(param_vals, std_dmol[:,0], std_dmol[:,1], alpha = 0.3, color=colors[index], zorder=1)
+		
+		# Setup legend on first axis
+		if i == 0 and len(handles)>1:
+			axis.legend(handles=handles, loc=0, fontsize=config.SMALL_FONT, frameon=False)
+
+		# Print time in corner of plot if applicable
+		if time=='one' and i==0:
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)	
+		elif time=='all':
+			time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+			axis.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.SMALL_FONT, ha = 'left', transform=axis.transAxes, zorder=4)			
+
+	plt.tight_layout()	
+	plt.savefig(foutname)
 	plt.close()
 
+	return
 
 
 
-
-
-def binned_phase_plot(param, gas, header, center_list, r_max_list, Lz_list=None, height_list=None, bin_nums=100, time=False, depletion=False, cosmological=True, \
-			   nHmin=1E-3, nHmax=1E3, Tmin=1E1, Tmax=1E5, numbins=200, thecmap='hot', vmin=1E-8, vmax=1E-4, labels =None, log=False, foutname='phase_plot.png'):
+def calc_dmol_vs_param(mol_param, param, G, bin_nums=50, param_lims=None):
 	"""
-	Plots the temperate-density has phase
+	Calculate the average dust-to-metals ratio (D/Z) vs radius, density, and Z given code values of center and virial radius for multiple simulations/snapshots
 
 	Parameters
 	----------
 	param: string
-		What parameterto bin 2d-historgram over
-	gas : array
-	    Array of snapshot gas data structure
-	header : array
-		Array of snapshot header structure
-	bin_nums: int
-		Number of bins to use
-	depletion: bool, optional
-		Was the simulation run with the DEPLETION option
-
-	Returns
-	-------
-	None
-	"""
-
-	for i in range(len(gas)):
-		G = gas[i]; H = header[i]; center = center_list[i]; r_max = r_max_list[i];
-		if Lz_list != None:
-			Lz_hat = Lz_list[i]; disk_height = height_list[i];
-		else:
-			Lz_hat = None; disk_height = None;
-
-		coords = np.copy(G['p']) # Since we edit coords need to make a deep copy
-		coords -= center
-		# Get only data of particles in sphere/disk since those are the ones we care about
-		# Also gives a nice speed-up
-		# Get paticles in disk
-		if Lz_hat != None:
-			zmag = np.dot(coords,Lz_hat)
-			r_z = np.zeros(np.shape(coords))
-			r_z[:,0] = zmag*Lz_hat[0]
-			r_z[:,1] = zmag*Lz_hat[1]
-			r_z[:,2] = zmag*Lz_hat[2]
-			r_s = np.subtract(coords,r_z)
-			smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-			in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-		# Get particles in sphere otherwise
-		else:
-			in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-		if param == 'DZ':
-			if depletion:
-				values = (G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0]))[in_galaxy]
-			else:
-				values = (G['dz'][:,0]/G['z'][:,0])[in_galaxy]
-			bar_label = 'D/Z Ratio in Pixel'
-		else:
-			print("Parameter given to binned_phase_plot is not supported:",param)
-			return
-
-		if depletion:
-			nH = np.log10(G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1]+G['dz'][:,0])) / H_MASS)[in_galaxy]
-		else:
-			nH = np.log10(G['rho']*UnitDensity_in_cgs * ( 1. - (G['z'][:,0]+G['z'][:,1])) / H_MASS)[in_galaxy]
-		T = np.log10(gas_temp.gas_temperature(G))
-		T = T[in_galaxy]
-		M = G['m'][in_galaxy]
-
-		# Bin data across nH and T parameter space
-		nH_bins = np.linspace(np.log10(nHmin), np.log10(nHmax), numbins)
-		T_bins = np.linspace(np.log10(Tmin), np.log10(Tmax), numbins)
-		ret = binned_statistic_2d(nH, T, values, statistic=np.mean, bins=[nH_bins, T_bins])
-
-		fig = plt.figure()
-		ax = plt.gca()
-		plt.subplot(111, facecolor='xkcd:black')
-		if log:
-			plt.imshow(ret.statistic.T, origin='bottom', cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), vmin=vmin, vmax=vmax, extent=[np.log10(nHmin),np.log10(nHmax),np.log10(Tmin),np.log10(Tmax)])
-			#plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), norm=mpl.colors.LogNorm(), weights=weight, vmin=vmin, vmax=vmax) 
-		else:
-			plt.imshow(ret.statistic.T, origin='bottom', cmap=plt.get_cmap(thecmap), vmin=vmin, vmax=vmax, extent=[np.log10(nHmin),np.log10(nHmax),np.log10(Tmin),np.log10(Tmax)])
-			#plt.hist2d(nH, T, range=np.log10([[nHmin,nHmax],[Tmin,Tmax]]), bins=numbins, cmap=plt.get_cmap(thecmap), weights=weight, vmin=vmin, vmax=vmax) 
-		cbar = plt.colorbar()
-		cbar.ax.set_ylabel(bar_label, fontsize=LARGE_FONT)
-
-
-		plt.xlabel(r'log $n_{H} ({\rm cm}^{-3})$', fontsize=LARGE_FONT) 
-		plt.ylabel(r'log T (K)', fontsize=LARGE_FONT)
-		plt.tight_layout()
-		if time:
-			if cosmological:
-				z = H['redshift']
-				ax.text(.95, .95, 'z = ' + '%.2g' % z, color="xkcd:white", fontsize = 16, ha = 'right', transform=ax.transAxes)
-			else:
-				t = H['time']
-				ax.text(.95, .95, 't = ' + '%2.1g Gyr' % t, color="xkcd:white", fontsize = 16, ha = 'right', transform=ax.transAxes)	
-		plt.savefig(labels[i]+'_'+foutname)
-		plt.close()
-
-
-
-
-def calc_stellar_Rd(S, center, r_max, Lz_hat=None, disk_height=5, bin_nums=50):
-	"""
-	Calculate the stellar scale radius (Rd) for a galaxy given its star particles
-
-	Parameters
-	----------
-	S : dict
-	    Snapshot star data structure
-	center : array
-		3-D coordinate of center of circle
-	r_max : double
-		maximum radii of gas particles to use
-	Lz_hat: array
-		Unit vector of Lz to be used to mask only 
-	disk_height: double
-		Height of disk to mask if Lz_hat is given, default is 5 kpc
+		Name of parameter to get D/Z values for
+	G : dict
+	    Snapshot gas data structure
 	bin_nums : int
 		Number of bins to use
+	elem : string, optional
+		Can specify the D/Z ratio for a specific element. Default is all metals.
+
 	Returns
 	-------
-	Rd : double
-		Galactic stellar scale radius
+	mean_DZ : array
+		Array of mean D/Z values vs parameter given
+	std_DZ : array
+		Array of 16th and 84th percentiles D/Z values
+	param_vals : array
+		Parameter values D/Z values are taken over
+
 	"""	
 
-	coords = np.copy(S['p']) # Since we edit coords need to make a deep copy
-	coords -= center
-	# Get only data of particles in sphere/disk since those are the ones we care about
-	# Also gives a nice speed-up
-	# Get paticles in disk
-	if Lz_hat != None:
-		zmag = np.dot(coords,Lz_hat)
-		r_z = np.zeros(np.shape(coords))
-		r_z[:,0] = zmag*Lz_hat[0]
-		r_z[:,1] = zmag*Lz_hat[1]
-		r_z[:,2] = zmag*Lz_hat[2]
-		r_s = np.subtract(coords,r_z)
-		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-		in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-	# Get particles in sphere otherwise
+
+	if param_lims is None:
+		param_lims = config.PARAM_INFO[param][1]
+		log_bins = config.PARAM_INFO[param][2]
 	else:
-		in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
+		if param_lims[1] > 20*param_lims[0]: 	log_bins=True
+		else:								  	log_bins=False
 
-	M = S['m'][in_galaxy]*1E10
-	coords = coords[in_galaxy]
+	# Get D/Z values over number density of Hydrogen (nH)
+	if param == 'nH':
+		nH = G.rho*config.UnitDensity_in_cgs * (1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+		bin_data = nH
+		log_bins=True
+	# Get D/Z values over gas temperature
+	elif param == 'T':
+		T = G.T
+		bin_data = T
+		log_bins=True
+	# Get D/Z valus over radius of galaxy from the center
+	elif param == 'r' or param == 'r25':
+		# TODO: implement r25 bins and r for halo objects 
+		r = np.sqrt(np.power(G.p[:,0],2) + np.power(G.p[:,1],2))
+		bin_data = r
+		if param_lims[1]>40: log_bins=True
+		else:			     log_bins=False
+	# Get D/Z values vs total metallicty of gas
+	elif param == 'Z':
+		Z = G.z[:,0]/config.SOLAR_Z
+		bin_data = Z
+		log_bins=True
+	# Get D/Z values vs H2 mass fraction of gas
+	elif param == 'fH2':
+		fH2 = utils.calc_fH2(G)
+		bin_data = fH2
+		log_bins=False
+	else:
+		print("Parameter given to calc_dmol_vs_param is not supported:",param)
+		return None,None,None
 
-	r_bins = np.linspace(0, r_max, num=bin_nums)
-	r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-	surf_dens = np.zeros(bin_nums-1)
+	if mol_param=='fH2':
+		dmol = G.dust_mol[:,0]
+	elif mol_param=='fMC':
+		dmol = G.dust_mol[:,1]
+	elif mol_param=='CinCO':
+		dmol = G.dust_mol[:,2]/G.z[:,2]
+	else:
+		print('Invalid mol_param given to calc_dmol_vs_param:',mol_param)
+		return None,None,None
 
-	for j in range(bin_nums-1):
-		# find all coordinates within shell
-		r_min = r_bins[j]; r_max = r_bins[j+1];
-		annulus_area = np.pi * np.power((r_max-r_min)*1000,2) # pc^2
+	dmol[dmol > 1] = 1.
 
-		zmag = np.dot(coords,Lz_hat)
-		r_z = np.zeros(np.shape(coords))
-		r_z[:,0] = zmag*Lz_hat[0]
-		r_z[:,1] = zmag*Lz_hat[1]
-		r_z[:,2] = zmag*Lz_hat[2]
-		r_s = np.subtract(coords,r_z)
-		smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-		in_annulus = np.where((np.abs(zmag) <= disk_height) & (smag <= r_max) & (smag > r_min))
+	bin_vals, mean_dmol, std_dmol = utils.bin_values(bin_data, dmol, param_lims, bin_nums=bin_nums, weight_vals=G.m, log=log_bins)
 
-		surf_dens[j] = np.sum(M[in_annulus]) / annulus_area
-
-	# Now fit 
-	fit,_ = curve_fit(dens_profile_func, r_vals, surf_dens)
-	cent_surf = fit[1]
-	Rd = fit[0]
-
-	print("Rd = %e, cent. surf. dens. = %e" % (Rd,cent_surf))
-	
-	return Rd
+	return bin_vals, mean_dmol, std_dmol
 
 
-def dens_profile_func(radius, Rd, cent_surf):
-	return cent_surf * np.exp(-radius/Rd)
 
-
-def dust_data_vs_time(params, param_lims, implementation='species', datanames=['data.pickle'], data_dir='data/', foutname='dust_data_vs_time.png', \
-	                     labels=None, time=False, cosmological=True, log=True, std_bars=True, style='color'):
+def dust_projections(param, snap, bin_nums=100, param_lims=None):
 	"""
-	Plots all time averaged data vs time from precompiled data for a set of simulation runs
+	Face-on and edge-on projection of dust in galaxy snapshot.
 
 	Parameters
 	----------
-	dataname : list
-		List of data file names for sims
-	datadir: str
-		Directory of data
-	foutname: str
-		Name of file to be saved
+	param: list
+		List of dust parameters (D/Z,carbon,silicate,total)
+	snap : dict
+	    Snapshot gas data structure
+	bin_nums : int
+		Number of bins to use
+	param_lims : list
+		Limits for each dust parameter
 
 	Returns
 	-------
 	None
+
+	"""	
+	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
+	axis_2D_hist = axes[0]
+	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
+	axis_2D_hist.set_facecolor('xkcd:grey')
+
+	G = snap.loadpart(0)
+	H = snap.loadheader()
+
+	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
+	param_lims = config.PARAM_INFO[param][1]
+	log_param = config.PARAM_INFO[param][2]
+	if log_param:
+		norm = mpl.colors.LogNorm()
+	else:
+		norm = None
+
+	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), vmin=param_lims[0], vmax=param_lims[1], norm=norm)
+	axis_2D_hist.autoscale('tight')
+
+	bar_label =  config.PARAM_INFO[param][0]
+	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
+
+	# Print time in corner of plot if applicable
+	if time=='all':
+		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+	plt.tight_layout()
+
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, labels=None, color_map='inferno', foutname='snap_projection.png', **kwargs):
 	"""
+	Plots face on and edge on projections for one snapshots for the chosen parameters
 
-	species_names = ['Silicates','Carbon','SiC','Iron','O Reservoir']
-	source_names = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+	Parameters
+	----------
+	param: list
+		List of dust parameters (D/Z,carbon,silicate,total)
+	snaps : array
+	    Array of snapshots to plot
+	bin_nums : int
+		Number of bins to use
+	time : string
+		Option for printing time in corner of plot (None, one, all)
+	foutname: str, optional
+		Name of file to be saved
+	# other available keywords:
+    ## cen  - center of the image
+    ## L    - side length along x and y direction
+    ## Lz   - depth along z direction, for particle trimming
+    ## Nx   - number of pixels along x and y direction, default 250
+    ## vmin - minimum scaling of the colormap
+    ## vmax - maximum scaling of the colormap
+    ## theta, phi - viewing angle
+	Returns
+	-------
+	None
 
-	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(datanames), style=style)
+	"""	
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(params))
+	fig,axes = plt_set.setup_projection(len(params), L, Lz=Lz)
 
-	for i, y_param in enumerate(params):
-		# Set up for each plot
-		axis = axes[i]
-		y_lim = param_lims[i]
-		if time:
-			x_param = 'time'
+	for i, param in enumerate(params):
+		ax1 = axes[i,0]; ax2 = axes[i,1]; cbar_ax = axes[i,2];
+		text_label = labels[i]
+
+		param_lim = config.PARAM_INFO[param][1]
+		log_param = config.PARAM_INFO[param][2]
+		if log_param:
+			norm = mpl.colors.LogNorm()
 		else:
-			x_param = 'redshift'
-		plt_set.setup_axis(axis, x_param, y_param, y_lim=y_lim)
+			norm = None
+		cbar_label =  config.PARAM_INFO[param][0]
 
-		param_labels=None
-		if y_param == 'DZ':
-			param_id = 'DZ_ratio'
-		elif y_param == 'source_frac':
-			param_id = 'source_frac'
-			param_labels = ['Accretion','SNe Ia', 'SNe II', 'AGB']
-		elif y_param=='spec_frac':
-			param_id = 'spec_frac'
-			if implementation == 'species':
-				param_labels = ['Silicates','Carbon','SiC','Iron','O Bucket']
-			else:
-				param_labels = ['Silicates','Carbon']
-		elif y_param == 'Si/C':
-			param_id = 'sil_to_C_ratio'
-		else:
-			print("%s is not a valid parameter for dust_data_vs_time()\n"%y_param)
-			return()
 
-		for j,dataname in enumerate(datanames):
-			with open(data_dir+dataname, 'rb') as handle:
-				data = pickle.load(handle)
 
-			if cosmological:
-				if time:
-					time_data = data['time']
-				else:
-					time_data = -1.+1./data['a_scale']
-			else:
-				time_data = data['time']
+		# If first plot add scale bar
 
-			# Check if parameter has subparameters
-			if param_labels == None:
-				mean_vals = data[param_id][:,0]; std_vals = data[param_id][:,1:];
-				axis.plot(time_data, mean_vals, color='xkcd:black', linestyle=LINE_STYLES[j], label=labels[j], zorder=3)
-				if std_bars:
-					axis.fill_between(time_data, std_vals[:,0], std_DZ[:,1], alpha = 0.3, color='xkcd:black', zorder=1)
-			else:
-				mean_vals = data[param_id][:,:,0]; std_vals = data[param_id][:,:,1:];
-				for k in range(np.shape(mean_vals)[1]):
-					axis.plot(time_data, mean_vals[:,k], color=LINE_COLORS[k], linestyle=LINE_STYLES[j], zorder=3)
-					if std_bars:
-						axis.fill_between(time_data, std_vals[:,k,0], std_DZ[:,k,1], alpha = 0.3, color=LINE_COLORS[k], zorder=1)
-		# Only need to label the seperate simulations in the first plot
-		if i==0 and len(datanames)>1:
-			axis.legend(loc=0, frameon=False, fontsize=SMALL_FONT)
-		# If there are subparameters need to make their own legend
-		if param_labels != None:
-			param_lines = []
-			for j, label in enumerate(param_labels):
-				param_lines += [mlines.Line2D([], [], color=LINE_COLORS[j], label=label)]
-			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=SMALL_FONT)
-		if log:
-			axis.set_xlim(time_data[1],time_data[-1])
-	plt.tight_layout()
+		# If labels given add to corner of each projection
+		if labels != None:
+			ax1.annotate(text_label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
+
+		# Plot x-y projection on top
+		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
+		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
+		img = ax1.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+           aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+		ax1.set_xlim(xedges[-1], xedges[0])
+		ax1.set_ylim(yedges[-1], yedges[0])
+
+		# Plot x-z projection below
+		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [Lz,L,L], pixel_res=pixel_res, proj='xz')
+		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
+		ax2.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+           aspect='auto', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+		ax2.set_xlim(xedges[-1], xedges[0])
+		ax2.set_ylim(yedges[-1], yedges[0])
+
+		cbar = Colorbar(ax = cbar_ax, mappable = img, orientation = 'horizontal', ticklocation = 'bottom')
+		cbar.ax.set_xlabel(cbar_label, fontsize=config.LARGE_FONT)
+		cbar.ax.minorticks_off() 
+		cbar.ax.tick_params(axis='both',which='both',direction='in', pad=10)
+		cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
+	  	cbar.outline.set_linewidth(2)
+
+
 	plt.savefig(foutname)
 	plt.close()
 
 
-def compile_dust_data(snap_dir, foutname='data.pickle', data_dir='data/', mask=False, halo_dir='', Rvir_frac = 1., \
-                      r_max = None, Lz_hat = None, disk_height = None, overwrite=False, cosmological=True, startnum=0, \
-                      endnum=600, implementation='species', depletion=False):
+def calc_obs_projection(param, snap, side_lens, pixel_res=2, proj='xy'):
 	"""
-	Compiles all the dust data needed for time evolution plots from all of the snapshots 
-	into a small file.
+	Calculate the average dust-to-metals ratio vs radius, gas , H2 , metal, or dust surface density
+	given code values of center and viewing direction for multiple simulations/snapshots
 
 	Parameters
 	----------
-	snap_dir : string
-		Name of directory with snapshots to be used 
+	param: string
+		name of parameter to project
+	snap : Snapshot
+	    Simulations snapshot
+	side_len : list
+		Size of box to consider (L1, L2, Lz), L1 ands L2 are side lengths and Lz depth is depth of box
+	pixel_res : double
+		Size resolution of each pixel bin in kpc
+	bin_nums : int
+		Number of bins for param
+	proj : string
+		What coordinates you want to project (xy,yz,zx)
 
 	Returns
 	-------
-	None
+	pixel_data : array
+		Projected data for each pixel
+	coord1_bins : array
+		Bins for first coordinate
+	coord2_bins : array
+		Bins for second coordinate
+	"""	
 
-	"""
+	L1 = side_lens[0]
+	L2 = side_lens[1]
+	Lz = side_lens[2]
 
-	if os.path.isfile(data_dir + foutname) and not overwrite:
-		"Data exists already. \n If you want to overwrite it use the overwrite param."
+	if 'star' in param:
+		S = snap.loadpart(4)
+		M = S.m*config.UnitMass_in_Msolar
+		x = S.p[:,0];y=S.p[:,1];z=S.p[:,2]
 	else:
-		# First create ouput directory if needed
-		try:
-			# Create target Directory
-			os.mkdir(data_dir)
-			print("Directory ", data_dir, " Created")
-		except:
-			print("Directory ", data_dir, " already exists")
+		G = snap.loadpart(0)
+		M = G.m*config.UnitMass_in_Msolar
+		x = G.p[:,0];y=G.p[:,1];z=G.p[:,2]
 
+	# Set up coordinates to project
+	if   proj=='xy': coord1 = x; coord2 = y; coord3 = z; 
+	elif proj=='yz': coord1 = y; coord2 = z; coord3 = x; 
+	elif proj=='xz': coord1 = x; coord2 = z; coord3 = y; 
+	else:
+		print("Projection must be xy, yz, or xz for calc_obs_projection()")
+		return None
 
-		print("Fetching data now...")
-		length = endnum-startnum+1
-		# Need to load in the first snapshot to see how many dust species there are
-		if implementation=='species':
-			G = readsnap(snap_dir, startnum, 0, cosmological=cosmological)
-			if G['k']==-1:
-				print("No snapshot found in directory")
-				print("Snap directory:", snap_dir)
-				return
-			species_num = np.shape(G['spec'])[1]
-			print("There are %i dust species"%species_num)
+	# Only include particles in the box
+	mask = (coord1>-L1) & (coord1<L1) & (coord2>-L2) & (coord2<L2) & (coord3>-Lz) & (coord3<Lz)
+
+	pixel_bins = int(np.ceil(2*L1/pixel_res)) + 1
+	coord1_bins = np.linspace(-L1,L1,pixel_bins)
+	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
+	coord2_bins = np.linspace(-L2,L2,pixel_bins)
+
+	pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
+
+	# Get the data to be projected
+	if param in ['D/Z','fH2','fMC']:
+		if param == 'D/Z':
+			proj_data1 = G.dz[:,0]*M
+			proj_data2 = G.z[:,0]*M
+		#TODO: Add support for fH2 and fMC
+
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic[0]/binned_stats.statistic[1]
+
+	else:
+		if   param == 'sigma_dust': proj_data = G.dz[:,0]*M
+		elif param == 'sigma_gas': 	proj_data = M
+		elif param == 'sigma_H2': 	proj_data = utils.calc_fH2(G)*G.m*(1-(G.z[:,0]+G.z[:,1]))
+		elif param == 'sigma_Z': 	proj_data = G.z[:,0]*M
+		elif param == 'sigma_sil': 	proj_data = G.spec[:,0]*M
+		elif param == 'sigma_sil+': proj_data = (np.sum(G.spec,axis=1)-G.spec[:,1])*M
+		elif param == 'sigma_carb': proj_data = G.spec[:,1]*M
+		elif param == 'sigma_SiC': proj_data = G.spec[:,2]*M
+		elif param == 'sigma_iron': proj_data = G.spec[:,3]*M
+		elif param == 'sigma_O': proj_data = G.spec[:,4]*M
+		elif param == 'sigma_star': proj_data = M
 		else:
-			species_num = 2
-		# Most data comes with mean of values and 16th and 84th percentile
-		DZ_ratio = np.zeros([length,3])
-		sil_to_C_ratio = np.zeros([length,3])
-		sfr = np.zeros(length)
-		metallicity = np.zeros([length,3])
-		time = np.zeros(length)
-		a_scale = np.zeros(length)
-		source_frac = np.zeros((length,4,3))
-		spec_frac = np.zeros((length,species_num,3))
+			print("%s is not a supported parameter in calc_obs_projection()."%param)
+			return None
 
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic/pixel_area
 
-		# Go through each of the snapshots and get the data
-		for i, num in enumerate(range(startnum, endnum+1)):
-			print(num)
-			G = readsnap(snap_dir, num, 0, cosmological=cosmological)
-			H = readsnap(snap_dir, num, 0, header_only=True, cosmological=cosmological)
-			S = readsnap(snap_dir, num, 4, cosmological=cosmological)
-
-			if G['k']==-1:
-				print("No snapshot found in directory")
-				print("Snap directory:", snap_dir)
-				return
-
-			if mask:
-				coords = G['p']
-				center = np.zeros(3)
-				if cosmological:
-					halo_data = Table.read(halo_dir,format='ascii')
-					# Convert to physical units
-					xpos =  halo_data['col7'][num-1]*H['time']/H['hubble']
-					ypos =  halo_data['col8'][num-1]*H['time']/H['hubble']
-					zpos =  halo_data['col9'][num-1]*H['time']/H['hubble']
-					rvir = halo_data['col13'][num-1]*H['time']/H['hubble']
-					
-					#TODO : Add ability to only look at particles in disk using angular momentum vector from
-					# halo file
-					
-					center = np.array([xpos,ypos,zpos])
-					coords -= center
-					if r_max == None:
-						print("Using AHF halo as spherical mask with radius of ",str(Rvir_frac)," * Rvir.")
-						r_max = rvir*Rvir_frac
-					else:
-						print("Using AHF halo as spherical mask with radius of ",str(r_max)," kpc.")
-
-					in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-				else:
-					if r_max == None:
-						print("Must give maximum radius r_max for non-cosmological simulations!")
-						return
-					# Recenter coords at center of periodic box
-					boxsize = H['boxsize']
-					mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
-					coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2;
-					center = np.average(coords, weights = G['m'], axis = 0)
-					coords -= center
-					# Check if mask should be sphere or disk if Lz_hat is given it's a disk
-					if Lz_hat != None:
-						zmag = np.dot(coords,Lz_hat)
-						r_z = np.zeros(np.shape(coords))
-						r_z[:,0] = zmag*Lz_hat[0]
-						r_z[:,1] = zmag*Lz_hat[1]
-						r_z[:,2] = zmag*Lz_hat[2]
-						r_s = np.subtract(coords,r_z)
-						smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-						in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-					# Get particles in sphere otherwise
-					else:
-						in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-				for key in G.keys():
-					if key != 'k':
-						G[key] = G[key][in_galaxy]
-				# Check if there are any star particles
-				if S['k']!=-1:
-					coords = S['p']
-					if not cosmological:
-						boxsize = H['boxsize']
-						mask1 = coords > boxsize/2; mask2 = coords <= boxsize/2
-						coords[mask1] -= boxsize/2; coords[mask2] += boxsize/2;
-
-					coords -= center
-
-					# Check if mask should be sphere or disk if Lz_hat is given it's a disk
-					if Lz_hat != None:
-						zmag = np.dot(coords,Lz_hat)
-						r_z = np.zeros(np.shape(coords))
-						r_z[:,0] = zmag*Lz_hat[0]
-						r_z[:,1] = zmag*Lz_hat[1]
-						r_z[:,2] = zmag*Lz_hat[2]
-						r_s = np.subtract(coords,r_z)
-						smag = np.sqrt(np.sum(np.power(r_s,2),axis=1))
-						in_galaxy = np.logical_and(np.abs(zmag) <= disk_height, smag <= r_max)
-					# Get particles in sphere otherwise
-					else:
-						in_galaxy = np.sum(np.power(coords,2),axis=1) <= np.power(r_max,2.)
-
-					S['age'] = S['age'][in_galaxy]
-					S['m'] = S['m'][in_galaxy]
-
-			M = G['m']
-			omeganot = H['omega0']
-			h = H['hubble']
-			if cosmological:
-				a_scale[i] = H['time']
-				time[i] = tfora(H['time'], omeganot, h)
-			else:
-				time[i] = H['time']
-
-			if depletion:
-				metallicity[i] = weighted_percentile(G['z'][:,0]+G['dz'][:,0], weights=M)
-			else:
-				metallicity[i] = weighted_percentile(G['z'][:,0], weights=M)
-
-			for j in range(4):
-				source_frac[i,j] = weighted_percentile(G['dzs'][:,j], weights=M)
-				source_frac[i,j][source_frac[i,j]==0] = EPSILON
-
-
-			if implementation == 'species':
-				# Need to mask all rows with nan and inf values for average to work
-				for j in range(species_num):
-					spec_frac_vals = G['spec'][:,j]/G['dz'][:,0]
-					is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
-					spec_frac[i,j] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-					spec_frac[i,j][spec_frac[i,j]==0] = EPSILON
-
-				sil_to_C_vals = G['spec'][:,0]/G['spec'][:,1]
-				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
-				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
-				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = EPSILON
-
-			elif implementation == 'elemental':
-				# Need to mask nan and inf values for average to work
-				spec_frac_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,0]
-				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
-				spec_frac[i,0] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-				spec_frac[i,0][spec_frac[i,0]==0] = EPSILON
-
-				spec_frac_vals = G['dz'][:,2]/G['dz'][:,0]
-				is_num = np.logical_and(~np.isnan(spec_frac_vals), ~np.isinf(spec_frac_vals))
-				spec_frac[i,1] = weighted_percentile(spec_frac_vals[is_num], weights =M[is_num])
-				spec_frac[i,1][spec_frac[i,1]==0] = EPSILON
-
-				sil_to_C_vals = (G['dz'][:,4]+G['dz'][:,6]+G['dz'][:,7]+G['dz'][:,10])/G['dz'][:,2]
-				is_num = np.logical_and(~np.isnan(sil_to_C_vals), ~np.isinf(sil_to_C_vals))
-				sil_to_C_ratio[i] = weighted_percentile(sil_to_C_vals[is_num], weights =M[is_num])
-				sil_to_C_ratio[i][sil_to_C_ratio[i]==0] = EPSILON
-
-			if depletion:
-				DZ_vals = G['dz'][:,0]/(G['z'][:,0]+G['dz'][:,0])
-			else:
-				DZ_vals = G['dz'][:,0]/G['z'][:,0]
-			DZ_ratio[i] = weighted_percentile(DZ_vals, weights=M)
-			DZ_ratio[i][DZ_ratio[i]==0] = EPSILON
-
-			# Calculate SFR as all stars born within the last 100 Myrs
-			if S['k']!=-1:
-				if cosmological:
-					formation_time = tfora(S['age'], omeganot, h)
-					current_time = time[i]
-				else:
-					formation_time = S['age']*UnitTime_in_Gyr
-					current_time = time[i]*UnitTime_in_Gyr
-
-				time_interval = 100E-3 # 100 Myr
-				new_stars = (current_time - formation_time) < time_interval
-				sfr[i] = np.sum(S['m'][new_stars]) * UnitMass_in_Msolar / (time_interval*1E9)   # Msun/yr
-
-		if cosmological:
-			data = {'time':time,'a_scale':a_scale,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
-		else:
-			data = {'time':time,'DZ_ratio':DZ_ratio,'sil_to_C_ratio':sil_to_C_ratio,'metallicity':metallicity,'source_frac':source_frac,'spec_frac':spec_frac,'sfr':sfr}
-		with open(data_dir+foutname, 'wb') as handle:
-			pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753, style='color'):
-	"""
-	Plots comparison of stellar dust creation for the given stellar metallicities
-
-	Parameters
-	----------
-	Z_list : list
-		List of metallicities to compare in solar units
-	dust_species : list
-		List of dust species to plot individually (carbon, silicates, iron, SiC, silicates+)
-	data_dirc: string
-		Name of directory to store calculated yields files
-	FIRE_ver : int
-		Version of FIRE metals yields to use in calculations
-	transition_age : double
-		Age at which stellar yields switch from O/B to AGB stars
-
-	Returns
-	-------
-	None
-
-	"""
-
-	# First create ouput directory if needed
-	try:
-	    # Create target Directory
-	    os.mkdir(data_dirc)
-	    print("Directory " + data_dirc +  " Created")
-	except:
-	    print("Directory " + data_dirc +  " already exists")
-
-	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(Z_list), style=style)
-
-	N = 10000 # number of steps 
-	max_t = 10. # max age of stellar population to compute yields
-
-	time_step = max_t/N
-	time = np.arange(0,max_t,time_step)
-
-	# First make simulated data if it hasn't been made already
-	for Z in Z_list:
-		name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-		if not os.path.isfile(data_dirc + name):
-			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="elemental")
-			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
-
-		name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-		if not os.path.isfile(data_dirc +name):
-			cum_yields, cum_dust_yields, cum_species_yields = totalStellarYields(max_t,N,Z, routine="species")
-			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
-
-
-	# Compare routine carbon yields between routines
-	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(dust_species))
-	x_param = 'time'; y_param = 'cum_dust_prod'
-	x_lim = [0,max_t]
-
-	for i, species in enumerate(dust_species):
-		axis = axes[i]
-		plt_set.setup_axis(axis, x_param, y_param, x_lim=x_lim)
-		if species == 'carbon':
-			name = 'Carbonaceous'
-			indices = np.array([1])
-		elif species == 'silicates':
-			name = 'Silicates'
-			indices = np.array([0])
-		elif species == 'silicates+':
-			name = 'Silicates+Others'
-			indices = np.array([0,2,3])
-		elif species == 'iron':
-			name = 'Iron'
-			indices = np.array([3])
-		elif species == 'SiC':
-			name = 'SiC'
-			indices = np.array([2])
-		else:
-			print("%s is not a valid dust species for compare_dust_creation()\n"%species)
-			return()
-
-		# Add extra lines emphazising the time regimes for SNe II or AGB+SNe Ia
-		axis.axvline(transition_age, color='xkcd:grey',lw=3)
-		# Only need labels and legend for first plot
-		if i == 0:
-			y_arrow = 1E-5
-			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=LARGE_FONT, color='xkcd:grey')
-			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/2), xycoords="data", xytext=(0.2*transition_age, y_arrow/2), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=LARGE_FONT, color='xkcd:grey')
-			# Make legend
-			lines = []
-			for j in range(len(Z_list)):
-				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
-			lines += [mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[1],label='Species')]
-			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=SMALL_FONT)
-		#  Add label for dust species
-		axis.text(.95, .05, name, color="xkcd:black", fontsize = LARGE_FONT, ha = 'right', transform=axis.transAxes)
-
-		for j,Z in enumerate(Z_list):
-			name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-			data = pickle.load(open(data_dirc + name, "rb" ))
-			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
-			elem_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
-			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonposy = 'clip', linewidth = linewidths[j])
-
-			name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-			data = pickle.load(open(data_dirc + name, "rb" ))
-			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
-			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
-			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonposy = 'clip', linewidth = linewidths[j])
-
-		axis.set_ylim([1E-7,1E-2])
-		axis.set_xlim([time[0], time[-1]])
-
-	plt.savefig('creation_routine_comparison.pdf', format='pdf', transparent=False, bbox_inches='tight')
-	plt.close()
+	return pixel_stats, coord1_bins, coord2_bins

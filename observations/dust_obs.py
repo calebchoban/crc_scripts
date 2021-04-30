@@ -1,9 +1,8 @@
 import numpy as np
 import utils
 
-SOLAR_Z= 0.02
-
 CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
+OBS_DIR = './observations/'
 
 def Dwek_2014_M31_dust_dens_vs_radius():
 	"""
@@ -53,17 +52,132 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	return r_val, sigma_dust
 
 
-def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
+
+def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
+	"""
+	Gives the depletion for Mg, Si, or Fe in the WNM based on comparison of Jenkins (2009)
+	with Savage & Sembach (1996a)
+	"""
+
+	# Typical nH for WNM
+	nH_dens = 0.5 # cm^-3
+	# F_star value for "warm disk" environment from Savage & Sembach (1996)
+	F_star = 0.12
+
+	amu_H = 1.008
+	elems = ['C','N','O','Mg','Si','P','Cl','Ti','Cr','Mn','Fe','Ni','Cu','Zn','Ge','Kr']
+	# All values are for C,N,O,Mg,Si,P,Cl,Ti,Cr,Mn,Fe,Ni,Cu,Zn,Ge,Kr respectively
+	amu = np.array([12.01,14.01,16,24.3,28.085,30.973762,35.45,47.867,51.9961,54.938044,55.845,58.6934,63.546,65.38,72.63,83.798])
+	# 12+log(X/H)_solar values
+	solar = np.array([8.46,7.9,8.76,7.62,7.61,5.54,5.33,5,5.72,5.58,7.54,6.29,4.34,4.7,3.7,3.36])
+	solar_Mx_MH = np.power(10,solar-12)*amu/amu_H
+	total_Z = np.sum(solar_Mx_MH)
+	# Fit parameters for depletions
+	factor = 0.
+	if C_corr:
+		factor = np.log10(2)
+	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
+	Bx = np.array([-0.193-factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
+
+	# Depletion factor of element x at a given F_star
+	x_depl = Bx + Ax*(F_star - zx)
+
+	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
+
+	if elem == 'Z':
+		# Need error bars since C depletion has few observations 
+		# Assume all C-20% in CO in dust or no C in dust for error bars
+		# Set 'average' value
+		min_val=0.2; max_val=1.; avg_val=(min_val+max_val)/2.
+		obs_Mx_MH[0] = np.power(10,solar[0]+np.log10(avg_val)-12)*amu[0]/amu_H
+		WNM_depl = np.sum(solar_Mx_MH - obs_Mx_MH)/total_Z	
+		obs_Mx_MH[0] = np.power(10,solar[0]+np.log10(max_val)-12)*amu[0]/amu_H
+		WNM_error = np.abs(np.sum(solar_Mx_MH - obs_Mx_MH)/total_Z - WNM_depl)
+	elif elem in elems:
+		index = elems.index(elem)
+		elem_to_H = solar_Mx_MH[index] - obs_Mx_MH[index]
+		WNM_depl = elem_to_H/solar_Mx_MH[index]
+		WNM_error = 0.
+	else:
+		print("Given element is not included in Jenkins (2009)\n")
+		return None, None
+
+
+	return nH_dens, 1.-WNM_depl, WNM_error
+
+
+
+
+def Parvathi_2012_C_Depl(solar_abund='max'):
+	"""
+	Gives C depletion data vs <nH> from sightlines in Parvathi+ (2012).
+
+	Parameters
+	----------
+	solar_abund : string
+	  	What to use as the assumed abundace of C 'max'=maximum of data set, 'solar'=Lodders03, 'young_star'=young star abundance from Sofia & Meyer (2001)
+
+	Returns
+	------
+	C_depl : array
+		C depletions for all sightlines
+	C_err : array
+		Errors for each C depeltions
+	nH : array
+		Average sight line density (cm^-3) for each sightline
+	"""	
+
+	solar_C = 228
+	young_star_C = 358
+
+	# Number abundances of gas-phase C along with their errors and average sightline densities
+	gas_phase_C = np.array([382,202,116,365,275,112,173,138,193,290,85,464,131,321,317,93,92,99,98,215,69],dtype=float)
+	C_error     = np.array([56, 24, 102, 94, 96, 19, 34, 24, 31, 58, 28, 57, 27, 70, 46, 32, 38, 36, 23, 54, 21],dtype=float)
+	nH          = np.power(10,np.array([0.41,-0.73,-1.15,-0.47,-0.69,-0.41,0.08,-0.27,-0.13,-0.90,0.55,-0.03,0.04,-0.70,-0.92,0.53,0.61,0.66,1.11,-0.28,0.40]))
+
+	if solar_abund=='max':
+		i_max = np.argmax(gas_phase_C)
+		# Propagate error
+		C_error = np.sqrt(np.power(C_error/gas_phase_C,2)+np.power(C_error[i_max]/gas_phase_C[i_max],2))
+		C_depl = gas_phase_C/np.max(gas_phase_C)
+		C_error *= C_depl
+	elif solar_abund=='solar':
+		C_depl = gas_phase_C/solar_C
+		C_error /= solar_C
+	elif solar_abund=='young_star':
+		C_depl = gas_phase_C/young_star_C
+		C_error /= young_star_C
+	else:
+		print("%s is not a valid argument for Parvathi_2012_C_Depl()"%solar_abund)
+		return None,None,None
+
+	return C_depl, C_error, nH
+
+
+
+def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 	"""
 	Gives the total D/Z or individual element D/Z vs average sight light density from Jenkins (2009). Note that
-	for C the depletion is increased by factor of 2 due to findings in Sofia et al. (2011) and Parvathi et al. (2012).
+	for C the depletion is increased by factor of 2 (if C_corr=True) due to findings in Sofia et al. (2011) and Parvathi et al. (2012).
 	Can also output physical density instead using results from Zhukovska (2016).
 	"""
 
-	avg_nH = np.logspace(-2,3,num=50)
+	# This is the range the relation was observed, used when plotting to contrast with extrapolated range
+	obs_range = np.array([np.power(10,-1.7), np.power(10,0.8)])
+	# C data is especially scarce so limit the relation to only the observed range
+	if elem == 'C':
+		obs_range = np.array([np.power(10,-0.9), np.power(10,0.8)])
+
+	avg_nH = np.logspace(-2,3,num=200)
 	# Get physical nH value with conversion from Zhukovska (2016).
 	# This may not be accurate so use with caution.
-	phys_nH = 147.234*np.power(avg_nH,1.054)
+	if phys_dens:
+		phys_nH = 147.234*np.power(avg_nH,1.054)
+		# This conversion is only valid for a certain range of densities
+		obs_range = np.array([10, 1E3])
+		if elem == 'C':
+			obs_range = np.array([17, 1E3])
 	F_star = 0.772 + 0.461*np.log10(avg_nH) 
 
 	amu_H = 1.008
@@ -75,12 +189,19 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 	solar_Mx_MH = np.power(10,solar-12)*amu/amu_H
 	total_Z = np.sum(solar_Mx_MH)
 	# Fit parameters for depletions
+	factor = 0.
+	if C_corr:
+		factor = np.log10(2)
 	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
-	Bx = np.array([-0.193-np.log10(2),-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	Bx = np.array([-0.193-factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
 	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
 
 	# Depletion factor of element x at a given F_star
 	x_depl = Bx + Ax*(F_star.reshape([-1,1]) - zx)
+
+	# Decrease all converted depletions by 0.2 dex to account for contribution from WNM along line of sight
+	if phys_dens and (elem in ['Mg','Si','Fe']):
+		x_depl -= 0.2
 
 	obs_Mx_MH = np.power(10,solar+x_depl-12)*amu/amu_H
 
@@ -93,12 +214,16 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z'):
 		DZ_vals = elem_to_H/solar_Mx_MH[index]
 	else:
 		print("Given element is not included in Jenkins (2009)\n")
-		return 
+		return None, None
 
+	
 	if phys_dens:
-		return phys_nH, DZ_vals
+		in_range = np.where(np.logical_and(phys_nH>=obs_range[0], phys_nH<=obs_range[1]))
+		return phys_nH[in_range], DZ_vals[in_range]
 	else:
-		return avg_nH, DZ_vals
+		in_range = np.where(np.logical_and(avg_nH>=obs_range[0], avg_nH<=obs_range[1]))
+		return avg_nH[in_range], DZ_vals[in_range]
+
 
 
 def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):
@@ -114,7 +239,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
 
-	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
 	ID = data['gal']
 	if DZ:
 		vals = np.power(10,data['dtm'])
@@ -162,8 +287,9 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 	return data
 
 
+
 def Chiang_2020_dust_surf_dens_vs_param(param):
-	data = np.genfromtxt("Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+"Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
 	if param == 'gas':
 		vals = np.power(10,data['gas'])
 	elif param == 'H2':
@@ -189,9 +315,9 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 
-def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=30, log=True, goodSNR=True):
+def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
 	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
-	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas':
 		vals = np.power(10,data['gas'])
@@ -217,6 +343,9 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
+	# Remove IC342 since it's a bit odd
+	IDs = IDs[IDs!='IC342']
+
 	SNR = data['GOODSNR']
 
 	# Check whether to use all data or only that with good SNR
