@@ -52,7 +52,8 @@ class Snapshot:
         self.time = f['Header'].attrs['Time']
         self.redshift = f['Header'].attrs['Redshift']
         self.boxsize = f['Header'].attrs['BoxSize']
-        self.omega = f['Header'].attrs['Omega0']
+        if f['Header'].attrs['ComovingIntegrationOn']:
+            self.omega = f['Header'].attrs['Omega_Matter']
         self.hubble = f['Header'].attrs['HubbleParam']
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']

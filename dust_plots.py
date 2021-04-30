@@ -283,7 +283,7 @@ def calc_DZ_vs_param(param, G, bin_nums=50, param_lims=None, elem='Z'):
 		log_bins=True
 	# Get D/Z values vs H2 mass fraction of gas
 	elif param == 'fH2':
-		fH2 = utils.calc_fH2(G)
+		fH2 = G.fH2
 		bin_data = fH2
 		log_bins=False
 	else:
@@ -451,7 +451,7 @@ def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=N
 		pixel_data = M_pixel
 
 	elif param=='sigma_H2':
-		MH2 = utils.calc_fH2(G)*G.m*(G.z[:,0]+G.z[:,1])
+		MH2 = G.fH2*G.m*(G.z[:,0]+G.z[:,1])
 		bin_data += [MH2]
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
@@ -465,9 +465,8 @@ def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=N
 		pixel_data = Z_pixel
 
 	elif param == 'fH2':
-		fH2 = utils.calc_fH2(G)
-		MH2 = fH2*G.m*(G.z[:,0]+G.z[:,1])
-		MH1 = (1-fH2)*G.m*(G.z[:,0]+G.z[:,1])
+		MH2 = G.fH2*G.m*(G.z[:,0]+G.z[:,1])
+		MH1 = (1-G.fH2)*G.m*(G.z[:,0]+G.z[:,1])
 		bin_data += [MH2,MH1]
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		DZ_pixel = ret[1].flatten()/ret[0].flatten()
@@ -775,8 +774,7 @@ def calc_phase_hist(param, G, bin_nums=100):
 		Z = G.z[:,0]/config.SOLAR_Z
 		bin_data = Z
 	elif param == 'fH2':
-		fH2 = utils.calc_fH2(G)
-		bin_data = fH2
+		fH2 = G.fH2
 	elif param == 'mH2':
 		MH2 = utils.calc_fH2(G)*G.m*confg.UnitMass_in_Msolar
 		MH2[MH2<=0] = config.EPSILON
@@ -1337,7 +1335,7 @@ def calc_dmol_vs_param(mol_param, param, G, bin_nums=50, param_lims=None):
 		log_bins=True
 	# Get D/Z values vs H2 mass fraction of gas
 	elif param == 'fH2':
-		fH2 = utils.calc_fH2(G)
+		fH2 = G.fH2
 		bin_data = fH2
 		log_bins=False
 	else:
@@ -1345,11 +1343,11 @@ def calc_dmol_vs_param(mol_param, param, G, bin_nums=50, param_lims=None):
 		return None,None,None
 
 	if mol_param=='fH2':
-		dmol = G.dust_mol[:,0]
+		dmol = G.fH2
 	elif mol_param=='fMC':
-		dmol = G.dust_mol[:,1]
+		dmol = G.fMC
 	elif mol_param=='CinCO':
-		dmol = G.dust_mol[:,2]/G.z[:,2]
+		dmol = G.CinCO/G.z[:,2]
 	else:
 		print('Invalid mol_param given to calc_dmol_vs_param:',mol_param)
 		return None,None,None
@@ -1572,7 +1570,7 @@ def calc_obs_projection(param, snap, side_lens, pixel_res=2, proj='xy'):
 	else:
 		if   param == 'sigma_dust': proj_data = G.dz[:,0]*M
 		elif param == 'sigma_gas': 	proj_data = M
-		elif param == 'sigma_H2': 	proj_data = utils.calc_fH2(G)*G.m*(1-(G.z[:,0]+G.z[:,1]))
+		elif param == 'sigma_H2': 	proj_data = G.fH2*G.m*(1-(G.z[:,0]+G.z[:,1]))
 		elif param == 'sigma_Z': 	proj_data = G.z[:,0]*M
 		elif param == 'sigma_sil': 	proj_data = G.spec[:,0]*M
 		elif param == 'sigma_sil+': proj_data = (np.sum(G.spec,axis=1)-G.spec[:,1])*M

@@ -27,7 +27,6 @@ class Header:
         self.time = sp.time
         self.redshift = sp.redshift
         self.boxsize = sp.boxsize
-        self.omega = sp.omega
         self.hubble = sp.hubble
 
         return
@@ -87,7 +86,9 @@ class Particle:
             if (sp.Flag_DustMetals):
                 dz = np.zeros((npart,sp.Flag_DustMetals-4), dtype='float')
                 dzs = np.zeros((npart,4), dtype='float')
-                dust_mol = np.zeros((npart,3), dtype='float')
+                fH2 = np.zeros(npart, dtype='float')
+                fMC = np.zeros(npart, dtype='float')
+                CinCO = np.zeros(npart, dtype='float')
             if (sp.Flag_DustSpecies):
                 spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
             else:
@@ -128,7 +129,10 @@ class Particle:
                     dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
                 if 'DustMolecular' in grp:
-                    dust_mol[nL:nR] = grp['DustMolecular'][...]
+                    fMC = grp['DustMolecular'][:,0]
+                    CinCO = grp['DustMolecular'][:,1]
+                if 'MolecularMassFraction' in grp:
+                    fH2 = grp['MolecularMassFraction'][...]
                 if (sp.Flag_DustSpecies):
                     spec[nL:nR] = grp['DustSpecies'][...]
                 elif (sp.Flag_DustMetals):
@@ -178,7 +182,9 @@ class Particle:
                     if (sp.Flag_DustDepl):
                         self.z += self.dz
                     self.spec = spec
-                    self.dust_mol = dust_mol
+                    self.fH2 = fH2
+                    self.fMC = fMC
+                    self.CinCO = CinCO
             if (sp.Flag_Sfr):
                 self.sfr = sfr
     
@@ -215,7 +221,9 @@ class Particle:
                 self.dz = self.dz[mask]
                 self.dzs = self.dzs[mask]
                 self.spec = self.spec[mask]
-                self.dust_mol = self.dust_mol[mask]
+                self.fH2 = self.fH2[mask]
+                self.fMC = self.fMC[mask]
+                self.CinCO = self.CinCO[mask]
             if (self.sp.Flag_Sfr):
                 self.sfr = self.sfr[mask]
     
