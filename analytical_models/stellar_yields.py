@@ -174,7 +174,7 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 		f_N_0=yields[3]
 		f_O_0=yields[4]
 		f_CNO_0=f_C_0+f_N_0+f_O_0
-		t = evaluate_stellar_age_Gyr(P[i].StellarAge), z_sol; 
+		t = star_age 
 		z_sol = f_CNO_0 / (solarMetallicity(2,FIRE_ver=FIRE_ver)+solarMetallicity(3,FIRE_ver=FIRE_ver)+solarMetallicity(4,FIRE_ver=FIRE_ver)); # stellar population age in Gyr, and solar-scaled CNO abundance
 		# model He production : this scales off of the fraction of H in IC: y here represents the yield of He produced by burning H, scales off availability
 		t1=0.0028; t2=0.01; t3=2.3; t4=3.0; y1=0.4*min(np.power(z_sol+1.E-3,0.6),2.); y2=0.08; y3=0.07; y4=0.042;
@@ -182,7 +182,7 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 			y=y1*np.power(t/t1,3) 
 		elif t<t2:
 			y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
-		elif t<t3L:
+		elif t<t3:
 			y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
 		elif t<t4:
 			y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3))
@@ -687,7 +687,7 @@ def onlySNeYields(max_time, N, Z, FIRE_ver=2, routine = 'species'):
 	cum_species_yields = np.zeros((len(time),4))
 	for i,age in enumerate(time):
 		p = SNeRates(age, Z, time_step,FIRE_ver=FIRE_ver)
-		SNe_yields,SNe_dust_yields,SNe_species_yields = SNeYields(age,Z,FIRE_v=FIRE_ver,routine=routine)
+		SNe_yields,SNe_dust_yields,SNe_species_yields = SNeYields(age,Z,FIRE_ver=FIRE_ver,routine=routine)
 		SNe_yields *= p
 		SNe_dust_yields *= p
 		SNe_species_yields *= p

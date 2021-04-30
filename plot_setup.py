@@ -31,11 +31,11 @@ def setup_plot_style(num_sets, style='color'):
 
 
 	if num_sets == 1:
-		linewidths = np.full(num_sets,config.BASE_LINE_WIDTHS)
+		linewidths = np.full(num_sets,config.BASE_LINEWIDTH)
 		colors = config.LINE_COLORS
 		linestyles = config.LINE_STYLES
 	elif style == 'color':
-		linewidths = np.full(num_sets,config.BASE_LINE_WIDTHS)
+		linewidths = np.full(num_sets,config.BASE_LINEWIDTH)
 		colors = config.LINE_COLORS
 		linestyles = config.LINE_STYLES
 	elif style == 'size':
@@ -252,7 +252,7 @@ def setup_labels(axis, xlabel, ylabel):
 	axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
 	axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=4, width=1)	
 	for axe in ['top','bottom','left','right']:
-  		axis.spines[axe].set_linewidth(2)
+  		axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
 
 def setup_colorbar(image, axis, label):

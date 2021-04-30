@@ -26,7 +26,15 @@ except:
 Z_list = [1,0.008/0.02,0.001/0.02]
 data_dirc = './analytic_dust_yields/'
 dust_species = ['carbon','silicates+']
-compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753, foutname=plot_dir+'creation_routine_compare.pdf')
+compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, foutname=plot_dir+'creation_routine_compare.pdf')
+
+###############################################################################
+# FIRE-2 vs FIRE-3 Metal Returns
+###############################################################################
+
+Z=1
+elems =['C','Mg','Si','Fe']
+compare_FIRE_metal_yields(Z, elems, foutname=plot_dir+'FIRE_yields_comparison.png')
 
 ###############################################################################
 # Plot D/Z evolution over time

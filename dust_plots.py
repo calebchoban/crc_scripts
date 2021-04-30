@@ -801,7 +801,7 @@ def calc_phase_hist(param, G, bin_nums=100):
 
 
 
-def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transition_age = 0.03753, style='color', foutname='creation_routine_compare.pdf'):
+def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color', foutname='creation_routine_compare.png'):
 	"""
 	Plots comparison of stellar dust creation for the given stellar metallicities
 
@@ -843,21 +843,25 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 
 	# First make simulated data if it hasn't been made already
 	for Z in Z_list:
-		name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		name = '/FIRE'+str(FIRE_ver)+'_elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 		if not os.path.isfile(data_dirc + name):
 			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="elemental")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
-		name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+		name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 		if not os.path.isfile(data_dirc +name):
 			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="species")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
 
+	# Set transition age which is different for each version of FIRE
+	transition_age = 0.03753 if FIRE_ver<=2 else 0.044
+
+
 	# Compare routine carbon yields between routines
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(dust_species))
-	x_param = 'time'; y_param = 'cum_dust_prod'
+	x_param = 'star_age'; y_param = 'cum_dust_prod'
 	x_lim = [0,max_t]
 
 	for i, species in enumerate(dust_species):
@@ -895,19 +899,20 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 			lines = []
 			for j in range(len(Z_list)):
 				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
-			lines += [mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color='xkcd:black', linestyle=linestyles[1],label='Species')]
-			axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT)
+			lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1],label='Species')]
+			legend = axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT, edgecolor=config.BASE_COLOR)
+			legend.get_frame().set_lw(config.AXIS_BORDER_WIDTH)
 		#  Add label for dust species
 		axis.text(.95, .05, name, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'right', transform=axis.transAxes)
 
 		for j,Z in enumerate(Z_list):
-			name = '/elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			name = '/FIRE'+str(FIRE_ver)+'_elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 			data = pickle.load(open(data_dirc + name, "rb" ))
 			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
 			elem_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
 			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonposy = 'clip', linewidth = linewidths[j])
 
-			name = '/spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
+			name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 			data = pickle.load(open(data_dirc + name, "rb" ))
 			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
 			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
@@ -916,9 +921,52 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, transitio
 		axis.set_ylim([1E-7,1E-2])
 		axis.set_xlim([time[0], time[-1]])
 
-	plt.savefig(foutname, format='pdf', transparent=False, bbox_inches='tight')
+	plt.savefig(foutname, transparent=False, bbox_inches='tight')
 	plt.close()
 
+
+
+def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
+	
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(elems))
+
+	N = 10000 # number of steps 
+	max_t = 10. # max age of stellar population to compute yields
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	# Compare routine carbon yields between routines
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(1)
+	x_param = 'star_age'; y_param = 'cum_metal_yield'
+
+	axis = axes[0]
+	plt_set.setup_axis(axis, x_param, y_param)
+
+	FIRE2_yields,_,_ = st_yields.onlySNeYields(max_t, N, Z, FIRE_ver=2)
+	FIRE3_yields,_,_ = st_yields.onlySNeYields(max_t, N, Z, FIRE_ver=3)
+
+	time_step = max_t/N
+	time = np.arange(0,max_t,time_step)
+
+	lines = []
+	lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='FIRE-2'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1], label='FIRE-3')]
+
+	for i, elem in enumerate(elems):
+		elem_indx = config.ELEMENTS.index(elem)
+		
+		plt.plot(time,FIRE2_yields[:,elem_indx], c=colors[i], linestyle=linestyles[0])
+		plt.plot(time,FIRE3_yields[:,elem_indx], c=colors[i], linestyle=linestyles[1])
+		
+		lines += [mlines.Line2D([], [], color=colors[i], label=elems[i])]
+		
+
+	axis.legend(handles=lines, loc=0, frameon=False, ncol=2, fontsize=config.SMALL_FONT)
+	plt.savefig(foutname, transparent=False, bbox_inches='tight')
+	plt.close()
 
 
 
@@ -1053,7 +1101,7 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 		axis.plot(pixel_num, DZ_pixel[indices], label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j])
 		
 
-	axis.legend(loc=0, fontsize=utils.SMALL_FONT, frameon=False)
+	axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
 	plt.savefig(foutname)
 	plt.close()	
 
