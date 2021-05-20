@@ -1,6 +1,8 @@
 dust_evo_data/
 analytic_dust_yields/
+__pycache__/
 vis_test.py
+
 
 *.pyc
 *.e

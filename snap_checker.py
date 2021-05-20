@@ -8,6 +8,7 @@ from dust_plots import *
 snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/nano_Fe/output/','/oasis/tscc/scratch/cchoban/non_cosmo/Species/fiducial/output/']
 # Snapshots to check
 snaps = [20,50,80,110,150]
+snaps = [170]
 
 cosmological = False
 pb_fix=True
@@ -24,9 +25,11 @@ disk_height = 2 # kpc
 
 atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
 
+snap_dirs = ['/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-2/output/','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3/output']
+snaps = [276]
+labels = ['FIRE-2','FIRE-3']
 
 
-print("Checking snapshot ",snap_num)
 for snap_num in snaps:
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
@@ -50,7 +53,12 @@ for snap_num in snaps:
 		nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
 
 		print("Making simple phase plot and projection to check by eye...\n")
-		binned_phase_plot('m', galaxy, bin_nums=200, time=None, color_map='inferno', hist_proj=False, foutname=labels[j]+"_phase_plot_"+str(snap_num)+".png")
+		binned_phase_plot('m', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=labels[j]+"_phase_plot_"+str(snap_num)+".png")
+		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=labels[j]+"_DZ_phase_plot_"+str(snap_num)+".png")
+
+		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='inferno', hist_proj=False, foutname=labels[j]+"_inferno_DZ_phase_plot_"+str(snap_num)+".png")
+		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='magma', hist_proj=False, foutname=labels[j]+"_magma_DZ_phase_plot_"+str(snap_num)+".png")
+		continue
 		
 		plt.hist2d(G.p[:,0],G.p[:,1],bins=200)
 		plt.savefig(labels[j]+"_hist_"+str(snap_num)+".png")
@@ -241,14 +249,11 @@ for snap_num in snaps:
 
 
 
-	print("Creating dust plots to check by eye...")
-	for galaxy in galaxies:
-		binned_phase_plot('m', galaxy, bin_nums=200, time=None, color_map='inferno', hist_proj=False, foutname='snap_'+str(snap_num)+'_phase_plot.png')
-		binned_phase_plot('D/Z', galaxy, bin_nums=200, time=None, color_map='inferno', hist_proj=False, foutname='snap_'+str(snap_num)+'_DZ_phase_plot.png')	
+	print("Creating dust plots to check by eye...")	
 
 	dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
 
-	dmol_vs_params('CinCO', ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=None, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True, style='color')
+	dmol_vs_params(['CinCO'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True)
 
 	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
 

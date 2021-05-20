@@ -1,7 +1,5 @@
 import numpy as np
 import gizmo_library.snapshot
-import constant
-import xma_cosmology
 
 
 # this returns a Snapshot class

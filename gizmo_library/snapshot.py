@@ -1,11 +1,11 @@
 import numpy as np
 import h5py
 import os
-import utils
-import config
-from particle import Header,Particle
-from galaxy import Halo,Disk
-from AHF import AHF
+from . import utils
+from . import config
+from .particle import Header,Particle
+from .galaxy import Halo,Disk
+from .AHF import AHF
 
 class Snapshot:
 
@@ -52,19 +52,15 @@ class Snapshot:
         self.time = f['Header'].attrs['Time']
         self.redshift = f['Header'].attrs['Redshift']
         self.boxsize = f['Header'].attrs['BoxSize']
-        if f['Header'].attrs['ComovingIntegrationOn']:
+        if cosmological:
             self.omega = f['Header'].attrs['Omega_Matter']
         self.hubble = f['Header'].attrs['HubbleParam']
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
         self.Flag_Metals = f['Header'].attrs['Flag_Metals']
-        try:
-            self.Flag_DustMetals = f['Header'].attrs["Flag_Dust"]
-            self.Flag_DustSpecies = f['Header'].attrs['Flag_Species']
-        except:
-            self.Flag_DustMetals = 0
-            self.Flag_DustSpecies = 0
+        self.Flag_DustMetals = f['Header'].attrs.get('Flag_Dust',0)
+        self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species',0)
         # Determine if the snapshot came from a simulations with on-the-fly dust
         if self.Flag_Metals and self.Flag_DustSpecies:
             self.dust_impl = 'species'

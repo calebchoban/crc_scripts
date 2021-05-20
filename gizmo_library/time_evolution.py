@@ -1,8 +1,8 @@
 import os
 import numpy as np
-from utils import weighted_percentile
+from .utils import weighted_percentile
 import pickle
-from snapshot import Snapshot
+from .snapshot import Snapshot
 
 # This is a class that compiles the evolution data of a Snapshot/Halo/Disk
 # over a specified time for a simulation
@@ -83,7 +83,7 @@ class Dust_Evo(object):
 		# First create directory if needed
 		if not os.path.isdir(self.dirc):
 		    os.mkdir(self.dirc)
-		    print "Directory " + self.dirc +  " Created "
+		    print("Directory " + self.dirc +  " Created ")
 
 		with open(self.dirc+self.name+'.pickle', 'wb') as handle:
 			pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)

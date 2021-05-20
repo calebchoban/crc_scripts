@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+from gizmo_library import utils
 
 CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
 OBS_DIR = './observations/'
@@ -239,7 +239,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 	gal_names = ['IC342','M31','M33','M101','NGC628']
 	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
 
-	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	ID = data['gal']
 	if DZ:
 		vals = np.power(10,data['dtm'])
@@ -289,7 +289,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 
 
 def Chiang_2020_dust_surf_dens_vs_param(param):
-	data = np.genfromtxt(OBS_DIR+"Chiang+20_dat.csv",names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+"Chiang+20_dat.csv",names=True,delimiter=',',dtype=None,encoding=None)
 	if param == 'gas':
 		vals = np.power(10,data['gas'])
 	elif param == 'H2':
@@ -317,7 +317,7 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
 	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
-	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None)
+	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas':
 		vals = np.power(10,data['gas'])
@@ -345,6 +345,7 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 	IDs = np.unique(data['gal'])
 	# Remove IC342 since it's a bit odd
 	IDs = IDs[IDs!='IC342']
+
 
 	SNR = data['GOODSNR']
 

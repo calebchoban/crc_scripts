@@ -151,9 +151,9 @@ def setup_figure(num_plots):
 		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
 		axes = np.array([axes])
 	elif num_plots%2 == 0:
-		fig,axes = plt.subplots(num_plots/2, 2, figsize=(28/1.2,num_plots/2*10/1.2), squeeze=True)
+		fig,axes = plt.subplots(num_plots//2, 2, figsize=(28/1.2,num_plots/2*10/1.2), squeeze=True)
 	elif num_plots%3 == 0:
-		fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
+		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
 	else:
 		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*14/1.2,np.ceil(num_plots/3.)*10/1.2), squeeze=True)\
 	
@@ -283,7 +283,7 @@ def setup_colorbar(image, axis, label):
 	cbar.ax.tick_params(axis='both',which='both',direction='in',right=True)
 	cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
 	cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=4, width=1)	
-  	cbar.outline.set_linewidth(2)
+	cbar.outline.set_linewidth(2)
 
 
 
@@ -320,6 +320,58 @@ def setup_2D_hist_fig(hist_proj = True):
 	return fig,axes
 
 
+def setup_multi_2D_hist_fig(num_plots = 1):
+
+
+	axes = []
+	base_size = 10
+	# Ratio of color bar size to projection plot
+	cbar_ratio = 0.05
+
+	# if num_plots > 4:
+	# 	num_rows = int(np.ceil(num_plots/4))
+	# 	gs0 = gridspec.GridSpec(num_rows, 1)
+	# 	for i in range(num_rows):
+	# 		gs00 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=gs0[i])
+	# 	fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
+	# 	for i in range(int(np.ceil(num_plots/4))):
+	# 		gs = gridspec.GridSpec(2,4,height_ratios=height_ratios, width_ratios=[1,1])
+
+
+	gs = gridspec.GridSpec(1+num_plots,1)
+	#gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
+	#fig=plt.figure(figsize=((num_plots+ratio)*base_size,base_size))
+	fig.plt.figure()
+
+	for i in range(num_plots):
+		ax = plt.subplot(gs[i,0])
+	cbarax = plt.subplot(gs[num_plots,0])
+	axes = [ax1,ax2,cbarax]
+
+	fig = plt.figure(1, figsize=(14/1.2,10/1.2))
+	# definitions for the axes
+	left, width = 0.1, 0.65
+	bottom, height = 0.1, 0.65
+	bottom_h = left_h = left + width + 0.02
+
+	rect_scatter = [left, bottom, width, height]
+	rect_histx = [left, bottom_h, width, 0.2]
+	rect_histy = [left_h, bottom, 0.2, height]
+
+	# start with a rectangular Figure
+	plt.figure(1, figsize=(8, 8))
+
+	axHist2D = plt.axes(rect_scatter)
+	axHistx = plt.axes(rect_histx)
+	axHisty = plt.axes(rect_histy)
+
+	# no labels
+	axHistx.xaxis.set_major_formatter(nullfmt)
+	axHisty.yaxis.set_major_formatter(nullfmt)
+
+	axes = np.array([axHist2D,axHistx,axHisty])
+
+	return fig,axes
 
 
 def setup_projection(num_plots,L,Lz=None,time=None):

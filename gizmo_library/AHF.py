@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import utils
+from . import utils
 import glob
 
 

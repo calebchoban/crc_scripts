@@ -1,11 +1,9 @@
 import numpy as np
 import h5py
 import os
-import utils
-import config
+from . import utils
+from . import config
 
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 
 class Header:
 

@@ -14,9 +14,9 @@ plot_dir = './dust_plots/'
 try:
     # Create target Directory
     os.mkdir(plot_dir)
-    print "Directory " + plot_dir +  " Created " 
+    print("Directory " + plot_dir +  " Created ")
 except:
-    print "Directory " + plot_dir +  " already exists"
+    print("Directory " + plot_dir +  " already exists")
 
 
 ###############################################################################
@@ -26,7 +26,8 @@ except:
 Z_list = [1,0.008/0.02,0.001/0.02]
 data_dirc = './analytic_dust_yields/'
 dust_species = ['carbon','silicates+']
-compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, foutname=plot_dir+'creation_routine_compare.pdf')
+compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, foutname=plot_dir+'FIRE2_creation_routine_compare.pdf')
+compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=3, foutname=plot_dir+'FIRE3_creation_routine_compare.pdf')
 
 ###############################################################################
 # FIRE-2 vs FIRE-3 Metal Returns
@@ -54,6 +55,7 @@ disk_height = 2 # kpc
 pb_fix=True
 dust_depl=False
 
+"""
 ###############################################################################
 # Species Implementation w/ creation efficienc variations
 ###############################################################################
@@ -168,27 +170,26 @@ for i,snap_dir in enumerate(snap_dirs):
 
 # Now plot a comparison of each of the runs
 dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
+"""
 
 ###############################################################################
-# Plot last snapshot D/Z values vs observations
+# Plot last snapshot D/Z values vs observations for optional dust species physics 
 ###############################################################################
-
 
 
 snap_dirs = []
-main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Species/'
-names = ['fiducial_model','extra_O']
+main_dir ='/oasis/tscc/scratch/cchoban/non_cosmo/Species/'
+names = ['fiducial','O_reservoir', 'nano_Fe']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
-labels = ['Species','Species w/ O']
-main_dir = '/oasis/tscc/scratch/cchoban/non_cosmological_runs/Elemental/'
-names = ['fiducial_model','decreased_acc']
+labels = ['Species','Species w/ O', 'Species w/ O & Fe']
+main_dir = '/oasis/tscc/scratch/cchoban/non_cosmo/Elemental/'
+names = ['reduced_acc']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
-labels += ['Elemental', 'Elemental Low Acc.']
+labels += ['Elemental Low Acc.']
 
-implementations = ['species','species','elemental','elemental']
+implementations = ['species','species','elemental']
 
 cosmological = False
-
 
 # List of snapshots to compare
 snaps = [300]
@@ -201,30 +202,64 @@ for i, num in enumerate(snaps):
 	print(num)
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
-		print snap_dir
+		print(snap_dir)
 		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 		galaxies += [galaxy]
 
 	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
 
-	DZ_vs_params(['r'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_DZ_vs_radius.pdf', std_bars=True, style='color', \
-				include_obs=True, CO_opt='S12')
-
-	observed_DZ_vs_param(['sigma_gas'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_obs_DZ_vs_surf.pdf', \
+	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color', include_obs=True, CO_opt='S12')
-
-	DZ_vs_params(['r'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_DZ_vs_radius.pdf', std_bars=True, style='color', \
-				include_obs=True, CO_opt='B13')
 	
-	observed_DZ_vs_param(['sigma_gas'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
+	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color', include_obs=True, CO_opt='B13')
 
 	elems = ['Mg','Si','Fe','O','C']
 	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
 						std_bars=True, style='color', include_obs=True)
-	elem_depletion_vs_param(elems, 'fH2', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_fH2.pdf', \
+
+
+###############################################################################
+# Plot last snapshot comparisons for FIRE-2/3
+###############################################################################
+
+snap_dirs = []
+main_dir ='/oasis/tscc/scratch/cchoban/new_gizmo/'
+names = ['FIRE-2', 'FIRE-3_cool']
+snap_dirs += [main_dir + i + '/output/' for i in names] 
+labels = ['FIRE-2','FIRE-3']
+
+implementations = ['species','species']
+
+cosmological = False
+
+# List of snapshots to compare
+snaps = [275]
+
+# Maximum radius, disk, height, and disk orientation used for getting data
+r_max = 20 # kpc
+disk_height = 2 # kpc
+
+for i, num in enumerate(snaps):
+	print(num)
+	galaxies = []
+	for j,snap_dir in enumerate(snap_dirs):
+		print(snap_dir)
+		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxies += [galaxy]
+
+		binned_phase_plot('m', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=plot_dir+labels[j]+"_phase_plot.png")
+		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='magma', hist_proj=False, foutname=plot_dir+labels[j]+"_DZ_phase_plot.png")
+
+
+	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
+
+	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_S12_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color', include_obs=True, CO_opt='S12')
+	
+	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color', include_obs=True, CO_opt='B13')
+
+	elems = ['Mg','Si','Fe','O','C']
+	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
 						std_bars=True, style='color', include_obs=True)
-
-
-	dust_acc_diag(['inst_dust_prod','g_timescale'], galaxies, bin_nums=100, labels=labels, implementation=implementations, foutname=plot_dir+'dust_acc_diag.png')
-

@@ -1,6 +1,6 @@
-import config
+from . import config
 import numpy as np
-import shieldLengths as SL
+from . import shieldLengths as SL
 
 
 def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ingore_invalid=True):

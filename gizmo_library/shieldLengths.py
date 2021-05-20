@@ -13,7 +13,7 @@ def FindShieldLength(x,rho):
     L = np.zeros(len(x))
     
     for ii in xrange(len(x)):
-        if not(ii%1e5): print str(ii)+" of "+str(len(x))+" particles done."
+        if not(ii%1e5): print(str(ii)+" of "+str(len(x))+" particles done.")
         ngbdist, ngb = tree.query(x[ii,:], des_ngb)
         h = HsmlIter(ngbdist)
         q = ngbdist/h # how many smoothinglengths away are they?

@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+from . import utils
 
 
 # This is a class that manages a galaxy/halo in a given

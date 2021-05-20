@@ -439,14 +439,14 @@ def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=N
 
 	if param == 'sigma_dust':
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		dust_pixel = ret[1].flatten()/pixel_area
 		pixel_data = dust_pixel
 
 	elif param=='sigma_gas':
 		bin_data += [M]
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		M_pixel = ret[2].flatten()/pixel_area
 		pixel_data = M_pixel
 
@@ -454,13 +454,13 @@ def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=N
 		MH2 = G.fH2*G.m*(G.z[:,0]+G.z[:,1])
 		bin_data += [MH2]
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		MH2_pixel = ret[2].flatten()/pixel_area
 		pixel_data = MH2_pixel
 
 	elif param == 'sigma_Z':
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		Z_pixel = ret[0].flatten()/pixel_area
 		pixel_data = Z_pixel
 
@@ -469,20 +469,20 @@ def calc_obs_DZ_vs_param(param, G, r_max, pixel_res=2, bin_nums=50, param_lims=N
 		MH1 = (1-G.fH2)*G.m*(G.z[:,0]+G.z[:,1])
 		bin_data += [MH2,MH1]
 		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
-		DZ_pixel = ret[1].flatten()/ret[0].flatten()
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		fH2_pixel = ret[2].flatten()/(ret[2].flatten()+ret[3].flatten())
 		pixel_data = fH2_pixel
 
 	elif param == 'r':
-		mean_DZ = np.zeros(pixel_bins/2 - 1)
-		std_DZ = np.zeros([pixel_bins/2 - 1,2])
-		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins],expand_binnumbers=True)
-		DZ_pixel = ret.statistic[1].flatten()/ret.statistic[0].flatten()
+		mean_DZ = np.zeros(pixel_bins//2 - 1)
+		std_DZ = np.zeros([pixel_bins//2 - 1,2])
+		ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins],expand_binnumbers=True).statistic
+		DZ_pixel = np.divide(ret[1].flatten(),ret[0].flatten(),where=ret[0].flatten()!=0)
 		# Get the average r coordinate for each pixel in kpc
 		pixel_r_vals = np.array([np.sqrt(np.power(np.abs(y_vals),2) + np.power(np.abs(x_vals[k]),2)) for k in range(len(x_vals))]).flatten()
 		pixel_data = pixel_r_vals
 		# Makes more sense to force the number of bins for this
-		bin_nums = pixel_bins/2
+		bin_nums = pixel_bins//2
 	else:
 		print("Parameter given to calc_obs_DZ_vs_param is not supported:",param)
 		return None,None,None
@@ -557,8 +557,10 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 			if elem=='C' and i!=0 and include_obs:
 				# Get the one handle and label we want for the legend
 				handles, labels = axis.get_legend_handles_labels()
-				handles = [handles[-1]]; labels = [labels[-1]];
-				axis.legend(handles, labels, loc=0, fontsize=config.SMALL_FONT, frameon=False)
+				# Just in case there was no observational data to be plotted
+				if len(handles):
+					handles = [handles[-1]]; labels = [labels[-1]];
+					axis.legend(handles, labels, loc=0, fontsize=config.SMALL_FONT, frameon=False)
 
 			# Only need to label the seperate simulations in the first plot
 			if i==0 and labels is not None: label = labels[j];
@@ -708,6 +710,68 @@ def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno',
 	param_lims = config.PARAM_INFO[param][1]
 	log_param = config.PARAM_INFO[param][2]
 	if log_param:
+		norm = mpl.colors.LogNorm(vmin=param_lims[0], vmax=param_lims[1], clip=True)
+	else:
+		norm = mpl.colors.Normalize(vmin=param_lims[0], vmax=param_lims[1], clip=True)
+
+	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), norm=norm)
+	axis_2D_hist.autoscale('tight')
+
+	bar_label =  config.PARAM_INFO[param][0]
+	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
+
+	# Print time in corner of plot if applicable
+	if time=='all':
+		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
+		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
+	plt.tight_layout()
+
+	plt.savefig(foutname)
+	plt.close()
+
+
+def multi_phase_plot(param, snaps, bin_nums=200, time=None, color_map='inferno', hist_proj=True, foutname='phase_plot.png'):
+	"""
+	Plots the a 2D histogram for nH vs T using the specified parameter as weights
+
+	Parameters
+	----------
+	params : array
+		The parameters for the x axis, y axis, and weights respectively
+	snap : Snapshot/Halo/Disk
+	    Snapshot gas data structure
+	bin_nums: int, optional
+		Number of bins to use
+	color_map : string, optional
+		Color mapping for plot
+	hist_proj : boolean, optional
+		Add additional 1D histogram projection along x and y axis
+	founame : string, optional
+		File name for saved figure
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# TODO : Include 1D hist projects along each axis
+	# Make this work for dynamic x and y params notable D/Z vs Z
+	# Also fix cbar ticks for log space. Might be an issue with matplotlib version
+
+	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
+	axis_2D_hist = axes[0]
+	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
+	axis_2D_hist.set_facecolor('xkcd:grey')
+
+	G = snap.loadpart(0)
+	H = snap.loadheader()
+
+	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
+	param_lims = config.PARAM_INFO[param][1]
+	log_param = config.PARAM_INFO[param][2]
+	if log_param:
 		norm = mpl.colors.LogNorm()
 	else:
 		norm = None
@@ -727,7 +791,6 @@ def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno',
 
 	plt.savefig(foutname)
 	plt.close()
-
 
 
 def calc_phase_hist(param, G, bin_nums=100):
@@ -836,8 +899,8 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 	N = 10000 # number of steps 
 	max_t = 10. # max age of stellar population to compute yields
 
-	time_step = max_t/N
-	time = np.arange(0,max_t,time_step)
+	time_step = max_t/(N+1)
+	time = np.arange(time_step,max_t,time_step)
 
 	# First make simulated data if it hasn't been made already
 	for Z in Z_list:
@@ -860,7 +923,7 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(dust_species))
 	x_param = 'star_age'; y_param = 'cum_dust_prod'
-	x_lim = [0,max_t]
+	x_lim = [time_step,max_t]
 
 	for i, species in enumerate(dust_species):
 		axis = axes[i]
@@ -908,13 +971,13 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 			data = pickle.load(open(data_dirc + name, "rb" ))
 			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
 			elem_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
-			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonposy = 'clip', linewidth = linewidths[j])
+			axis.loglog(time, elem_cum_spec, color = colors[j], linestyle = linestyles[0], nonpositive = 'clip', linewidth = linewidths[j])
 
 			name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
 			data = pickle.load(open(data_dirc + name, "rb" ))
 			time = data['time']; cum_yields = data['yields']; cum_dust_yields = data['elem']; cum_species_yields = data['spec'];
 			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
-			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonposy = 'clip', linewidth = linewidths[j])
+			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonpositive = 'clip', linewidth = linewidths[j])
 
 		axis.set_ylim([1E-7,1E-2])
 		axis.set_xlim([time[0], time[-1]])
@@ -1450,7 +1513,6 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 
 	for i, param in enumerate(params):
 		ax1 = axes[i,0]; ax2 = axes[i,1]; cbar_ax = axes[i,2];
-		text_label = labels[i]
 
 		param_lim = config.PARAM_INFO[param][1]
 		log_param = config.PARAM_INFO[param][2]
@@ -1466,7 +1528,7 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 
 		# If labels given add to corner of each projection
 		if labels != None:
-			ax1.annotate(text_label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
+			ax1.annotate(labels[i], (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
 
 		# Plot x-y projection on top
 		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
@@ -1489,7 +1551,7 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 		cbar.ax.minorticks_off() 
 		cbar.ax.tick_params(axis='both',which='both',direction='in', pad=10)
 		cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
-	  	cbar.outline.set_linewidth(2)
+		cbar.outline.set_linewidth(2)
 
 
 	plt.savefig(foutname)
@@ -1575,9 +1637,9 @@ def calc_obs_projection(param, snap, side_lens, pixel_res=2, proj='xy'):
 		elif param == 'sigma_sil': 	proj_data = G.spec[:,0]*M
 		elif param == 'sigma_sil+': proj_data = (np.sum(G.spec,axis=1)-G.spec[:,1])*M
 		elif param == 'sigma_carb': proj_data = G.spec[:,1]*M
-		elif param == 'sigma_SiC': proj_data = G.spec[:,2]*M
+		elif param == 'sigma_SiC': 	proj_data = G.spec[:,2]*M
 		elif param == 'sigma_iron': proj_data = G.spec[:,3]*M
-		elif param == 'sigma_O': proj_data = G.spec[:,4]*M
+		elif param == 'sigma_O': 	proj_data = G.spec[:,4]*M
 		elif param == 'sigma_star': proj_data = M
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%param)
