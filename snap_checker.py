@@ -3,31 +3,25 @@ import subprocess
 from gizmo_library.time_evolution import Dust_Evo
 from gizmo import *
 from dust_plots import *
+import gizmo_library.config as config
 
 # Directory of snap file
-snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/nano_Fe/output/','/oasis/tscc/scratch/cchoban/non_cosmo/Species/fiducial/output/']
+snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/nano_Fe/output/','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-2/output/',
+				'/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3_cool/output','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3/output']
 # Snapshots to check
-snaps = [20,50,80,110,150]
-snaps = [170]
+snaps = [110,150]
 
 cosmological = False
 pb_fix=True
 dust_depl=False
 
 # Label for test plots
-labels = ['Species Nano Fe', 'Species Fiducial']
+labels = ['FIRE-2 Old', 'FIRE-2 New','FIRE-3 New Cool', 'FIRE-3 Old Cool']
 
 
 # Maximum radius, disk, height, and disk orientation used for getting data
 r_max = 20 # kpc
 disk_height = 2 # kpc
-
-
-atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
-
-snap_dirs = ['/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-2/output/','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3/output']
-snaps = [276]
-labels = ['FIRE-2','FIRE-3']
 
 
 for snap_num in snaps:
@@ -53,12 +47,9 @@ for snap_num in snaps:
 		nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
 
 		print("Making simple phase plot and projection to check by eye...\n")
-		binned_phase_plot('m', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=labels[j]+"_phase_plot_"+str(snap_num)+".png")
-		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=labels[j]+"_DZ_phase_plot_"+str(snap_num)+".png")
+		binned_phase_plot('m', [galaxy], bin_nums=250, labels=None, color_map='plasma', foutname=labels[j]+"_phase_plot_"+str(snap_num)+".png")
+		binned_phase_plot('D/Z', [galaxy], bin_nums=250, labels=None, color_map='magma', foutname=labels[j]+"_DZ_phase_plot_"+str(snap_num)+".png")
 
-		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='inferno', hist_proj=False, foutname=labels[j]+"_inferno_DZ_phase_plot_"+str(snap_num)+".png")
-		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='magma', hist_proj=False, foutname=labels[j]+"_magma_DZ_phase_plot_"+str(snap_num)+".png")
-		continue
 		
 		plt.hist2d(G.p[:,0],G.p[:,1],bins=200)
 		plt.savefig(labels[j]+"_hist_"+str(snap_num)+".png")
@@ -126,17 +117,17 @@ for snap_num in snaps:
 			if galaxy.sp.Flag_DustSpecies==4:
 				# Silicates
 				for k in range(len(sil_num_atoms)):
-					dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
+					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
-					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / dust_formula_mass
+					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
 				
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
 				# Silicon Carbide
-				dust_formula_mass = atomic_mass[2] + atomic_mass[7]
-				dust_metals[:,2] += G.spec[:,2] * atomic_mass[2] / dust_formula_mass
-				dust_metals[:,7] += G.spec[:,2] * atomic_mass[7] / dust_formula_mass
+				dust_formula_mass = config.ATOMIC_MASS[2] + config.ATOMIC_MASS[7]
+				dust_metals[:,2] += G.spec[:,2] * config.ATOMIC_MASS[2] / dust_formula_mass
+				dust_metals[:,7] += G.spec[:,2] * config.ATOMIC_MASS[7] / dust_formula_mass
 
 				# Iron
 				dust_metals[:,10] += G.spec[:,3]
@@ -144,17 +135,17 @@ for snap_num in snaps:
 			elif galaxy.sp.Flag_DustSpecies==5:
 				# Silicates
 				for k in range(len(sil_num_atoms)):
-					dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
+					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
-					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / dust_formula_mass
+					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
 				
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
 				# Silicon Carbide
-				dust_formula_mass = atomic_mass[2] + atomic_mass[7]
-				dust_metals[:,2] += G.spec[:,2] * atomic_mass[2] / dust_formula_mass
-				dust_metals[:,7] += G.spec[:,2] * atomic_mass[7] / dust_formula_mass
+				dust_formula_mass = config.ATOMIC_MASS[2] + config.ATOMIC_MASS[7]
+				dust_metals[:,2] += G.spec[:,2] * config.ATOMIC_MASS[2] / dust_formula_mass
+				dust_metals[:,7] += G.spec[:,2] * config.ATOMIC_MASS[7] / dust_formula_mass
 
 				# Iron
 				dust_metals[:,10] += G.spec[:,3]
@@ -169,17 +160,17 @@ for snap_num in snaps:
 
 				# Silicates
 				for k in range(len(sil_num_atoms)):
-					dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
+					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
-					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / dust_formula_mass
+					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
 				
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
 				# Silicon Carbide
-				dust_formula_mass = atomic_mass[2] + atomic_mass[7]
-				dust_metals[:,2] += G.spec[:,2] * atomic_mass[2] / dust_formula_mass
-				dust_metals[:,7] += G.spec[:,2] * atomic_mass[7] / dust_formula_mass
+				dust_formula_mass = config.ATOMIC_MASS[2] + config.ATOMIC_MASS[7]
+				dust_metals[:,2] += G.spec[:,2] * config.ATOMIC_MASS[2] / dust_formula_mass
+				dust_metals[:,7] += G.spec[:,2] * config.ATOMIC_MASS[7] / dust_formula_mass
 
 				# Free-Flying Iron and Iron Inclusions
 				dust_metals[:,10] += G.spec[:,3] + G.spec[:,5]
@@ -204,7 +195,7 @@ for snap_num in snaps:
 				print("nH:", nH[bad_ind])
 				print("T:", G.T[bad_ind])
 				print("\t fH2:",G.fH2[bad_ind])
-				print("\t fMC:",G.MC[bad_ind])
+				print("\t fMC:",G.fMC[bad_ind])
 				print("\t CinCO:",G.CinCO[bad_ind]/G.z[bad_ind,2],"\n")
 				print("\t Sum of Species::",np.sum(G.spec[bad_ind],axis=1))
 				print("\t Sum of Elements:",np.sum(G.dz[bad_ind,2:],axis=1))
@@ -251,6 +242,10 @@ for snap_num in snaps:
 
 	print("Creating dust plots to check by eye...")	
 
+	
+	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname="compare_phase_plot_"+str(snap_num)+".png")
+	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname="compare_DZ_phase_plot_"+str(snap_num)+".png")
+
 	dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
 
 	dmol_vs_params(['CinCO'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True)
@@ -260,3 +255,6 @@ for snap_num in snaps:
 	elems = ['Mg','Si','Fe','O','C']
 	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
 						std_bars=True, style='color', include_obs=True)
+
+	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname='compare_B13_obs_DZ_vs_surf_'+str(snap_num)+'.png', \
+						std_bars=True, style='color', include_obs=True, CO_opt='B13')

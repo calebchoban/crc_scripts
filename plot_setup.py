@@ -131,9 +131,9 @@ def setup_legend_handles(snap_labels, params=[], style='color-line'):
 
 
 
-def setup_figure(num_plots):
+def setup_figure(num_plots, sharex=False, sharey=False):
 	"""
-	Sets up the figure size and subplot layout based on number of plots
+	Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
 
 	Parameters
 	----------
@@ -148,14 +148,14 @@ def setup_figure(num_plots):
 		List of axes for each plot
 	"""	
 	if num_plots == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
+		fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE,config.BASE_FIG_YSIZE))
 		axes = np.array([axes])
 	elif num_plots%2 == 0:
-		fig,axes = plt.subplots(num_plots//2, 2, figsize=(28/1.2,num_plots/2*10/1.2), squeeze=True)
+		fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*config.BASE_FIG_XSIZE,num_plots/2*config.BASE_FIG_YSIZE), squeeze=True, sharex=sharex, sharey=sharey)
 	elif num_plots%3 == 0:
-		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
+		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*config.BASE_FIG_XSIZE,num_plots/3*config.BASE_FIG_YSIZE), squeeze=True)
 	else:
-		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*14/1.2,np.ceil(num_plots/3.)*10/1.2), squeeze=True)\
+		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*config.BASE_FIG_XSIZE,np.ceil(num_plots/3.)*config.BASE_FIG_YSIZE), squeeze=True)
 	
 	axes=axes.flat
 	# Delete any excess axes
@@ -165,7 +165,7 @@ def setup_figure(num_plots):
 	return fig,axes
 
 
-def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log=None):
+def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log=None, x_label=False):
 	"""
 	Sets up the axes for plot given x and y param and optional limits
 

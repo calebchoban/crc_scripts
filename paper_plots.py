@@ -55,7 +55,7 @@ disk_height = 2 # kpc
 pb_fix=True
 dust_depl=False
 
-"""
+
 ###############################################################################
 # Species Implementation w/ creation efficienc variations
 ###############################################################################
@@ -170,7 +170,6 @@ for i,snap_dir in enumerate(snap_dirs):
 
 # Now plot a comparison of each of the runs
 dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
-"""
 
 ###############################################################################
 # Plot last snapshot D/Z values vs observations for optional dust species physics 
@@ -248,8 +247,9 @@ for i, num in enumerate(snaps):
 		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 		galaxies += [galaxy]
 
-		binned_phase_plot('m', galaxy, bin_nums=250, time=None, color_map='plasma', hist_proj=False, foutname=plot_dir+labels[j]+"_phase_plot.png")
-		binned_phase_plot('D/Z', galaxy, bin_nums=250, time=None, color_map='magma', hist_proj=False, foutname=plot_dir+labels[j]+"_DZ_phase_plot.png")
+		
+	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname=plot_dir+"FIRE2-3_phase.png")
+	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname=plot_dir+"FRE2-3_DZ_phase.png")
 
 
 	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)

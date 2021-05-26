@@ -573,7 +573,7 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 			if i == 0:
 				if include_obs: ncol=2;
 				else: 			ncol=1;
-				axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+				axis.legend(loc=3, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
 		axis.text(.10, .30, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
@@ -667,24 +667,22 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 	plt.close()
 
 
-
-
-def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno', hist_proj=True, foutname='phase_plot.png'):
+def binned_phase_plot(param, snaps, bin_nums=200, labels=None, color_map=config.BASE_CMAP, foutname='phase_plot.png'):
 	"""
-	Plots the a 2D histogram for nH vs T using the specified parameter as weights
+	Plots the a 2D histogram for nH vs T using the specified parameter as weights for the given snaps
 
 	Parameters
 	----------
 	params : array
 		The parameters for the x axis, y axis, and weights respectively
-	snap : Snapshot/Halo/Disk
-	    Snapshot gas data structure
+	snaps : array
+	     List of Snapshot/Halo/Disk objects
 	bin_nums: int, optional
 		Number of bins to use
+	labels: array, optional
+		List of labels for each snap
 	color_map : string, optional
 		Color mapping for plot
-	hist_proj : boolean, optional
-		Add additional 1D histogram projection along x and y axis
 	founame : string, optional
 		File name for saved figure
 
@@ -694,103 +692,49 @@ def binned_phase_plot(param, snap, bin_nums=200, time=None, color_map='inferno',
 
 	"""
 
-	# TODO : Include 1D hist projects along each axis
-	# Make this work for dynamic x and y params notable D/Z vs Z
-	# Also fix cbar ticks for log space. Might be an issue with matplotlib version
+	fig,axes = plt_set.setup_figure(len(snaps), sharey='row')
 
-	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
-	axis_2D_hist = axes[0]
-	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
-	axis_2D_hist.set_facecolor('xkcd:grey')
+	for i, snap in enumerate(snaps):
+		# Set up for each plot
+		axis = axes[i]
+		plt_set.setup_axis(axis, 'nH', 'T', x_lim=[1.1E-3,0.9E3], y_lim=[1.1*1E1,2E6])
+		# Only first plot needs y axis label
+		if i != 0:
+			axis.set_ylabel(None)
+			axis.yaxis.set_ticklabels([])
+		
+		axis.set_facecolor('xkcd:light grey')
 
-	G = snap.loadpart(0)
-	H = snap.loadheader()
+		G = snap.loadpart(0)
+		H = snap.loadheader()
+		
+		ret = calc_phase_hist(param, G, bin_nums=bin_nums)
+		param_lims = config.PARAM_INFO[param][1]
+		log_param = config.PARAM_INFO[param][2]
+		if log_param:
+			norm = mpl.colors.LogNorm(vmin=param_lims[0], vmax=param_lims[1], clip=True)
+		else:
+			norm = mpl.colors.Normalize(vmin=param_lims[0], vmax=param_lims[1], clip=True)
 
-	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
-	param_lims = config.PARAM_INFO[param][1]
-	log_param = config.PARAM_INFO[param][2]
-	if log_param:
-		norm = mpl.colors.LogNorm(vmin=param_lims[0], vmax=param_lims[1], clip=True)
-	else:
-		norm = mpl.colors.Normalize(vmin=param_lims[0], vmax=param_lims[1], clip=True)
+		X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+		img = axis.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), norm=norm)
+		axis.autoscale('tight')
 
-	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
-	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), norm=norm)
-	axis_2D_hist.autoscale('tight')
+
+		# Print label in corner of plot if applicable
+		if labels!=None:
+			label = labels[i]
+			axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'right', va = 'top', transform=axis.transAxes, zorder=4)
 
 	bar_label =  config.PARAM_INFO[param][0]
-	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
+	plt_set.setup_colorbar(img, axis, bar_label)
 
-	# Print time in corner of plot if applicable
-	if time=='all':
-		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
-	plt.tight_layout()
-
+	plt.tight_layout()	
 	plt.savefig(foutname)
 	plt.close()
 
+	return
 
-def multi_phase_plot(param, snaps, bin_nums=200, time=None, color_map='inferno', hist_proj=True, foutname='phase_plot.png'):
-	"""
-	Plots the a 2D histogram for nH vs T using the specified parameter as weights
-
-	Parameters
-	----------
-	params : array
-		The parameters for the x axis, y axis, and weights respectively
-	snap : Snapshot/Halo/Disk
-	    Snapshot gas data structure
-	bin_nums: int, optional
-		Number of bins to use
-	color_map : string, optional
-		Color mapping for plot
-	hist_proj : boolean, optional
-		Add additional 1D histogram projection along x and y axis
-	founame : string, optional
-		File name for saved figure
-
-	Returns
-	-------
-	None
-
-	"""
-
-	# TODO : Include 1D hist projects along each axis
-	# Make this work for dynamic x and y params notable D/Z vs Z
-	# Also fix cbar ticks for log space. Might be an issue with matplotlib version
-
-	fig,axes = plt_set.setup_2D_hist_fig(hist_proj=hist_proj)
-	axis_2D_hist = axes[0]
-	plt_set.setup_axis(axis_2D_hist, 'nH', 'T')
-	axis_2D_hist.set_facecolor('xkcd:grey')
-
-	G = snap.loadpart(0)
-	H = snap.loadheader()
-
-	ret = calc_phase_hist(param, G, bin_nums=bin_nums)
-	param_lims = config.PARAM_INFO[param][1]
-	log_param = config.PARAM_INFO[param][2]
-	if log_param:
-		norm = mpl.colors.LogNorm()
-	else:
-		norm = None
-
-	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
-	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), vmin=param_lims[0], vmax=param_lims[1], norm=norm)
-	axis_2D_hist.autoscale('tight')
-
-	bar_label =  config.PARAM_INFO[param][0]
-	plt_set.setup_colorbar(img, axis_2D_hist, bar_label)
-
-	# Print time in corner of plot if applicable
-	if time=='all':
-		time_str = 'z = ' + '%.2g' % H.redshift if snap.cosmological else 't = ' + '%2.2g Gyr' % H.time
-		axis_2D_hist.text(.05, .95, time_str, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'left', transform=axis_2D_hist.transAxes, zorder=4)	
-	plt.tight_layout()
-
-	plt.savefig(foutname)
-	plt.close()
 
 
 def calc_phase_hist(param, G, bin_nums=100):
@@ -1168,94 +1112,6 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 
 
 
-def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_diag.png', style='color', implementation='species'):
-	"""
-	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
-
-	Parameters
-	----------
-	params : array
-		List of parameters to plot diagnostics for (inst_dust_prod, growth_timescale, )
-	snaps : array
-	    Array of snapshots to use
-	bin_nums: int
-		Number of bins to use
-	style : string
-		Plotting style when plotting multiple data sets
-		'color' - gives different color and linestyles to each data set
-		'size' - make all lines solid black but with varying line thickness
-
-	Returns
-	-------
-	None
-	"""
-
-	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
-
-	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(params))
-
-	for i,param in enumerate(params):
-		axis = axes[i]
-		if param == 'inst_dust_prod':
-			plt_set.setup_axis(axis, 'nH', param)
-		if param == 'g_timescale':
-			plt_set.setup_axis(axis, param, 'g_timescale_frac')
-
-
-		for j,snap in enumerate(snaps):
-			if isinstance(implementation, list):
-				imp = implementation[j]
-			else:
-				imp = implementation
-
-			G =	snap.loadpart(0)
-			H = snap.loadheader()
-
-			nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
-
-			if param == 'inst_dust_prod':
-				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False)
-				x_vals = dict.fromkeys(weight_vals.keys(), nH)
-			elif param == 'g_timescale':
-				if imp == 'species':
-					x_vals = calc_spec_acc_timescale(G, CNM_thresh=1.0, nano_iron=False)
-				else:
-					x_vals = calc_elem_acc_timescale(G)
-				for key in x_vals.keys(): 
-					x_vals[key]*=1E-9
-				weight_vals=dict.fromkeys(x_vals.keys(), np.full(len(nH),1./len(nH)))
-			else:
-				print('%s is not a valid parameter for dust_growth_diag()'%param)
-				return
-			lines = []
-			for k in range(len(labels)):
-				lines += [mlines.Line2D([], [], color=colors[k], label=labels[k])]
-
-			# Set up bins based on limits and scale of x axis
-			limits = axis.get_xlim()
-			scale_str = axis.get_xaxis().get_scale()
-			if scale_str == 'log':
-				bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
-			else:
-				bins = np.linspace(limits[0],limits[1],bin_nums)
-
-			for k,key in enumerate(sorted(weight_vals.keys())):
-				axis.hist(x_vals[key], bins=bins, weights=weight_vals[key], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
-				         linewidth=linewidths[0], linestyle=linestyles[k])
-				lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[k],label=key)]
-
-			# Want legend only on first plot
-			if i == 0:
-				axis.legend(handles=lines,loc=2, frameon=False)
-
-
-	plt.savefig(foutname)
-	plt.close()   
-
-
-
 
 def dmol_vs_params(mol_params, params, snaps, labels=None, bin_nums=50, time=None, foutname='dmol_vs_param.png', std_bars=True):
 	"""
@@ -1455,12 +1311,12 @@ def dust_projections(param, snap, bin_nums=100, param_lims=None):
 	param_lims = config.PARAM_INFO[param][1]
 	log_param = config.PARAM_INFO[param][2]
 	if log_param:
-		norm = mpl.colors.LogNorm()
+		norm = mpl.colors.LogNorm(vmin=param_lims[0], vmax=param_lims[1], clip=True)
 	else:
-		norm = None
+		norm = mpl.colors.Normalize(vmin=param_lims[0], vmax=param_lims[1], clip=True)
 
 	X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
-	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), vmin=param_lims[0], vmax=param_lims[1], norm=norm)
+	img = axis_2D_hist.pcolormesh(X, Y, ret.statistic.T, cmap=plt.get_cmap(color_map), norm=norm)
 	axis_2D_hist.autoscale('tight')
 
 	bar_label =  config.PARAM_INFO[param][0]
@@ -1478,7 +1334,102 @@ def dust_projections(param, snap, bin_nums=100, param_lims=None):
 	return
 
 
-def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, labels=None, color_map='inferno', foutname='snap_projection.png', **kwargs):
+
+
+def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_diag.png', style='color', implementation='species'):
+	"""
+	Make plot of instantaneous dust growth for a given snapshot depending on the dust evolution implementation used
+
+	Parameters
+	----------
+	params : array
+		List of parameters to plot diagnostics for (inst_dust_prod, growth_timescale, )
+	snaps : array
+	    Array of snapshots to use
+	bin_nums: int
+		Number of bins to use
+	style : string
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+
+	Returns
+	-------
+	None
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
+
+	for i,param in enumerate(params):
+		axis = axes[i]
+		if param == 'inst_dust_prod':
+			plt_set.setup_axis(axis, 'nH', param)
+		if param == 'g_timescale':
+			plt_set.setup_axis(axis, param, 'g_timescale_frac')
+
+
+		for j,snap in enumerate(snaps):
+			if isinstance(implementation, list):
+				imp = implementation[j]
+			else:
+				imp = implementation
+
+			G =	snap.loadpart(0)
+			H = snap.loadheader()
+
+			nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+
+			if param == 'inst_dust_prod':
+				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False)
+				x_vals = dict.fromkeys(weight_vals.keys(), nH)
+			elif param == 'g_timescale':
+				if imp == 'species':
+					x_vals = calc_spec_acc_timescale(G, CNM_thresh=1.0, nano_iron=False)
+				else:
+					x_vals = calc_elem_acc_timescale(G)
+				for key in x_vals.keys(): 
+					x_vals[key]*=1E-9
+				weight_vals=dict.fromkeys(x_vals.keys(), np.full(len(nH),1./len(nH)))
+			else:
+				print('%s is not a valid parameter for dust_growth_diag()'%param)
+				return
+			lines = []
+			for k in range(len(labels)):
+				lines += [mlines.Line2D([], [], color=colors[k], label=labels[k])]
+
+			# Set up bins based on limits and scale of x axis
+			limits = axis.get_xlim()
+			scale_str = axis.get_xaxis().get_scale()
+			if scale_str == 'log':
+				bins = np.logspace(np.log10(limits[0]),np.log10(limits[1]),bin_nums)
+			else:
+				bins = np.linspace(limits[0],limits[1],bin_nums)
+
+			for k,key in enumerate(sorted(weight_vals.keys())):
+				axis.hist(x_vals[key], bins=bins, weights=weight_vals[key], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
+				         linewidth=linewidths[0], linestyle=linestyles[k])
+				lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[k],label=key)]
+
+			# Want legend only on first plot
+			if i == 0:
+				axis.legend(handles=lines,loc=2, frameon=False)
+
+
+	plt.savefig(foutname)
+	plt.close()   
+
+
+
+
+
+
+
+
+def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, labels=None, color_map=config.BASE_CMAP, foutname='snap_projection.png', **kwargs):
 	"""
 	Plots face on and edge on projections for one snapshots for the chosen parameters
 
@@ -1517,9 +1468,9 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 		param_lim = config.PARAM_INFO[param][1]
 		log_param = config.PARAM_INFO[param][2]
 		if log_param:
-			norm = mpl.colors.LogNorm()
+			norm = mpl.colors.LogNorm(vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], clip=True)
 		else:
-			norm = None
+			norm = mpl.colors.Normalize(vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], clip=True)
 		cbar_label =  config.PARAM_INFO[param][0]
 
 
@@ -1534,7 +1485,7 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
 		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
 		img = ax1.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-           aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+           aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(color_map), norm=norm)
 		ax1.set_xlim(xedges[-1], xedges[0])
 		ax1.set_ylim(yedges[-1], yedges[0])
 
@@ -1542,7 +1493,7 @@ def snap_projection(params, snap, param_lims, L=None, Lz=None, pixel_res=0.1, la
 		pixel_stats, xedges, yedges = calc_obs_projection(param, snap, [Lz,L,L], pixel_res=pixel_res, proj='xz')
 		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
 		ax2.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-           aspect='auto', interpolation='bicubic', cmap=plt.get_cmap(color_map), vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], norm=norm)
+           aspect='auto', interpolation='bicubic', cmap=plt.get_cmap(color_map), norm=norm)
 		ax2.set_xlim(xedges[-1], xedges[0])
 		ax2.set_ylim(yedges[-1], yedges[0])
 
