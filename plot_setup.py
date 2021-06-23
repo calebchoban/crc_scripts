@@ -148,14 +148,14 @@ def setup_figure(num_plots, sharex=False, sharey=False):
 		List of axes for each plot
 	"""	
 	if num_plots == 1:
-		fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE,config.BASE_FIG_YSIZE))
+		fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
 		axes = np.array([axes])
 	elif num_plots%2 == 0:
-		fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*config.BASE_FIG_XSIZE,num_plots/2*config.BASE_FIG_YSIZE), squeeze=True, sharex=sharex, sharey=sharey)
+		fig,axes = plt.subplots(num_plots//2, 2, figsize=(2.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True, sharex=sharex, sharey=sharey)
 	elif num_plots%3 == 0:
-		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*config.BASE_FIG_XSIZE,num_plots/3*config.BASE_FIG_YSIZE), squeeze=True)
+		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True)
 	else:
-		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3*config.BASE_FIG_XSIZE,np.ceil(num_plots/3.)*config.BASE_FIG_YSIZE), squeeze=True)
+		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/3.)*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True)
 	
 	axes=axes.flat
 	# Delete any excess axes

@@ -34,8 +34,8 @@ compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=3, foutname=plot
 ###############################################################################
 
 Z=1
-elems =['C','Mg','Si','Fe']
-compare_FIRE_metal_yields(Z, elems, foutname=plot_dir+'FIRE_yields_comparison.png')
+elems =['C','O','Mg','Si','Fe']
+compare_FIRE_metal_yields(Z, elems, foutname=plot_dir+'FIRE_yields_comparison.pdf')
 
 ###############################################################################
 # Plot D/Z evolution over time
@@ -57,7 +57,7 @@ dust_depl=False
 
 
 ###############################################################################
-# Species Implementation w/ creation efficienc variations
+# Species Implementation w/ creation efficiency variations
 ###############################################################################
 
 
@@ -84,7 +84,7 @@ for i,snap_dir in enumerate(snap_dirs):
 	
 
 # Now plot a comparison of each of the runs
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_spec_all_data_vs_time.pdf',labels=labels, style='color')
+dust_data_vs_time(['D/Z','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_spec_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -112,7 +112,7 @@ for i,snap_dir in enumerate(snap_dirs):
 	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_elem_all_data_vs_time.pdf',labels=labels, style='color')
+dust_data_vs_time(['D/Z','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'creation_elem_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -135,13 +135,13 @@ for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
 	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
-	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.set_disk(id=-1, hdir=None, rmax=r_max, height=disk_height)
 	dust_avg.load()
 	dust_avg.save()
 	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_spec_all_data_vs_time.pdf',labels=labels, style='color')
+dust_data_vs_time(['D/Z','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_spec_all_data_vs_time.pdf',labels=labels, style='color')
 
 
 ###############################################################################
@@ -163,13 +163,15 @@ for i,snap_dir in enumerate(snap_dirs):
 	name = names[i]
 	print(name)
 	dust_avg = Dust_Evo(snap_dir, snap_lims, cosmological=cosmological, periodic_bound_fix=pb_fix, dust_depl=dust_depl, statistic = 'average', dirc='./time_evo_data/')
-	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
+	dust_avg.set_disk(id=-1, hdir=None, rmax=r_max, height=disk_height)
 	dust_avg.load()
 	dust_avg.save()
 	dust_evo_data += [dust_avg]
 
 # Now plot a comparison of each of the runs
-dust_data_vs_time(['DZ','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
+dust_data_vs_time(['D/Z','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
+
+
 
 ###############################################################################
 # Plot last snapshot D/Z values vs observations for optional dust species physics 
@@ -233,7 +235,7 @@ implementations = ['species','species']
 cosmological = False
 
 # List of snapshots to compare
-snaps = [275]
+snaps = [300]
 
 # Maximum radius, disk, height, and disk orientation used for getting data
 r_max = 20 # kpc
@@ -247,10 +249,15 @@ for i, num in enumerate(snaps):
 		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 		galaxies += [galaxy]
 
-		
-	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname=plot_dir+"FIRE2-3_phase.png")
-	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname=plot_dir+"FRE2-3_DZ_phase.png")
 
+	config.FIG_XRATIO=.85 # Make the aspect ratio more 1:1
+	config.PARAM_INFO['nH'][1]=[1.1E-3,0.9E3] # Increase the density range
+	config.PARAM_INFO['T'][1]=[1.1E1,2E6] # Increase the temp range
+	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname=plot_dir+"FIRE2-3_phase.pdf")
+	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname=plot_dir+"FIRE2-3_DZ_phase.pdf")
+	config.FIG_XRATIO=1.
+	config.PARAM_INFO['nH'][1]=[1.1E-2,0.9E3]
+	config.PARAM_INFO['T'][1]=[1.1E1,0.9E5]
 
 	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
 
@@ -263,3 +270,33 @@ for i, num in enumerate(snaps):
 	elems = ['Mg','Si','Fe','O','C']
 	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
 						std_bars=True, style='color', include_obs=True)
+
+
+	dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
+	dmol_vs_params(['fMC','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)
+
+
+###############################################################################
+# Plot comparisons for sub-resolved fMC routine
+###############################################################################
+
+# Directory of snap file
+snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/fMC_test/NH2_0.5/output/','/oasis/tscc/scratch/cchoban/non_cosmo/fMC_test/NH2_1.0/output/',
+				'/oasis/tscc/scratch/cchoban/non_cosmo/fMC_test/NH2_2.0/output/']
+
+# Label for test plots
+labels = [r'$N_{\rm H_2}^{\rm crit}=0.5\times10^{21}$ cm$^{-3}$',r'$N_{\rm H_2}^{\rm crit}=1.0\times10^{21}$ cm$^{-3}$',
+			r'$N_{\rm H_2}^{\rm crit}=2.0\times10^{21}$ cm$^{-3}$']
+
+cosmological = False
+
+# Snapshot to check
+snap_num = 19
+
+galaxies = []
+for j,snap_dir in enumerate(snap_dirs):
+	print(snap_dir)
+	galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+	galaxies += [galaxy]
+
+dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'NH2_crit_variation.png.pdf', std_bars=True)

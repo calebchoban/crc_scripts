@@ -93,7 +93,7 @@ class Dust_Evo(object):
 	# Returns the specified data
 	def get_data(self, data_name):
 
-		if data_name == 'DZ':
+		if data_name == 'D/Z':
 			data = self.data.dz
 		elif data_name == 'Z':
 			data = self.data.z
@@ -107,6 +107,9 @@ class Dust_Evo(object):
 			data = self.data.time
 		elif data_name == 'redshift':
 			data = self.data.redshift
+		else:
+			print(data_name," is not a defined data name")
+			return
 
 		return data
 
@@ -197,11 +200,11 @@ class Dust_Evo_Data(object):
 				gal = sp.loaddisk(**self.kwargs)
 			gas = gal.loadpart(0)
 
-			self.z[i] = weighted_percentile(gas.z[:,0], percentiles=[50], weights=gas.m, ingore_invalid=True)
-			self.dz[i] = weighted_percentile(gas.dz[:,0]/gas.z[:,0], percentiles=[50], weights=gas.m, ingore_invalid=True)
+			self.z[i] = weighted_percentile(gas.z[:,0], percentiles=[50], weights=gas.m, ignore_invalid=True)
+			self.dz[i] = weighted_percentile(gas.dz[:,0]/gas.z[:,0], percentiles=[50], weights=gas.m, ignore_invalid=True)
 			for j in range(sp.Flag_DustSpecies):
-				self.spec[i,j] = weighted_percentile(gas.spec[:,j]/gas.dz[:,0], percentiles=[50], weights=gas.m, ingore_invalid=True)
+				self.spec[i,j] = weighted_percentile(gas.spec[:,j]/gas.dz[:,0], percentiles=[50], weights=gas.m, ignore_invalid=True)
 			for j in range(4):
-				self.source[i,j] = weighted_percentile(gas.dzs[:,j], percentiles=[50], weights=gas.m, ingore_invalid=True)
+				self.source[i,j] = weighted_percentile(gas.dzs[:,j], percentiles=[50], weights=gas.m, ignore_invalid=True)
 
 		return

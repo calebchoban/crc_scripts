@@ -61,8 +61,9 @@ class Snapshot:
         self.Flag_Metals = f['Header'].attrs['Flag_Metals']
         self.Flag_DustMetals = f['Header'].attrs.get('Flag_Dust',0)
         self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species',0)
+        if(self.Flag_DustSpecies==0): self.Flag_DustSpecies=2 # just generalized silicate and carbonaceous
         # Determine if the snapshot came from a simulations with on-the-fly dust
-        if self.Flag_Metals and self.Flag_DustSpecies:
+        if self.Flag_Metals and self.Flag_DustSpecies>2:
             self.dust_impl = 'species'
         elif self.Flag_Metals:
             self.dust_impl = 'elemental'
@@ -139,6 +140,7 @@ class Snapshot:
 
     def loadhalo(self, id=-1, mode='AHF', hdir=None, nclip=1000):
     
+
         # non-cosmological, use the only galaxy attribute
         if (self.cosmological==0):
             hl = self.halo
@@ -158,6 +160,11 @@ class Snapshot:
                 hl = Halo(self, id=id)
                 self.AHFhaloIDs.append(id)
                 self.AHFhalos.append(hl)
+
+        else:
+            print("Need to set mode to AHF to load halos for cosmological snapshots.")
+            return
+
         
         return hl
 

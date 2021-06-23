@@ -3,7 +3,7 @@ import numpy as np
 from . import shieldLengths as SL
 
 
-def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ingore_invalid=True):
+def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ignore_invalid=True):
     """
     Calculates percentiles associated with a (possibly weighted) array
 
@@ -31,7 +31,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ing
 
     if weights is None:
         weights = np.ones(a.size)
-    if ingore_invalid:
+    if ignore_invalid:
         mask_a = np.ma.masked_invalid(a) 
         weights = weights[~mask_a.mask]
         a = mask_a[~mask_a.mask]

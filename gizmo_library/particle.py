@@ -89,8 +89,6 @@ class Particle:
                 CinCO = np.zeros(npart, dtype='float')
             if (sp.Flag_DustSpecies):
                 spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
-            else:
-                spec = np.zeros((npart,2), dtype='float')
             if (sp.Flag_Sfr):
                 sfr = np.zeros(npart, dtype='float')
             
@@ -129,11 +127,17 @@ class Particle:
                 if 'DustMolecular' in grp:
                     fMC = grp['DustMolecular'][:,0]
                     CinCO = grp['DustMolecular'][:,1]
-                if 'MolecularMassFraction' in grp:
-                    fH2 = grp['MolecularMassFraction'][...]
-                if (sp.Flag_DustSpecies):
+                    if 'MolecularMassFraction' in grp:
+                        fH2 = grp['MolecularMassFraction'][...]
+                    # Deal with the inbetween case when molecular data was all in one place
+                    # Can probably delete this soon since only a few sims have this specific output
+                    else: 
+                        fH2 = grp['DustMolecular'][:,0]
+                        fMC = grp['DustMolecular'][:,1]
+                        CinCO = grp['DustMolecular'][:,2]
+                if (sp.Flag_DustSpecies>2):
                     spec[nL:nR] = grp['DustSpecies'][...]
-                elif (sp.Flag_DustMetals):
+                elif (sp.Flag_DustMetals and sp.Flag_DustSpecies==2):
                     spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
                     spec[nL:nR,1] = dz[nL:nR,2]
                 if (sp.Flag_Sfr):
@@ -179,7 +183,8 @@ class Particle:
                     self.dzs = dzs
                     if (sp.Flag_DustDepl):
                         self.z += self.dz
-                    self.spec = spec
+                    if (sp.Flag_DustSpecies):
+                        self.spec = spec
                     self.fH2 = fH2
                     self.fMC = fMC
                     self.CinCO = CinCO
@@ -218,7 +223,8 @@ class Particle:
             if (self.sp.Flag_DustMetals):
                 self.dz = self.dz[mask]
                 self.dzs = self.dzs[mask]
-                self.spec = self.spec[mask]
+                if (self.sp.Flag_DustSpecies):
+                    self.spec = self.spec[mask]
                 self.fH2 = self.fH2[mask]
                 self.fMC = self.fMC[mask]
                 self.CinCO = self.CinCO[mask]

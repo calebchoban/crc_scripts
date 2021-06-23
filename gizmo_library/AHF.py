@@ -31,7 +31,9 @@ class AHF:
             flist = glob.glob(hfile)
 
         # no valid file, leave self.k=0
-        if (len(flist)==0): return
+        if (len(flist)==0): 
+            print("No valid AHF halo file.")
+            return
         hfile = flist[0]
 	    
         # read the blocks
@@ -45,7 +47,7 @@ class AHF:
         except:
             old = False
 
-        if old:
+        if not old:
             ID, hostHalo, npart, n_gas, n_star = \
                     np.loadtxt(hfile, usecols=(0,1,4,52,72,), unpack=True, dtype='int')
             Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,44,64,), unpack=True)
@@ -117,5 +119,6 @@ class AHF:
             ok = self.fMhires>0.99
             return self.ID[ok][np.argmax(self.Mvir[ok])]
 
+        print("Given Halo ID is not in catalog.")
         return id
 

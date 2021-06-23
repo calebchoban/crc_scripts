@@ -560,7 +560,7 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 				# Just in case there was no observational data to be plotted
 				if len(handles):
 					handles = [handles[-1]]; labels = [labels[-1]];
-					axis.legend(handles, labels, loc=0, fontsize=config.SMALL_FONT, frameon=False)
+					axis.legend(handles, labels, loc='lower left', fontsize=config.SMALL_FONT, frameon=False)
 
 			# Only need to label the seperate simulations in the first plot
 			if i==0 and labels is not None: label = labels[j];
@@ -575,7 +575,7 @@ def elem_depletion_vs_param(elems, param, snaps, bin_nums=50, time=None, labels=
 				else: 			ncol=1;
 				axis.legend(loc=3, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 
-		axis.text(.10, .30, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+		axis.text(.10, .35, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 		# Print time in corner of plot if applicable
 		if time=='all':
@@ -625,12 +625,15 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 		param_labels=None
 		if y_param == 'D/Z':
 			param_id = 'DZ_ratio'
+			loc = 'upper left'
 		elif y_param == 'source_frac':
 			param_id = 'source_frac'
-			param_labels = ['Accretion','SNe Ia', 'SNe II', 'AGB']
+			param_labels = config.DUST_SOURCES
+			loc = 'lower left'
 		elif y_param=='spec_frac':
 			param_id = 'spec_frac'
-			param_labels = ['Silicates','Carbon','SiC','Iron','O Reservoir']
+			param_labels = config.DUST_SPECIES
+			loc = 'upper right'
 		elif y_param == 'Si/C':
 			param_id = 'sil_to_C_ratio'
 		else:
@@ -644,6 +647,7 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 			else:
 				time_data = data.get_data('redshift')
 
+
 			# Check if parameter has subparameters
 			data_vals = data.get_data(y_param)
 			if param_labels is None:
@@ -651,16 +655,17 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 			else:
 				for k in range(np.shape(data_vals)[1]):
 					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], zorder=3)
-			axis.set_xlim([time_data[0],time_data[-1]])
+			axis.set_xlim([time_data[1],time_data[-1]])
 		# Only need to label the seperate simulations in the first plot
 		if i==0 and len(data_objs)>1:
-			axis.legend(loc=0, frameon=False, fontsize=config.SMALL_FONT)
+			axis.legend(loc='upper left', frameon=False, fontsize=config.SMALL_FONT)
 		# If there are subparameters need to make their own legend
 		if param_labels is not None:
+			param_labels = param_labels[:np.shape(data_vals)[1]]
 			param_lines = []
 			for j, label in enumerate(param_labels):
 				param_lines += [mlines.Line2D([], [], color=config.LINE_COLORS[j], label=label)]
-			axis.legend(handles=param_lines, loc=0, frameon=False, fontsize=config.SMALL_FONT)
+			axis.legend(handles=param_lines, loc=loc, frameon=False, fontsize=config.SMALL_FONT)
 
 	plt.tight_layout()
 	plt.savefig(foutname)
@@ -701,7 +706,6 @@ def binned_phase_plot(param, snaps, bin_nums=200, labels=None, color_map=config.
 		# Only first plot needs y axis label
 		if i != 0:
 			axis.set_ylabel(None)
-			axis.yaxis.set_ticklabels([])
 		
 		axis.set_facecolor('xkcd:light grey')
 
@@ -783,7 +787,7 @@ def calc_phase_hist(param, G, bin_nums=100):
 	elif param == 'fH2':
 		fH2 = G.fH2
 	elif param == 'mH2':
-		MH2 = utils.calc_fH2(G)*G.m*confg.UnitMass_in_Msolar
+		MH2 = utils.calc_fH2(G)*G.m*config.UnitMass_in_Msolar
 		MH2[MH2<=0] = config.EPSILON
 		bin_data = MH2
 		func = np.sum
@@ -898,7 +902,7 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 			y_arrow = 1E-5
 			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
 			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
-			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/2), xycoords="data", xytext=(0.2*transition_age, y_arrow/2), 
+			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/3), xycoords="data", xytext=(0.15*transition_age, y_arrow/3), 
 			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
 			# Make legend
 			lines = []
@@ -969,7 +973,7 @@ def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
 		lines += [mlines.Line2D([], [], color=colors[i], label=elems[i])]
 		
 
-	axis.legend(handles=lines, loc=0, frameon=False, ncol=2, fontsize=config.SMALL_FONT)
+	axis.legend(handles=lines, loc='upper left', frameon=False, ncol=2, fontsize=config.SMALL_FONT)
 	plt.savefig(foutname, transparent=False, bbox_inches='tight')
 	plt.close()
 
@@ -1169,8 +1173,8 @@ def dmol_vs_params(mol_params, params, snaps, labels=None, bin_nums=50, time=Non
 				if len(mol_params) == 1:
 					index = j
 				else:
-					index = j*len(snaps)+k
-				
+					index = j*len(mol_params)+k
+
 				param_vals,mean_dmol,std_dmol = calc_dmol_vs_param(mol_param, x_param, G, bin_nums=bin_nums)
 				axis.plot(param_vals, mean_dmol, color=colors[index], linestyle=linestyles[index], zorder=3)
 				if std_bars:
