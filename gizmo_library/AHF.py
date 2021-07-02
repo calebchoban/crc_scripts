@@ -47,7 +47,8 @@ class AHF:
         except:
             old = False
 
-        if not old:
+        # Note data is converted to physical units
+        if old:
             ID, hostHalo, npart, n_gas, n_star = \
                     np.loadtxt(hfile, usecols=(0,1,4,52,72,), unpack=True, dtype='int')
             Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,44,64,), unpack=True)
@@ -59,7 +60,7 @@ class AHF:
         else:
             ID, hostHalo, npart, n_gas, n_star = \
                     np.loadtxt(hfile, usecols=(0,1,4,43,63,), unpack=True, dtype='int')
-            Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,53,73,), unpack=True)
+            Mvir, M_gas, M_star = hinv*np.loadtxt(hfile, usecols=(3,44,64,), unpack=True)
             Xc, Yc, Zc, Rvir, Rmax = ascale*hinv*np.loadtxt(hfile, usecols=(5,6,7,11,12,), unpack=True)
             Vmax = np.loadtxt(hfile, usecols=(16,), unpack=True) # velocity in km/s
             Lx, Ly, Lz = np.loadtxt(hfile, usecols=(23,24,25,), unpack=True)
@@ -85,7 +86,6 @@ class AHF:
         self.Vmax = Vmax
         self.fMhires = fMhires
         self.Lhat = [Lx,Ly,Lz]
-
 
         return
 
@@ -119,6 +119,5 @@ class AHF:
             ok = self.fMhires>0.99
             return self.ID[ok][np.argmax(self.Mvir[ok])]
 
-        print("Given Halo ID is not in catalog.")
         return id
 

@@ -165,7 +165,7 @@ class Snapshot:
             print("Need to set mode to AHF to load halos for cosmological snapshots.")
             return
 
-        
+        hl.load()
         return hl
 
 

@@ -15,3 +15,5 @@ vis_test.py
 *.pdf
 *.eps
 *.jpg
+
+/cosmo_check_snap.py

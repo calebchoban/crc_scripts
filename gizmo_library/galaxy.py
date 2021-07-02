@@ -109,6 +109,20 @@ class Halo(object):
         return part
 
 
+    # load particles in the zoom in center of halo/galaxy out to rout*rvir or rout in kpc
+    def load_zoompart(self, ptype, zoom_ptype=4, rout=0.2, kpc=0):
+
+        xc,yc,zc = self.calculate_zoom_center(ptype=zoom_ptype)
+        part = self.part[ptype]
+        part.load()
+        part.center([xc,yc,zc])
+        rmax = rout*self.rvir if kpc==0 else rout
+        in_zoom = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
+        part.mask(in_zoom)
+
+        return part
+
+
     def loadheader(self):
 
         header=self.header
@@ -127,23 +141,23 @@ class Halo(object):
     
 
     # centers the particles for the given viewing angle
-    def centerpart(ptype, view='faceon'):
+    def centerpart(self, ptype, view='faceon'):
         Lz_hat = np.array([0.,0.,1.])
         Ly_hat = np.array([0.,1.,0.])
         Lhat = self.Lhat
         if view == 'faceon':
             rot_matrix = utils.calc_rotate_matrix(Lz_hat,Lhat)
-            sp.rotate_coords(rot_matrix)
+            self.sp.rotate_coords(rot_matrix)
         elif view == 'edgeon':
             rot_matrix = utils.calc_rotate_matrix(Lz_hat,Lhat)
-            sp.rotate_coords(rot_matrix)
+            self.sp.rotate_coords(rot_matrix)
             rot_matrix = utils.calc_rotate_matrix(Lz_hat,Ly_hat)
-            sp.rotate_coords(rot_matrix)
+            self.sp.rotate_coords(rot_matrix)
         elif view == 'random':
             L_rand = np.random.rand(3)
             L_rand = L_rand / np.linalg.norm(L_rand)
             rot_matrix = utils.calc_rotate_matrix(L_rand,Lhat)
-            sp.rotate_coords(rot_matrix)
+            self.sp.rotate_coords(rot_matrix)
 
         self.Lhat = Lz_hat
 
@@ -215,7 +229,7 @@ class Halo(object):
         except (TypeError,IndexError):
             xc, yc, zc = self.xc, self.yc, self.zc
 
-        part = self.loadpart(4, header_only=0)
+        part = self.loadpart(4)
         if (part.k==-1): return 0., 0.
 
         p, sft, m = part.p, part.sft, part.m
@@ -232,7 +246,7 @@ class Halo(object):
         if (self.k==-1): return 0., 0., 0.
 
         xc, yc, zc, rvir = self.xc, self.yc, self.zc, self.rvir
-        part = self.sp.loadpart(ptype, header_only=0)
+        part = self.sp.loadpart(ptype)
 
         # particle does not exist
         if (part.k==-1): return xc, yc, zc

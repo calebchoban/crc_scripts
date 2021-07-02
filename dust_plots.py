@@ -143,8 +143,8 @@ def DZ_vs_params(params, snaps, bin_nums=50, time=None, labels=None, foutname='D
 
 	Parameters
 	----------
-	params: array
-		Array of parameters to plot D/Z against (fH2, nH, Z, r, r25)
+	params: list
+		List of parameters to plot D/Z against (fH2, nH, Z, r, r25)
 	snaps : array
 	    Array of snapshots to plot
 	bin_nums : int
@@ -226,7 +226,7 @@ def calc_DZ_vs_param(param, G, bin_nums=50, param_lims=None, elem='Z'):
 	----------
 	param: string
 		Name of parameter to get D/Z values for
-	G : dict
+	G : Particle
 	    Snapshot gas data structure
 	bin_nums : int
 		Number of bins to use
@@ -269,14 +269,14 @@ def calc_DZ_vs_param(param, G, bin_nums=50, param_lims=None, elem='Z'):
 		T = G.T
 		bin_data = T
 		log_bins=True
-	# Get D/Z valus over radius of galaxy from the center
+	# Get D/Z values over radius of galaxy from the center
 	elif param == 'r' or param == 'r25':
 		# TODO: implement r25 bins and r for halo objects 
 		r = np.sqrt(np.power(G.p[:,0],2) + np.power(G.p[:,1],2))
 		bin_data = r
 		if param_lims[1]>40: log_bins=True
 		else:			     log_bins=False
-	# Get D/Z values vs total metallicty of gas
+	# Get D/Z values vs total metallicity of gas
 	elif param == 'Z':
 		Z = G.z[:,0]/config.SOLAR_Z
 		bin_data = Z
