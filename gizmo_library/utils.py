@@ -9,19 +9,19 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
 
     Parameters
     ----------
-    a : array
+    a : ndarray
         The 1D input array from which to calculate percents
-    percentiles : array
+    percentiles : ndarray
         The percentiles to calculate (0.0 - 100.0)
-    weights : array, optional
-        The weights to assign to values of a.  Equal weighting if None
+    weights : ndarray, optional
+        The weights to assign to values of a. Equal weighting if None
         is specified
     ingore_invalid : boolean, optional
-        Set wether invalid values (inf,NaN) are not considered in calculation
+        Set whether invalid values (inf,NaN) are not considered in calculation
 
     Returns
     -------
-    values : np.array
+    values : ndarray
         The values associated with the specified percentiles.  
     """
 

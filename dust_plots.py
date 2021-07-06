@@ -127,19 +127,136 @@ def plot_observational_data(axis, param, elem=None, log=True, CO_opt='S12', good
 			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM')
 			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.LINE_WIDTHS[5], zorder=2)
 
-	elif param == 'sigma_Z':
-		# TO DO: Add Remy-Ruyer D/Z vs Z observed data
-		print("D/Z vs Z observations have not been implemented yet")
+	elif param == 'Z':
+		data = obs.galaxy_integrated_DZ('R14')
+		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		if log:
+			DZ_vals[DZ_vals == 0] = config.EPSILON
+		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', c=config.MARKER_COLORS[0], marker=config.MARKER_STYLES[0],
+					 edgecolors=config.BASE_COLOR, zorder=2)
+
+		data = obs.galaxy_integrated_DZ('DV19')
+		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		if log:
+			DZ_vals[DZ_vals == 0] = config.EPSILON
+		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', c=config.MARKER_COLORS[1], marker=config.MARKER_STYLES[1],
+					 edgecolors=config.BASE_COLOR, zorder=2)
+
+		data = obs.galaxy_integrated_DZ('PH20')
+		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		lim_mask = data['limit'].values==1
+		if log:
+			DZ_vals[DZ_vals == 0] = config.EPSILON
+		axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', c=config.MARKER_COLORS[2],
+					 marker=config.MARKER_STYLES[2], edgecolors=config.BASE_COLOR, zorder=2)
+		yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
+		axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, c=config.MARKER_COLORS[2],
+					  fmt=config.MARKER_STYLES[2], mec=config.BASE_COLOR, mew=0.3, zorder=2)
+
 	else:
 		print("D/Z vs %s observational data is not available."%param)
 
 	return
 
 
+def galaxy_int_DZ_vs_param(params, snaps, labels=None, foutname='gal_int_DZ_vs_param.png', style='color', include_obs=True):
+	"""
+	Plots the galaxy integrate dust-to-metals ratio (D/Z) vs given parameters for multiple simulations/snapshots
+
+	Parameters
+	----------
+	params: list
+		List of parameters to plot D/Z against (fH2, Mgas, Z)
+	snaps : list
+	    List of snapshots to plot
+	labels : list
+		List of labels for each data set
+	foutname: str, optional
+		Name of file to be saved
+	style : string, optional
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	include_obs : boolean
+		Overplot observed data if available
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(params))
+
+	for i, x_param in enumerate(params):
+		# Set up for each plot
+		axis = axes[i]
+		y_param = 'D/Z'
+		plt_set.setup_axis(axis, x_param, y_param, y_lim = [1E-2,1], y_log=True)
+
+		# First plot observational data if applicable
+		if include_obs: plot_observational_data(axis, x_param, goodSNR=True);
+
+		for j,snap in enumerate(snaps):
+			G = snap.loadpart(0)
+			H = snap.loadheader()
+			DZ_val = calc_gal_int_params(y_param, G)
+			param_val = calc_gal_int_params(x_param, G)
+
+			# Only need to label the seperate simulations in the first plot
+			if i==0 and labels is not None: label = labels[j];
+			else:    						label = None;
+			axis.scatter(param_val, DZ_val, label=label, marker='o', color=colors[j], zorder=3)
+
+		# Setup legend
+		if include_obs: ncol=2;
+		else: 			ncol=1;
+		axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+def calc_gal_int_params(param, G):
+	"""
+	Calculate the galaxy-integrated values given center and virial radius for multiple simulations/snapshots
+
+	Parameters
+	----------
+	param: string
+		Parameter to calculate the galaxy-integrated value for (D/Z, Z)
+	G : Particle
+	    Snapshot gas data structure
+
+	Returns
+	-------
+	val : double
+		list of galaxy-integrated values
+
+	"""
+
+	if param == 'D/Z':
+		val = utils.weighted_percentile(G.dz[:,0]/G.z[:,0], percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+	elif param == 'Z':
+		val = utils.weighted_percentile(G.z[:,0], percentiles=np.array([50]), weights=G.m, ignore_invalid=True)/config.SOLAR_Z
+	else:
+		print("Parameter given to calc_gal_int_params is not supported:",param)
+		return None
+
+	return val
+
+
 
 def DZ_vs_params(params, snaps, bin_nums=50, time=None, labels=None, foutname='DZ_vs_param.png', std_bars=True, style='color', include_obs=True, CO_opt='S12'):
 	"""
-	Plots the average dust-to-metals ratio (D/Z) vs given parameters given code values of center and virial radius for multiple simulations/snapshots
+	Plots the average dust-to-metals ratio (D/Z) vs given parameters for multiple simulations/snapshots
 
 	Parameters
 	----------

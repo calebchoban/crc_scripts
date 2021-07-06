@@ -202,7 +202,7 @@ def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log
 	xlabel = x_info[0]
 	if x_lim == None:
 		x_lim = x_info[1]
-	if x_info[2] and (x_log or x_log==None):
+	if x_info[2] or x_log:
 		axis.set_xscale('log')
 	axis.set_xlim(x_lim)
 
@@ -216,7 +216,7 @@ def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log
 	ylabel = y_info[0]
 	if y_lim == None:
 		y_lim = y_info[1]
-	if y_info[2] and (y_log or y_log==None):
+	if y_info[2] or y_log:
 		axis.set_yscale('log')
 	axis.set_ylim(y_lim)
 

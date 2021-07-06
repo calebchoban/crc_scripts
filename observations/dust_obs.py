@@ -1,8 +1,107 @@
 import numpy as np
-from gizmo_library import utils
+import pandas as pd
 
-CHIANG_FILE_NAME = 'Chiang+20_dat_v0.1.'
-OBS_DIR = './observations/'
+OBS_DIR = './observations/data/'
+
+
+def get_observational_data(dust_property, second_property):
+	"""
+	Retrieves observational dust data vs the property.
+
+	Parameters
+	----------
+	dust_property : str
+		Property of dust ('D/Z','sigma_dust','C/O/Si/Mg/Fe_depl')
+	second_property: str
+		Secondary environment property ('sigma_gas','sigma_metals','Z','nH','r','sigma_H2','fH2')
+
+	Returns
+	-------
+	data : pandas.DataFrame
+		Loaded data
+	"""
+
+
+	data=None
+	return data
+
+
+
+def galaxy_integrated_DZ(paper):
+	"""
+	Read literature data into DataFrame
+
+	Parameters
+	----------
+	paper : str
+		R14, DV19, or PH20
+
+	Returns
+	-------
+	df : pandas.DataFrame
+		Loaded data
+	"""
+	if paper == 'R14':
+		# load Remy-Ruyer+14
+		df_r14 = pd.read_csv(OBS_DIR+"remyruyer/Remy-Ruyer_2014.csv")
+		df_r14['metal'] = df_r14['12+log(O/H)']
+		df_r14['metal_z'] = 10**(df_r14['metal'] - 12.0) * \
+			16.0 / 1.008 / 0.51 / 1.36
+		df_r14['gas'] = df_r14['MU_GAL'] * \
+			(df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+		df_r14['fh2'] = df_r14['MH2_Z_MSUN'] / \
+			(df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+		df_r14['dtm'] = df_r14['MDUST_MSUN'] / df_r14['metal_z'] / \
+			df_r14['gas']
+		return df_r14
+
+	elif paper == 'DV19':
+		# load De Vis+19
+		path_dp = OBS_DIR+'dustpedia/'
+		df_d19 = pd.read_csv(path_dp + 'dustpedia_cigale_results_final_version.csv')
+		df_d19 = df_d19.rename(columns={'id': 'name'})
+		# dp metal
+		df_d19_temp = pd.read_csv(path_dp + 'DP_metallicities_global.csv')
+		df_d19 = df_d19.merge(df_d19_temp, on='name')
+		# dp hi
+		df_d19_temp = pd.read_csv(path_dp + 'DP_HI.csv')
+		df_d19 = df_d19.merge(df_d19_temp, on='name')
+		# dp h2
+		df_d19_temp = pd.read_excel(path_dp + 'DP_H2.xlsx')
+		df_d19_temp = df_d19_temp.rename(columns={'Name': 'name'})
+		df_d19 = df_d19.merge(df_d19_temp, on='name')
+		# renames
+		del df_d19_temp
+		df_d19 = \
+			df_d19.rename(columns={'SFR__Msol_per_yr': 'sfr',
+								   'Mstar__Msol': 'star',
+								   'MHI': 'hi',
+								   '12+logOH_PG16_S': 'metal'})
+		df_d19['h2'] = df_d19['MH2-r25'] * 1.36
+		df_d19['gas'] = df_d19['hi'] * 1.36 + df_d19['h2']
+		df_d19['metal_z'] = 10**(df_d19['metal'] - 12.0) * \
+			16.0 / 1.008 / 0.51 / 1.36
+		df_d19['dtm'] = df_d19['Mdust__Msol'] / (df_d19['metal_z'] * df_d19['gas'])
+		# df_d19
+		# used XCO (no 1.36) / a constant XCO is used
+		# Need to check merging data frames with missing rows
+		# https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.merge.html
+		#
+		return df_d19
+
+	elif paper == 'PH20':
+		# load Howk's review (Peroux+20)
+		path_dp = OBS_DIR+'howk/tableSupplement_howk.csv'
+		df_p20 = pd.read_csv(path_dp, comment='#')
+		df_p20['metal'] = 8.69 + df_p20['[M/H]']
+		df_p20['metal_z'] = 10**(df_p20['metal'] - 12.0) * \
+			16.0 / 1.008 / 0.51 / 1.36
+		df_p20['dtm'] = 10**df_p20['log_DTM']
+		df_p20['limit'] = df_p20['log_DTM'] <= -1.469
+		return df_p20
+
+
+
 
 def Dwek_2014_M31_dust_dens_vs_radius():
 	"""
@@ -19,7 +118,7 @@ def Dwek_2014_M31_dust_dens_vs_radius():
 				   3.1557e+3,2.7038e+3])
 
 	# Covert to correct units a
-	kpc_to_pc = 1E3;
+	kpc_to_pc = 1E3
 	surface_dens /= (kpc_to_pc * kpc_to_pc)
 
 	return radius, surface_dens
@@ -49,7 +148,7 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	r_indx = np.argmin(np.abs(r_vals-r_scale))
 	sigma_dust = sigma_dust_scale * np.power(r_vals/ r_vals[r_indx],-0.8)
 
-	return r_val, sigma_dust
+	return r_vals, sigma_dust
 
 
 
@@ -120,7 +219,7 @@ def Parvathi_2012_C_Depl(solar_abund='max'):
 
 	Returns
 	------
-	C_depl : array
+	C_depl : np.array
 		C depletions for all sightlines
 	C_err : array
 		Errors for each C depeltions
@@ -232,7 +331,7 @@ def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B1
 	binned data
 	"""
 
-	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
+	file_name = OBS_DIR+'Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 
 	bin_nums = 40
 
@@ -316,7 +415,7 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
-	file_name = CHIANG_FILE_NAME+CO_opt+'.csv'
+	file_name = OBS_DIR+'Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas':

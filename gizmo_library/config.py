@@ -54,7 +54,7 @@ BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 Cm_to_pc					= 3.24078e-19
 
-FIRE_VERSION 				= 2
+FIRE_VERSION 				= 3
 if FIRE_VERSION == 2:
 	SOLAR_Z					= 0.02
 else:
