@@ -415,8 +415,8 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
-	file_name = OBS_DIR+'Chiang+20_dat_v0.1.'+CO_opt+'.csv'
-	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None,encoding=None)
+	file_name = OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
+	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas':
 		vals = np.power(10,data['gas'])

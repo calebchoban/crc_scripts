@@ -9,8 +9,19 @@ from .snapshot import Snapshot
 
 class Dust_Evo(object):
 
-	def __init__(self, sdir, snap_lims, cosmological=0, periodic_bound_fix=False, dust_depl=False, statistic='average' , dirc='./'):
-		self.data = Dust_Evo_Data(sdir, snap_lims, cosmological=cosmological, periodic_bound_fix=periodic_bound_fix, dust_depl=dust_depl, statistic=statistic)
+	def __init__(self, sdir, snap_lims, cosmological=0, periodic_bound_fix=False, dust_depl=False,
+				 statistic='average' , dirc='./', name=None):
+		# If a name is given then data has already been saved so just load that
+		if name != None:
+			if os.path.isfile(dirc+name):
+				with open(dirc+name, 'rb') as handle:
+					self.data = pickle.load(handle)
+			else:
+				print("Preexisting file %s given but it does not exist!"%name)
+				return
+		else:
+			self.data = Dust_Evo_Data(sdir, snap_lims, cosmological=cosmological, periodic_bound_fix=periodic_bound_fix, dust_depl=dust_depl, statistic=statistic)
+
 		self.stat = statistic
 		self.sdir = sdir
 		self.snap_lims = snap_lims
@@ -58,7 +69,7 @@ class Dust_Evo(object):
 
 		if self.k: return
 
-		# Check if previously saved 
+		# Check if previously saved if so load that and we are done
 		if os.path.isfile(self.dirc+self.name+'.pickle'):
 			with open(self.dirc+self.name+'.pickle', 'rb') as handle:
 				self.data = pickle.load(handle)
@@ -82,8 +93,8 @@ class Dust_Evo(object):
 
 		# First create directory if needed
 		if not os.path.isdir(self.dirc):
-		    os.mkdir(self.dirc)
-		    print("Directory " + self.dirc +  " Created ")
+			os.mkdir(self.dirc)
+			print("Directory " + self.dirc +  " Created ")
 
 		with open(self.dirc+self.name+'.pickle', 'wb') as handle:
 			pickle.dump(self.data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -177,8 +188,11 @@ class Dust_Evo_Data(object):
 			if self.cosmological: self.redshift[i] = sp.redshift
 			if self.setHalo:
 				gal = sp.loadhalo(**self.kwargs)
-			if self.setDisk:
+			elif self.setDisk:
 				gal = sp.loaddisk(**self.kwargs)
+			else:
+				print("Need to specify halo or disk before loading data")
+				return
 			gas = gal.loadpart(0)
 
 			self.z[i] = np.nansum(gas.z[:,0]*gas.m)/np.nansum(gas.m)
@@ -196,8 +210,11 @@ class Dust_Evo_Data(object):
 			if self.cosmological: self.redshift[i] = sp.redshift
 			if self.setHalo:
 				gal = sp.loadhalo(**self.kwargs)
-			if self.setDisk:
+			elif self.setDisk:
 				gal = sp.loaddisk(**self.kwargs)
+			else:
+				print("Need to specify halo or disk before loading data")
+				return
 			gas = gal.loadpart(0)
 
 			self.z[i] = weighted_percentile(gas.z[:,0], percentiles=[50], weights=gas.m, ignore_invalid=True)

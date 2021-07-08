@@ -5,62 +5,90 @@ import matplotlib.lines as mlines
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from gizmo_library import config
 
-def setup_plot_style(num_sets, style='color'):
-	"""
-	Sets up the line widths, colors, and line styles that will be used for plotting
-	the given number of data sets and desired style.
 
-	Parameters
-	----------
-	num_sets : int
-		Number of data sets that will be plotted
-	style : string
-		The style which will be used to differentiate the data sets. 'color' gives 
-		each a different color, 'size' gives each a different line width.
-
-	Returns
-	-------
-	linewidths : array
-		List of linewidths for each data set.
-	colors : array
-		List of colors for each data set.		
-	linestyles : array
-		List of linestyles for each data set.
-
-	"""	
-
-
-	if num_sets == 1:
-		linewidths = np.full(num_sets,config.BASE_LINEWIDTH)
-		colors = config.LINE_COLORS
-		linestyles = config.LINE_STYLES
-	elif style == 'color':
-		linewidths = np.full(num_sets,config.BASE_LINEWIDTH)
-		colors = config.LINE_COLORS
-		linestyles = config.LINE_STYLES
-	elif style == 'size':
-		linewidths = config.LINE_WIDTHS
-		colors = ['xkcd:black' for i in range(num_sets)]
-		linestyles = ['-' for i in range(num_sets)]
-	else:
-		print("Need to give a style when plotting more than one set of data. Currently 'color' and 'size' differentiation are supported.")
-		return None,None,None
-
-	return linewidths, colors, linestyles
-
-
-def setup_legend_handles(snap_labels, params=[], style='color-line'):
+def setup_plot_style(snap_nums, properties=[], style='color-linestyle'):
 	"""
 	Sets up the handles for plot legend with specified style and parameters being plotted.
 
 	Parameters
 	----------
-	snap_labels : list
-		List of snapshot names to be plotted
-	params: list
-		List of paramters that will also be plotted on the same plot if applicable
+	snap_nums : int
+		Number of snapshots you will be plotting
+	properties: list
+		List of properties that will also be plotted on the same plot if applicable
 	style : string
-		The style which will be used to differentiate the data sets. 
+		The style which will be used to differentiate the data sets.
+		'color': each snapshot has different color
+		'size': each snapshot has different line width
+		'linestyle': each snapshot had different line style
+		'color-linestyle': each snapshot had different color and line style
+
+	Returns
+	-------
+	linewidths : list
+		List of linewidths for each data set.
+	colors : list
+		List of colors for each data set.
+	linestyles : list
+		List of linestyles for each data set.
+
+	"""
+
+	# First case just plotting one snapshot so no need for legend handles
+	if snap_nums == 1 and len(properties)<=1:
+		linewidths = np.full(1,config.BASE_LINEWIDTH)
+		colors = [config.BASE_COLOR]
+		linestyles = [config.BASE_LINESTYLE]
+	# In case we are plotting one snapshot with multiple properties on one plot follow the style choice to differentiate properties
+	elif snap_nums == 1:
+		colors = [config.BASE_COLOR]*len(properties)
+		linestyles = [config.BASE_LINESTYLE]*len(properties)
+		linewidths = [config.BASE_LINEWIDTH]*len(properties)
+		if 'color' in style:
+			colors = config.LINE_COLORS[:len(properties)]
+		if 'linestyle' in style:
+			linestyles = config.LINE_STYLES[:len(properties)]
+		if 'size' in style:
+			linewidths = config.LINE_WIDTHS[:len(properties)]
+	# If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
+	elif len(properties) <= 1:
+		colors = [config.BASE_COLOR]*snap_nums
+		linestyles = [config.BASE_LINESTYLE]*snap_nums
+		linewidths = [config.BASE_LINEWIDTH]*snap_nums
+		if 'color' in style:
+			colors = config.LINE_COLORS[:snap_nums]
+		if 'linestyle' in style:
+			linestyles = config.LINE_STYLES[:snap_nums]
+		if 'size' in style:
+			linewidths = config.LINE_WIDTHS[:snap_nums]
+	# If there are multiple snapshots and properties then need to force each snapshot as a different linestyle and each parameter as a different color
+	else:
+		colors = []; linewidths = []; linestyles = [];
+		for i in range(snap_nums):
+			colors += [config.LINE_COLORS[i]]*len(properties)
+			linewidths += [config.BASE_LINEWIDTH]*len(properties)
+			linestyles += config.LINE_STYLES[:len(properties)]
+
+	return linewidths, colors, linestyles
+
+
+
+
+
+def setup_legend_handles(snap_nums, snap_labels=[], properties=[], style='color-line'):
+	"""
+	Sets up the handles for plot legend with specified style and parameters being plotted.
+
+	Parameters
+	----------
+	snap_nums : int
+		Number of snapshots you will be plotting
+	snap_labels : list
+		List of labels for snapshots to be plotted. Only need to provide if you want legend handles.
+	properties: list
+		List of properties that will also be plotted on the same plot if applicable
+	style : string
+		The style which will be used to differentiate the data sets.
 		'color': each snapshot has different color
 		'size': each snapshot has different line width
 		'line': each snapshot had different line style
@@ -68,70 +96,72 @@ def setup_legend_handles(snap_labels, params=[], style='color-line'):
 
 	Returns
 	-------
-	handles : array
-		List of handles to be given to plot legend
-	linewidths : array
+	label_handles : dict
+		Dictionary with labels and their corresponding handles to be given to plot legend
+	linewidths : list
 		List of linewidths for each data set.
-	colors : array
-		List of colors for each data set.		
-	linestyles : array
+	colors : list
+		List of colors for each data set.
+	linestyles : list
 		List of linestyles for each data set.
 
-	"""	
+	"""
 
 	handles = []
-	# First case just plottinng one snapshot so no need for legend handles
-	if len(snap_labels) == 1 and len(params)<=1:
+	labels = []
+	# First case just plotting one snapshot so no need for legend handles
+	if snap_nums == 1 and len(properties)<=1:
 		linewidths = np.full(1,config.BASE_LINEWIDTH)
 		colors = [config.BASE_COLOR]
 		linestyles = [config.BASE_LINESTYLE]
-
-	# In the rare case that we are plotting one snapshot with multiple params follow the style choice to differentiate params
-	elif len(snap_labels) == 1:
-		colors = [config.BASE_COLOR]*len(params)
-		linestyles = [config.BASE_LINESTYLE]*len(params)
-		linewidths = [config.BASE_LINEWIDTH]*len(params)
+	# In case we are plotting one snapshot with multiple properties on one plot follow the style choice to differentiate properties
+	elif snap_nums == 1:
+		colors = [config.BASE_COLOR]*len(properties)
+		linestyles = [config.BASE_LINESTYLE]*len(properties)
+		linewidths = [config.BASE_LINEWIDTH]*len(properties)
 		if 'color' in style:
-			colors = config.LINE_COLORS[:len(params)]
+			colors = config.LINE_COLORS[:len(properties)]
 		if 'line' in style:
-			linestyles = config.LINE_STYLES[:len(params)]
+			linestyles = config.LINE_STYLES[:len(properties)]
 		if 'size' in style:
-			linewidths = config.LINE_WIDTHS[:len(params)]
-		for i, param in enumerate(params):
-			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=config.PARAM_INFO[param][0])]	
-	
+			linewidths = config.LINE_WIDTHS[:len(properties)]
+		for i, prop in enumerate(properties):
+			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=config.PROP_INFO[prop][0])]
+			labels += [config.PROP_INFO[prop][0]]
 	# If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
-	elif len(params) <= 1:
-		colors = [config.BASE_COLOR]*len(snap_labels)
-		linestyles = [config.BASE_LINESTYLE]*len(snap_labels)
-		linewidths = [config.BASE_LINEWIDTH]*len(snap_labels)
+	elif len(properties) <= 1:
+		colors = [config.BASE_COLOR]*snap_nums
+		linestyles = [config.BASE_LINESTYLE]*snap_nums
+		linewidths = [config.BASE_LINEWIDTH]*snap_nums
 		if 'color' in style:
-			colors = config.LINE_COLORS[:len(snap_labels)]
+			colors = config.LINE_COLORS[:snap_nums]
 		if 'line' in style:
-			linestyles = config.LINE_STYLES[:len(snap_labels)]
+			linestyles = config.LINE_STYLES[:snap_nums]
 		if 'size' in style:
-			linewidths = config.LINE_WIDTHS[:len(snap_labels)]
+			linewidths = config.LINE_WIDTHS[:snap_nums]
 		for i, label in enumerate(snap_labels):
-			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=label)]		
-	
-	# If there are multiple snapshots and parameters then need to force each snapshot as a different linestyle and each parameter as a different color
+			handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=label)]
+			labels += [label]
+	# If there are multiple snapshots and properties then need to force each snapshot as a different linestyle and each parameter as a different color
 	else:
 		colors = []; linewidths = []; linestyles = [];
-		for i, param in enumerate(snap_labels):
-			colors += [config.LINE_COLORS[i]]*len(params)
-			linewidths += [config.BASE_LINEWIDTH]*len(params)
-			linestyles += config.LINE_STYLES[:len(params)]
-		for i, param in enumerate(params):
-			handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=config.LINE_STYLES[i],label=config.PARAM_INFO[param][0])]
+		for i, label in enumerate(snap_labels):
+			colors += [config.LINE_COLORS[i]]*len(properties)
+			linewidths += [config.BASE_LINEWIDTH]*len(properties)
+			linestyles += config.LINE_STYLES[:len(properties)]
+		for i, prop in enumerate(properties):
+			handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=config.LINE_STYLES[i], label=config.PROP_INFO[prop][0])]
+			labels += [config.PROP_INFO[prop][0]]
 		for i, label in enumerate(snap_labels):
 			handles += [mlines.Line2D([], [], color=config.LINE_COLORS[i], linestyle=config.BASE_LINESTYLE,label=label)]
+			labels += [label]
+
+	label_handles = dict(zip(labels, handles))
+	return label_handles, linewidths, colors, linestyles
 
 
-	return handles, linewidths, colors, linestyles
 
-
-
-def setup_figure(num_plots, sharex=False, sharey=False):
+def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False):
 	"""
 	Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
 
@@ -139,49 +169,88 @@ def setup_figure(num_plots, sharex=False, sharey=False):
 	----------
 	num_plots : int
 		Number of plots to be plotted
+	orientation : string, optional
+		Choose horizontal or vertical orientation when there are multiple subplots
+	sharex,sharey : bool or {'none', 'all', 'row', 'col'}, default: False
+		Same as sharex, sharey for matplotlib.pyplot.subplots
 
 	Returns
 	-------
-	fig : Pyplot figure
-		Pyplot figure which houses plots
+	fig : Figure
+		Matplotlib figure which houses plots
 	axes: list
 		List of axes for each plot
-	"""	
+	"""
+
+	if orientation not in ['vertical', 'horizontal']:
+		print("Orientation must be either vertical or horizontal for setup_figure(). Assuming horizontal for now.")
+
+	# add extra padding when there are axes labels
+	if (sharex and orientation=='vertical') or (sharey and orientation=='horizontal'):
+		label_pad = 0.
+	else:
+		label_pad = 0.1
+
 	if num_plots == 1:
 		fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
 		axes = np.array([axes])
 	elif num_plots%2 == 0:
-		fig,axes = plt.subplots(num_plots//2, 2, figsize=(2.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True, sharex=sharex, sharey=sharey)
+		if orientation == 'vertical':
+			fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(2+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+									squeeze=True, sharex=sharex, sharey=sharey)
+		else:
+			fig,axes = plt.subplots(num_plots//2, 2, figsize=((2+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+									squeeze=True, sharex=sharex, sharey=sharey)
 	elif num_plots%3 == 0:
-		fig,axes = plt.subplots(num_plots//3, 3, figsize=(3.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True)
+		if orientation == 'vertical':
+			fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(3+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+									squeeze=True, sharex=sharex, sharey=sharey)
+		else:
+			fig,axes = plt.subplots(num_plots//3, 3, figsize=((3+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+									squeeze=True, sharex=sharex, sharey=sharey)
 	else:
-		fig,axes = plt.subplots(int(np.ceil(num_plots/3.)), 3, figsize=(3.1*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/3.)*config.BASE_FIG_YSIZE*config.FIG_YRATIO), squeeze=True)
-	
-	axes=axes.flat
-	# Delete any excess axes
-	if len(axes) > num_plots:
-		for i in range(len(axes)-num_plots):
-			fig.delaxes(axes[-(i+1)])
+		dim_num = 3 # default number of plots in specified orientation
+		if orientation == 'vertical':
+			fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(dim_num+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+						squeeze=True, sharex=sharex, sharey=sharey)
+			# Need to delete extra axes and reshow tick labels if axes were shared
+			axes[(dim_num-1)-(dim_num-num_plots%dim_num),num_plots//dim_num].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
+			for i in range(dim_num-num_plots%dim_num):
+				fig.delaxes(axes[dim_num-1-i, num_plots//dim_num])
+				axes[dim_num-1-i, num_plots//dim_num] = None
+		else:
+			fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=((dim_num+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+									squeeze=True, sharex=sharex, sharey=sharey)
+			# Need to delete extra axes and reshow tick labels if axes were shared
+			for i in range(dim_num-num_plots%dim_num):
+				axes[num_plots//dim_num-1,dim_num-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
+				fig.delaxes(axes[num_plots//dim_num,dim_num-1-i])
+				axes[num_plots//dim_num,dim_num-1-i] = None
+
+	# Get rid of the axes we may have deleted
+	axes = list(filter(None, axes.flat))
+
 	return fig,axes
 
 
-def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log=None, x_label=False):
+
+def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=None):
 	"""
-	Sets up the axes for plot given x and y param and optional limits
+	Sets up the axis plot given x and y properties and optional limits
 
 	Parameters
 	----------
 	axis : Matplotlib axis
 	    Axis of plot
-	x_param : string
-		Parameter to be plotted on x axis
-	y_param : string
-		Parameter to be plotted on y axis
-	x_lim : array
+	x_prop : string
+		Property to be plotted on x axis
+	y_prop : string
+		Property to be plotted on y axis
+	x_lim : list
 		Limits for x axis
 	x_log : boolean
 		Explicitly set x axis to linear or log space, otherwise go with default for x_param
-	y_lim : array
+	y_lim : list
 		Limits for y axis
 	y_log : boolean
 		Explicitly set y axis to linear or log space, otherwise go with default for y_param
@@ -190,15 +259,15 @@ def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log
 	-------
 	None
 
-	"""	
+	"""
 
 	# Setup x axis
-	if x_param not in config.PARAM_INFO.keys():
-		print("%s is not a valid parameter\n"%x_param)
-		print("Valid parameters are:")
-		print(config.PARAM_INFO.keys())
+	if x_prop not in config.PROP_INFO.keys():
+		print("%s is not a valid property\n"%x_prop)
+		print("Valid properties are:")
+		print(config.PROP_INFO.keys())
 		return
-	x_info = config.PARAM_INFO[x_param]
+	x_info = config.PROP_INFO[x_prop]
 	xlabel = x_info[0]
 	if x_lim == None:
 		x_lim = x_info[1]
@@ -207,12 +276,12 @@ def setup_axis(axis, x_param, y_param, x_lim=None, x_log=None, y_lim=None, y_log
 	axis.set_xlim(x_lim)
 
 	# Setup y axis
-	if y_param not in config.PARAM_INFO.keys():
-		print("%s is not a valid parameter\n"%y_param)
-		print("Valid parameters are:")
-		print(config.PARAM_INFO.keys())
+	if y_prop not in config.PROP_INFO.keys():
+		print("%s is not a valid property\n"%y_prop)
+		print("Valid properties are:")
+		print(config.PROP_INFO.keys())
 		return
-	y_info = config.PARAM_INFO[y_param]
+	y_info = config.PROP_INFO[y_prop]
 	ylabel = y_info[0]
 	if y_lim == None:
 		y_lim = y_info[1]
@@ -245,14 +314,19 @@ def setup_labels(axis, xlabel, ylabel):
 
 	"""
 
-	axis.set_xlabel(xlabel, fontsize = config.LARGE_FONT)
-	axis.set_ylabel(ylabel, fontsize = config.LARGE_FONT)
+	# Check if there are tick labels for each axis, not having them means the axes are shared and so
+	# we don't want to add a label
+	if (len(axis.get_xaxis().get_ticklabels())!=0):
+		axis.set_xlabel(xlabel, fontsize = config.LARGE_FONT)
+	if (len(axis.get_yaxis().get_ticklabels())!=0):
+		axis.set_ylabel(ylabel, fontsize = config.LARGE_FONT)
 	axis.minorticks_on()
 	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-	axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
-	axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=4, width=1)	
+	axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+	axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
 	for axe in ['top','bottom','left','right']:
-  		axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+		axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+
 
 
 def setup_colorbar(image, axis, label):
@@ -266,7 +340,7 @@ def setup_colorbar(image, axis, label):
 	axis : Matplotlib axis
 	    Axis of plot
 	label : string
-	    Y axis label
+	    Color bar label
 
 
 	Returns
@@ -279,11 +353,14 @@ def setup_colorbar(image, axis, label):
 	cax = divider.append_axes("right", size="5%", pad=0.0)
 	cbar = plt.colorbar(image, cax=cax)
 	cbar.ax.set_ylabel(label, fontsize=config.LARGE_FONT)
-	cbar.ax.minorticks_on() 
+	cbar.ax.minorticks_on()
 	cbar.ax.tick_params(axis='both',which='both',direction='in',right=True)
-	cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=8, width=2)
-	cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=4, width=1)	
-	cbar.outline.set_linewidth(2)
+	cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+	cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+	cbar.outline.set_linewidth(config.AXIS_BORDER_WIDTH)
+
+	return
+
 
 
 

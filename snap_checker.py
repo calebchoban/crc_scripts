@@ -246,15 +246,15 @@ for snap_num in snaps:
 	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname="compare_phase_plot_"+str(snap_num)+".png")
 	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname="compare_DZ_phase_plot_"+str(snap_num)+".png")
 
-	dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
+	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
 
-	dmol_vs_params(['CinCO'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True)
+	dmol_vs_props(['CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True)
 
-	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
+	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
 
 	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
 						std_bars=True, style='color', include_obs=True)
 
-	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname='compare_B13_obs_DZ_vs_surf_'+str(snap_num)+'.png', \
-						std_bars=True, style='color', include_obs=True, CO_opt='B13')
+	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname='compare_B13_obs_DZ_vs_surf_'+str(snap_num)+'.png', \
+						std_bars=True, style='color', include_obs=True)

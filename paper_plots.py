@@ -1,22 +1,19 @@
-
 import os
-import subprocess
 from gizmo_library.time_evolution import Dust_Evo
 from gizmo import *
 from dust_plots import *
 
 
 # First setup directory for all the plots
-
 plot_dir = './dust_plots/'
 
 # First create ouput directory if needed
 try:
-    # Create target Directory
-    os.mkdir(plot_dir)
-    print("Directory " + plot_dir +  " Created ")
+	# Create target Directory
+	os.mkdir(plot_dir)
+	print("Directory " + plot_dir +  " Created ")
 except:
-    print("Directory " + plot_dir +  " already exists")
+	print("Directory " + plot_dir +  " already exists")
 
 
 ###############################################################################
@@ -79,7 +76,6 @@ for i,snap_dir in enumerate(snap_dirs):
 	dust_avg.set_disk(id=-1, mode='AHF', hdir=None, rmax=r_max, height=disk_height)
 	dust_avg.load()
 	dust_avg.save()
-
 	dust_evo_data += [dust_avg]
 	
 
@@ -207,17 +203,14 @@ for i, num in enumerate(snaps):
 		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 		galaxies += [galaxy]
 
-	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
+	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
 
-	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'S12_obs_DZ_vs_surf.pdf', \
-						std_bars=True, style='color', include_obs=True, CO_opt='S12')
-	
-	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
-						std_bars=True, style='color', include_obs=True, CO_opt='B13')
+	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
 
 	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
-						std_bars=True, style='color', include_obs=True)
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
 
 
 ###############################################################################
@@ -251,29 +244,26 @@ for i, num in enumerate(snaps):
 
 
 	config.FIG_XRATIO=.85 # Make the aspect ratio more 1:1
-	config.PARAM_INFO['nH'][1]=[1.1E-3,0.9E3] # Increase the density range
-	config.PARAM_INFO['T'][1]=[1.1E1,2E6] # Increase the temp range
+	config.PROP_INFO['nH'][1]=[1.1E-3, 0.9E3] # Increase the density range
+	config.PROP_INFO['T'][1]=[1.1E1, 2E6] # Increase the temp range
 	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname=plot_dir+"FIRE2-3_phase.pdf")
 	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname=plot_dir+"FIRE2-3_DZ_phase.pdf")
 	config.FIG_XRATIO=1.
-	config.PARAM_INFO['nH'][1]=[1.1E-2,0.9E3]
-	config.PARAM_INFO['T'][1]=[1.1E1,0.9E5]
+	config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E3]
+	config.PROP_INFO['T'][1]=[1.1E1, 0.9E5]
 
-	DZ_vs_params(['nH'], galaxies, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
+	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color', include_obs=True)
 
-	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_S12_obs_DZ_vs_surf.pdf', \
-						std_bars=True, style='color', include_obs=True, CO_opt='S12')
-	
-	observed_DZ_vs_param(['sigma_gas','r'], galaxies, pixel_res=2, bin_nums=40, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
-						std_bars=True, style='color', include_obs=True, CO_opt='B13')
+	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z'.'D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
 
 	elems = ['Mg','Si','Fe','O','C']
-	elem_depletion_vs_param(elems, 'nH', galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
-						std_bars=True, style='color', include_obs=True)
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
 
 
-	dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
-	dmol_vs_params(['fMC','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)
+	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
+	dmol_vs_props(['fMC','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)
 
 
 ###############################################################################
@@ -299,4 +289,4 @@ for j,snap_dir in enumerate(snap_dirs):
 	galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
 	galaxies += [galaxy]
 
-dmol_vs_params(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, time=None, labels=labels, foutname=plot_dir+'NH2_crit_variation.png.pdf', std_bars=True)
+dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'NH2_crit_variation.png.pdf', std_bars=True)
