@@ -24,6 +24,7 @@ AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
 
 # Font sizes and fig sizes for plots
+XSMALL_FONT					= 16
 SMALL_FONT					= 22
 LARGE_FONT					= 30
 EXTRA_LARGE_FONT			= 36
@@ -98,9 +99,9 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', [0., 1.], False],
 				  'Mg_depletion': [r'$\delta_{\rm Mg}$', 									[1E-3,1.1E0],   True],
 				  'Si_depletion': [r'$\delta_{\rm Si}$', 									[1E-3,1.1E0],   True],
 				  'Fe_depletion': [r'$\delta_{\rm Fe}$', 									[1E-3,1.1E0],   True],
-				 'cum_dust_prod': [r'Cumulative Dust Ratio $[M_{\rm dust}/M_{\star}]$', 	[1E-6,1E-2], 	True],
-			   'cum_metal_yield': [r'Cumulative Metal Ratio $[M_{\rm metal}/M_{\star}]$',	[1E-4,0.5E-1], 	True],
-				'inst_dust_prod': [r'Cumulative Inst. Dust Prod. [$M_{\odot}/$yr]', 		[0,2], 			False],
+				 'cum_dust_prod': [r'Cum. Dust Ratio $[M_{\rm dust}/M_{\star}]$', 			[1E-6,1E-2], 	True],
+			   'cum_metal_yield': [r'Cum. Metal Ratio $[M_{\rm metal}/M_{\star}]$',			[1E-4,0.5E-1], 	True],
+				'inst_dust_prod': [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', 				[0,2], 			False],
 				   'g_timescale': [r'$\tau_{\rm g}$ [Gyr]',									[1E-4,1E0],		True],
 			  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',						[0,1.05],		False],
 				   'source_frac': ['Source Mass Fraction', 									[1E-2,1.05], 	True],

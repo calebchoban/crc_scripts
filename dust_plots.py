@@ -697,7 +697,7 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 
 
 
-def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color', foutname='creation_routine_compare.png'):
+def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color-linestyle', foutname='creation_routine_compare.png'):
 	"""
 	Plots comparison of stellar dust creation for the given stellar metallicities
 
@@ -783,20 +783,21 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 			return()
 
 		# Add extra lines emphazising the time regimes for SNe II or AGB+SNe Ia
-		axis.axvline(transition_age, color='xkcd:grey',lw=3)
+		axis.axvline(transition_age, color='xkcd:grey',lw=config.BASE_ELINEWIDTH)
 		# Only need labels and legend for first plot
 		if i == 0:
 			y_arrow = 1E-5
 			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
-			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/3), xycoords="data", xytext=(0.15*transition_age, y_arrow/3), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=3), size=config.LARGE_FONT, color='xkcd:grey')
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=config.BASE_ELINEWIDTH), size=config.SMALL_FONT, color='xkcd:grey')
+			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/3), xycoords="data", xytext=(0.15*transition_age*1.1, y_arrow/3),
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=config.BASE_ELINEWIDTH), size=config.SMALL_FONT*1.1, color='xkcd:grey')
 			# Make legend
 			lines = []
 			for j in range(len(Z_list)):
-				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j])]
-			lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='Elemental'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1],label='Species')]
-			legend = axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT, edgecolor=config.BASE_COLOR)
+				lines += [mlines.Line2D([], [], color=colors[j], label=r'Z = %.2g $Z_{\odot}$' % Z_list[j], linewidth=config.BASE_LINEWIDTH)]
+			lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='Elemental', linewidth=config.BASE_LINEWIDTH),
+					  mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1],label='Species', linewidth=config.BASE_LINEWIDTH)]
+			legend = axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT*0.9, edgecolor=config.BASE_COLOR)
 			legend.get_frame().set_lw(config.AXIS_BORDER_WIDTH)
 		#  Add label for dust species
 		axis.text(.95, .05, name, color=config.BASE_COLOR, fontsize = config.LARGE_FONT, ha = 'right', transform=axis.transAxes)
@@ -846,15 +847,16 @@ def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
 	FIRE3_yields,_,_ = st_yields.onlySNeYields(max_t, N, Z, FIRE_ver=3)
 
 	lines = []
-	lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='FIRE-2'), mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1], label='FIRE-3')]
+	lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[0], label='FIRE-2', linewidth=linewidths[0]),
+			  mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=linestyles[1], label='FIRE-3', linewidth=linewidths[1])]
 
 	for i, elem in enumerate(elems):
 		elem_indx = config.ELEMENTS.index(elem)
 		
-		plt.plot(time,FIRE2_yields[:,elem_indx], c=colors[i], linestyle=linestyles[0])
-		plt.plot(time,FIRE3_yields[:,elem_indx], c=colors[i], linestyle=linestyles[1])
+		plt.plot(time,FIRE2_yields[:,elem_indx], c=colors[i], linestyle=linestyles[0], linewidth=linewidths[0])
+		plt.plot(time,FIRE3_yields[:,elem_indx], c=colors[i], linestyle=linestyles[1], linewidth=linewidths[1])
 		
-		lines += [mlines.Line2D([], [], color=colors[i], label=elems[i])]
+		lines += [mlines.Line2D([], [], color=colors[i], label=elems[i], linewidth=linewidths[0])]
 		
 
 	axis.legend(handles=lines, loc='upper left', frameon=False, ncol=2, fontsize=config.SMALL_FONT)

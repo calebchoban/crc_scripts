@@ -34,7 +34,7 @@ def get_particle_data(particle, property):
 		data = particle.fMC
 		data[data>1] = 1
 	elif property == 'CinCO':
-		data = particle.CinCO/particle.Z[:,2]
+		data = particle.CinCO/particle.z[:,2]
 	elif property == 'nH':
 		data = particle.rho*config.UnitDensity_in_cgs * (1. - (particle.z[:,0]+particle.z[:,1])) / config.H_MASS
 	elif property == 'T':
