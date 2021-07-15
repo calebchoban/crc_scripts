@@ -57,7 +57,7 @@ BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 Cm_to_pc					= 3.24078e-19
 
-FIRE_VERSION 				= 3
+FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
 	SOLAR_Z					= 0.02
 else:
@@ -85,13 +85,14 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', [0., 1.], False],
 					'sigma_iron': [r'$\Sigma_{\rm iron}$ [M$_{\odot}$ pc$^{-2}$]', 			[1E-3,1E0], 	True],
 					  'sigma_H2': [r'$\Sigma_{H_2}$ [M$_{\odot}$ pc$^{-2}$]', 				[1E-3,1E0], 	True],
 						  'time': ['Time [Gyr]',											[1E-2,1E1],		True],
-					  'star_age': ['Stellar Population Age [Gyr]',							[1E-3,1E1],		True],
+					  'star_age': ['Stellar Population Age [Gyr]',							[2E-3,1E1],		True],
 					  'redshift': ['z',														[1E-1,100],		True],
 						 'M_gas': [r'$M_{\rm gas}\;[M_{\odot}]$',							[1E4,1E8],		True],
 						  'M_H2': [r'$M_{\rm H_2}\;[M_{\odot}]$',							[1E1,1E7],		True],
 							'nH': [r'$n_{\rm H}$ [cm$^{-3}$]', 								[1.1E-2,0.9E3], True],
 							 'T': [r'T [K]', 												[1.1E1,0.9E5],  True],
 							 'Z': [r'Z [Z$_{\odot}$]', 										[1.1E-3,5E0], 	True],
+						   'O/H': ['12+log(O/H)', 											[6.5,9.5], 	    False],
 						   'D/Z': ['D/Z', 													[0,1.05],   	False],
 					 'depletion': [r'$\delta_{\rm X}$', 									[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 									[1E-1,1.1E0],   True],
@@ -100,12 +101,12 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', [0., 1.], False],
 				  'Si_depletion': [r'$\delta_{\rm Si}$', 									[1E-3,1.1E0],   True],
 				  'Fe_depletion': [r'$\delta_{\rm Fe}$', 									[1E-3,1.1E0],   True],
 				 'cum_dust_prod': [r'Cum. Dust Ratio $[M_{\rm dust}/M_{\star}]$', 			[1E-6,1E-2], 	True],
-			   'cum_metal_yield': [r'Cum. Metal Ratio $[M_{\rm metal}/M_{\star}]$',			[1E-4,0.5E-1], 	True],
+			   'cum_metal_yield': [r'Cum. Metal Ratio $[M_{\rm metal}/M_{\star}]$',			[1E-4,0.7E-1], 	True],
 				'inst_dust_prod': [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', 				[0,2], 			False],
 				   'g_timescale': [r'$\tau_{\rm g}$ [Gyr]',									[1E-4,1E0],		True],
 			  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',						[0,1.05],		False],
 				   'source_frac': ['Source Mass Fraction', 									[1E-2,1.05], 	True],
 					 'spec_frac': ['Species Mass Fraction', 								[0,1.05], 		False],
 						  'Si/C': ['Sil-to-C Ratio', 										[0,10], 		False],
-					 'mass_frac': ['Mass Fraction',											[0,1.05],			False]
+					 'mass_frac': ['Mass Fraction',											[0,1.05],		False]
 							}

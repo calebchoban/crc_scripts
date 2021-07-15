@@ -43,6 +43,10 @@ def get_particle_data(particle, property):
 		data = np.sqrt(np.power(particle.p[:,0],2) + np.power(particle.p[:,1],2))
 	elif property == 'Z':
 		data = particle.z[:,0]/config.SOLAR_Z
+	elif property == 'Z_all':
+		data = particle.z
+	elif property == 'Si/C':
+		data = particle.spec[:,0]/particle.spec[:,1]
 	elif property == 'D/Z':
 		data = particle.dz[:,0]/particle.z[:,0]
 		data[data > 1] = 1.
@@ -279,7 +283,11 @@ def calc_gal_int_params(property, G):
 	if property == 'D/Z':
 		val = utils.weighted_percentile(get_particle_data(G,'D/Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'Z':
-		val = utils.weighted_percentile(get_particle_data(G,'Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)/config.SOLAR_Z
+		val = utils.weighted_percentile(get_particle_data(G,'Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+	elif property == 'O/H':
+		Z = get_particle_data(G,'Z_all')
+		O = Z[:,4]/config.ATOMIC_MASS[4]; H = (1-(Z[:,0]+Z[:,1]))/config.ATOMIC_MASS[0]
+		val = utils.weighted_percentile(12+np.log10(O/H), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'M_gas':
 		val = np.sum(G.m*config.UnitMass_in_Msolar)
 	else:

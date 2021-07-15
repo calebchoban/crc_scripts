@@ -132,31 +132,37 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=config.BASE_MARKERSIZE**2)
 			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH, zorder=2)
 
-	elif property == 'Z':
+	elif property == 'Z' or property=='O/H':
+		if property == 'Z':
+			key_name = 'metal_z'; unit_conv = config.SOLAR_Z
+		else:
+			key_name = 'metal'; unit_conv = 1.
 		data = obs.galaxy_integrated_DZ('R14')
-		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=config.BASE_MARKERSIZE**2, c=config.MARKER_COLORS[0], marker=config.MARKER_STYLES[0],
-					 edgecolors=config.BASE_COLOR, zorder=2)
+		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=config.BASE_MARKERSIZE**2, marker=config.MARKER_STYLES[0],
+					 facecolors='none', linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[0], zorder=2)
 
 		data = obs.galaxy_integrated_DZ('DV19')
-		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=config.BASE_MARKERSIZE**2, c=config.MARKER_COLORS[1], marker=config.MARKER_STYLES[1],
-					 edgecolors=config.BASE_COLOR, zorder=2)
+		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=config.BASE_MARKERSIZE**2, marker=config.MARKER_STYLES[1], facecolors='none',
+					 linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[1], zorder=2)
 
 		data = obs.galaxy_integrated_DZ('PH20')
-		Z_vals = data['metal_z'].values/config.SOLAR_Z; DZ_vals = data['dtm'].values
+		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
 		lim_mask = data['limit'].values==1
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', c=config.MARKER_COLORS[2], s=config.BASE_MARKERSIZE**2,
-					 marker=config.MARKER_STYLES[2], edgecolors=config.BASE_COLOR, zorder=2)
+		axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', s=config.BASE_MARKERSIZE**2,
+					 marker=config.MARKER_STYLES[2], facecolors='none', linewidths=config.LINE_WIDTHS[1],
+					 edgecolors=config.MARKER_COLORS[2], zorder=2)
 		yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
-		axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, c=config.MARKER_COLORS[2], markersize=config.BASE_MARKERSIZE,
-					  fmt=config.MARKER_STYLES[2], mec=config.BASE_COLOR, mew=0.3, elinewidth=config.BASE_ELINEWIDTH, zorder=2)
+		axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=config.BASE_MARKERSIZE, mew=config.LINE_WIDTHS[1],
+					  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
+					  ecolor=config.MARKER_COLORS[2], zorder=2)
 
 	else:
 		print("D/Z vs %s observational data is not available."%property)
@@ -204,7 +210,7 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 		# Set up for each plot
 		axis = axes[i]
 		y_prop = 'D/Z'
-		plt_set.setup_axis(axis, x_prop, y_prop, y_lim = [1E-2,1], y_log=True)
+		plt_set.setup_axis(axis, x_prop, y_prop, y_lim = [5E-3,5], y_log=True)
 
 		# First plot observational data if applicable
 		if include_obs: plot_observational_data(axis, x_prop, goodSNR=True);
@@ -214,7 +220,9 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 			DZ_val = calc.calc_gal_int_params(y_prop, G)
 			prop_val = calc.calc_gal_int_params(x_prop, G)
 
-			axis.scatter(prop_val, DZ_val, label=labels[j], marker='o', color=colors[j], zorder=3)
+			print(prop_val,DZ_val)
+
+			axis.scatter(prop_val, DZ_val, label=labels[j], marker='o', color=colors[j], s=(1.1*config.BASE_MARKERSIZE)**2, zorder=3)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		hands, labs = axis.get_legend_handles_labels()
@@ -283,7 +291,7 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs: plot_observational_data(axis, x_prop, goodSNR=True);
+		if include_obs and y_prop=='D/Z': plot_observational_data(axis, x_prop, goodSNR=True);
 
 		for j,snap in enumerate(snaps):
 			G = snap.loadpart(0)
@@ -493,7 +501,7 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(xprops))
+	fig,axes = plt_set.setup_figure(len(xprops), sharey=True)
 
 	labels_handles = {}
 	for i, x_prop in enumerate(xprops):
@@ -697,7 +705,8 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 
 
 
-def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color-linestyle', foutname='creation_routine_compare.png'):
+def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='color-linestyle',
+						  foutname='creation_routine_compare.png', reload=False):
 	"""
 	Plots comparison of stellar dust creation for the given stellar metallicities
 
@@ -713,6 +722,8 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 		Version of FIRE metals yields to use in calculations
 	transition_age : double
 		Age at which stellar yields switch from O/B to AGB stars
+	reload : boolean
+		Recalculate the simulated dust data instead of loading from any saved files
 
 	Returns
 	-------
@@ -740,12 +751,12 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 	# First make simulated data if it hasn't been made already
 	for Z in Z_list:
 		name = '/FIRE'+str(FIRE_ver)+'_elem_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-		if not os.path.isfile(data_dirc + name):
+		if not os.path.isfile(data_dirc + name) or reload:
 			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="elemental")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
 		name = '/FIRE'+str(FIRE_ver)+'_spec_Z_'+str(Z).replace('.','-')+'_cum_yields.pickle'
-		if not os.path.isfile(data_dirc +name):
+		if not os.path.isfile(data_dirc +name) or reload:
 			cum_yields, cum_dust_yields, cum_species_yields = st_yields.totalStellarYields(max_t,N,Z,FIRE_ver=FIRE_ver,routine="species")
 			pickle.dump({"time": time, "yields": cum_yields, "elem": cum_dust_yields, "spec": cum_species_yields}, open(data_dirc + name, "wb" ))
 
@@ -756,9 +767,10 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 
 	# Compare routine carbon yields between routines
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(dust_species))
+	fig,axes = plt_set.setup_figure(len(dust_species), sharey=True)
 	x_param = 'star_age'; y_param = 'cum_dust_prod'
 	x_lim = [time_step,max_t]
+	x_lim=None
 
 	for i, species in enumerate(dust_species):
 		axis = axes[i]
@@ -788,7 +800,7 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 		if i == 0:
 			y_arrow = 1E-5
 			axis.annotate('AGB+SNe Ia', va='center', xy=(transition_age, y_arrow), xycoords="data", xytext=(2*transition_age, y_arrow), 
-			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=config.BASE_ELINEWIDTH), size=config.SMALL_FONT, color='xkcd:grey')
+			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=config.BASE_ELINEWIDTH), size=config.SMALL_FONT*1.1, color='xkcd:grey')
 			axis.annotate('SNe II', va='center', xy=(transition_age, y_arrow/3), xycoords="data", xytext=(0.15*transition_age*1.1, y_arrow/3),
 			            arrowprops=dict(arrowstyle='<-',color='xkcd:grey', lw=config.BASE_ELINEWIDTH), size=config.SMALL_FONT*1.1, color='xkcd:grey')
 			# Make legend
@@ -816,8 +828,8 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonpositive = 'clip', linewidth = linewidths[j])
 
 		axis.set_ylim([1E-7,1E-2])
-		axis.set_xlim([time[0], time[-1]])
 
+	plt.tight_layout()
 	plt.savefig(foutname, transparent=False, bbox_inches='tight')
 	plt.close()
 

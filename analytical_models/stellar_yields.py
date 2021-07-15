@@ -68,8 +68,10 @@ def stellarRates(star_age, Z, time_step, FIRE_ver=2):
 		else:
 			p=f3*np.power(t/t3,-3.1) 
 		# add AGB component. note that essentially no models [any of the SB99 geneva or padova tracks, or NuGrid, or recent other MESA models] predict a significant dependence on metallicity (that shifts slightly when the 'bump' occurs, but not the overall loss rate), so this term is effectively metallicity-independent */
-		f_agb=0.01; t_agb=1.; 
-		p += f_agb/((1. + np.power(t/t_agb,1.1)) * (1. + 0.01/(t/t_agb))); 
+		f_agb=0.01; t_agb=1.
+		p += f_agb/((1. + np.power(t/t_agb,1.1)) * (1. + 0.01/(t/t_agb)))
+
+
 
 
 	p *= time_step; # fraction of particle mass expected to return in the timestep 
@@ -94,7 +96,7 @@ def SNeRates(star_age, Z, time_step, FIRE_ver=2):
 		if star_age > agemin:
 			if star_age<=agebrk:
 				RSNe = 5.408e-4; # NSNe/Myr *if* each SNe had exactly 10^51 ergs; really from the energy curve 
-			if star_age<=agemax:
+			elif star_age<=agemax:
 				RSNe = 2.516e-4; # this is for a 1 Msun population 
 			# Ia (prompt Gaussian+delay, Manucci+06)
 			if star_age>agemax:
@@ -124,49 +126,27 @@ def SNeRates(star_age, Z, time_step, FIRE_ver=2):
 
 
 # Total metal and dust yields for stellar winds
-def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
+def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species_nano', trim_excess=True):
 	yields = np.zeros(11)
 	dust_yields = np.zeros(11)
 	species_yields = np.zeros(4)
 	atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
-	if routine == 'species':
+	if 'species' in routine:
+		M_wind = stellarRates(star_age,Z,time_step,FIRE_ver=FIRE_ver)
 		sil_num_atoms = [3.631,1.06,1.,0.571] # O, Mg, Si, Fe
 		sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe 
-		dust_formula_mass = 0
+		sil_formula_mass = 0
+		for k in range(4):
+			sil_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
 	else:
-		condens_eff = 0.8;
-	
-	for k in range(11):
-		yields[k] = solarMetallicity(k)*Z
-
-	# All, then He,C,N,O,Ne,Mg,Si,S,Ca,Fe ;; follow AGB/O star yields in more detail for the light elements 
-	#   the interesting species are He & CNO: below is based on a compilation of van den Hoek & Groenewegen 1997, Marigo 2001, Izzard 2004 
-	yields[1]=0.36; # He 
-	yields[2]=0.016; # C
-	yields[3]=0.0041; # N
-	yields[4]=0.0118; # O
-	# metal-dependent yields: O scaling is strongly dependent on initial metallicity of the star //
-	if solarMetallicity(0)*Z<0.033:
-		yields[4] *= Z
-	else: 
-		yields[4] *= 1.65
-	for k in range(1,5):
-		yields[k]=yields[k]*(1.- Z*solarMetallicity(0)) + (solarMetallicity(k)*Z-solarMetallicity(k)) 
-		if yields[k]<0:
-			yields[k]=0.0 
-		if yields[k]>1:
-			yields[k]=1.
-	yields[0]=0.0
-	for k in range(2,11):
-		yields[0]+=yields[k]
-
+		condens_eff = 0.8
 
 	for k in range(11):
 		yields[k]=Z*solarMetallicity(k,FIRE_ver=FIRE_ver) # return surface abundances, to leading order
 
 	# All, then He,C,N,O,Ne,Mg,Si,S,Ca,Fe follow AGB/O star yields in more detail for the light elements
 	if FIRE_ver > 2:
-		# everything except He and CNO and S-process is well-approximated by surface abundances. and CNO is conserved to high accuracy in sum for secondary production 
+		# everything except He and CNO and S-process is well-approximated by surface abundances. and CNO is conserved to high accuracy in sum for secondary production
 		# define initial H, He, CNO fraction
 		f_H_0=1.-(yields[0]+yields[1])
 		f_He_0=yields[1]
@@ -174,55 +154,48 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 		f_N_0=yields[3]
 		f_O_0=yields[4]
 		f_CNO_0=f_C_0+f_N_0+f_O_0
-		t = star_age 
-		z_sol = f_CNO_0 / (solarMetallicity(2,FIRE_ver=FIRE_ver)+solarMetallicity(3,FIRE_ver=FIRE_ver)+solarMetallicity(4,FIRE_ver=FIRE_ver)); # stellar population age in Gyr, and solar-scaled CNO abundance
+		t = star_age
+		z_sol = f_CNO_0 / (solarMetallicity(2,FIRE_ver=FIRE_ver)+solarMetallicity(3,FIRE_ver=FIRE_ver)+solarMetallicity(4,FIRE_ver=FIRE_ver)) # stellar population age in Gyr, and solar-scaled CNO abundance
 		# model He production : this scales off of the fraction of H in IC: y here represents the yield of He produced by burning H, scales off availability
-		t1=0.0028; t2=0.01; t3=2.3; t4=3.0; y1=0.4*min(np.power(z_sol+1.E-3,0.6),2.); y2=0.08; y3=0.07; y4=0.042;
+		t1=0.0028; t2=0.01; t3=2.3; t4=3.0; y1=0.4*min(np.power(z_sol+1.E-3,0.6),2.); y2=0.08; y3=0.07; y4=0.042
+		if t<t1: y=y1*np.power(t/t1,3)
+		elif t<t2: y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
+		elif t<t3: y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
+		elif t<t4: y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3))
+		else: y=y4
+		yields[1] = f_He_0 + y * f_H_0 # y above
+		# model secondary N production in CNO cycle: scales off of initial fraction of CNO: y here represents fraction of CO mass converted to -additional- N
+		t1=0.001; t2=0.0028; t3=0.05; t4=1.9; t5=14.0; y1=0.2*max(1.E-4,min(z_sol*z_sol,0.9)); y2=0.68*min(np.power(z_sol+1.E-3,0.1),0.9); y3=0.4; y4=0.23; y5=0.065
 		if t<t1:
-			y=y1*np.power(t/t1,3) 
+			y=y1*np.power(t/t1,3.5)
 		elif t<t2:
 			y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
 		elif t<t3:
 			y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
 		elif t<t4:
 			y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3))
-		else:
-			y=y4
-		yields[1] = f_He_0 + y * f_H_0; # y above 
-		# model secondary N production in CNO cycle: scales off of initial fraction of CNO: y here represents fraction of CO mass converted to -additional- N
-		t1=0.001; t2=0.0028; t3=0.05; t4=1.9; t5=14.0; y1=0.2*max(1.E-4,min(z_sol*z_sol,0.9)); y2=0.68*min(np.power(z_sol+1.E-3,0.1),0.9); y3=0.4; y4=0.23; y5=0.065;
-		if t<t1:
-			y=y1*np.power(t/t1,3.5)
-		elif t<t2:
-			y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
-		elif t<t3: 
-			y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
-		elif t<t4: 
-			y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3)) 
 		elif t<t5:
 			y=y4*np.power(t/t4,np.log(y5/y4)/np.log(t5/t4))
 		else:
 			y=y5
-
 		y=max(0.,min(1.,y)); frac_loss_from_C = 0.5; floss_CO = y * (f_C_0 + f_O_0); floss_C = min(frac_loss_from_C * floss_CO, 0.99*f_C_0); floss_O = floss_CO - floss_C;
 		yields[3] = f_N_0 + floss_CO; yields[2] = f_C_0 - floss_C; yields[4] = f_O_0 - floss_O; # convert mass from CO to N, conserving exactly total CNO mass
 		# model primary C production: scales off initial H+He, generally small compared to loss fraction above in SB99, large in some other models, very small for early OB winds
-		t1=0.005; t2=0.04; t3=10.; y1=1.e-6; y2=0.001; y3=0.005;
+		t1=0.005; t2=0.04; t3=10.; y1=1.e-6; y2=0.001; y3=0.005
 		if t<t1:
 			y=y1*np.power(t/t1,3)
 		elif t<t2:
-			y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
+			y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1));
 		elif t<t3:
 			y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
 		else:
 			y=y3
-		y_H_to_C = (1.-(yields[0]+yields[1])) * y; y_He_to_C = f_He_0 * y; # simply multiple initial He by this factor to get final production
-		yields[1] -= y_He_to_C; yields[2] += y_H_to_C + y_He_to_C; # transfer this mass fraction from H+He to C; gives stable results if 0 < f_He_0_to_C < 1
+		y_H_to_C = (1.-(yields[0]+yields[1])) * y; y_He_to_C = f_He_0 * y # simply multiple initial He by this factor to get final production
+		yields[1] -= y_He_to_C; yields[2] += y_H_to_C + y_He_to_C # transfer this mass fraction from H+He to C; gives stable results if 0 < f_He_0_to_C < 1
 		# model S-process production: currently no S-process tracers -explicitly- followed, so we skip this step
-		yields[0]=0.0; 
+		yields[0]=0.0
 		for k in range(2,11):
-			yields[0]+=yields[k]; # finally, add up metals [not He!] to get actual metal yield
-
+			yields[0]+=yields[k] #finally, add up metals [not He!] to get actual metal yield
 
 	elif FIRE_ver <= 2:
 		# the interesting species are He & CNO: below is based on a compilation of van den Hoek & Groenewegen 1997, Marigo 2001, Izzard 2004 */
@@ -231,7 +204,7 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 		yields[3]=0.0041; # N
 		yields[4]=0.0118; # O
 		if solarMetallicity(0,FIRE_ver=FIRE_ver)*Z<0.033:
-			yields[4] *= Z 
+			yields[4] *= Z
 		else:
 			yields[4] *= 1.65 # metal-dependent yields: O scaling is strongly dependent on initial metallicity of the star //
 		yields[0]=0.0 
@@ -240,7 +213,7 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 
 	AGB_age = 0.03753 if FIRE_ver<=2 else 0.044
 	# Now create the dust
-	if routine == 'species':
+	if 'species' in routine:
 		# Now check whether the yields are from AGB or O/B since dust only forms for AGB
 		if star_age >= AGB_age:
 			# convert star age to mass of stars
@@ -252,24 +225,51 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 				IMF = 0.2724 * pow(mass, -2.3);
 
 
-			species_yields = dM * IMF * AGBDustYields(mass, Z)
+			species_yields = dM * IMF * AGBDustYields(mass, Z)/M_wind
+
+			if trim_excess:
+				# Check to make sure we don't produce too much dust compared to metal yields
+				# Renorm dust species if too much is produced
+				# Check C
+				elem_yield = species_yields[1] + species_yields[2] * atomic_mass[2] / (atomic_mass[2] + atomic_mass[7])
+				if elem_yield > yields[2]:
+					species_yields[1] *= yields[2]/elem_yield
+					species_yields[2] *= yields[2]/elem_yield
+				# Check O
+				elem_yield = species_yields[0] * atomic_mass[4] * sil_num_atoms[0] / sil_formula_mass
+				if elem_yield > yields[4]:
+					species_yields[0] *= yields[4]/elem_yield
+				# Check Mg
+				elem_yield = species_yields[0] * atomic_mass[6] * sil_num_atoms[1] / sil_formula_mass
+				if elem_yield > yields[6]:
+					species_yields[0] *= yields[6]/elem_yield
+				# Check Si
+				elem_yield = species_yields[0] * atomic_mass[7] * sil_num_atoms[2] / sil_formula_mass + species_yields[2] * atomic_mass[7] / (atomic_mass[2] + atomic_mass[7])
+				if elem_yield > yields[7]:
+					species_yields[0] *= yields[7]/elem_yield
+					species_yields[2] *= yields[7]/elem_yield
+				# Check Fe
+				if 'nano' in routine:
+					# Fe is only in free-flying iron, assume no iron inclusions in stellar dust
+					if species_yields[3] > yields[10]:
+						species_yields[3] = yields[10]
+				else:
+					# Fe is in free-flying iron and silicates
+					elem_yield = species_yields[0] * atomic_mass[10] * sil_num_atoms[3] / sil_formula_mass + species_yields[3];
+					if elem_yield > yields[10]:
+						species_yields[0] *= yields[10]/elem_yield;
+						species_yields[3] *= yields[10]/elem_yield;
 
 			# Convert species to elemental yields
 			# Silicates
-			dust_formula_mass = 0
 			for k in range(4):
-				dust_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
-			for k in range(4):
-				dust_yields[sil_elems_index[k]] += species_yields[0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / dust_formula_mass
-
+				dust_yields[sil_elems_index[k]] += species_yields[0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / sil_formula_mass
 			# Carbon
 			dust_yields[2] += species_yields[1]
-
 			# Silicon Carbide
 			dust_formula_mass = atomic_mass[2] + atomic_mass[7]
 			dust_yields[2] += species_yields[2] * atomic_mass[2] / dust_formula_mass
 			dust_yields[7] += species_yields[2] * atomic_mass[7] / dust_formula_mass
-
 			# Iron
 			dust_yields[10] += species_yields[3]
 
@@ -285,12 +285,12 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species'):
 				species_yields[1] = dust_yields[2];
 			# AGB stars with C/O < 1 
 			else:
-				dust_yields[6] = condens_eff * yields[6]; # Mg
-				dust_yields[7] = condens_eff * yields[7]; # Si
-				dust_yields[10] = condens_eff * yields[10]; # Fe
+				dust_yields[6] = condens_eff * yields[6] # Mg
+				dust_yields[7] = condens_eff * yields[7] # Si
+				dust_yields[10] = condens_eff * yields[10] # Fe
 				dust_yields[4] = 16 * (dust_yields[6]/atomic_mass[6] + dust_yields[7]/atomic_mass[7] + dust_yields[10]/atomic_mass[10]); # O
 				for k in range(2,11): dust_yields[0]+=dust_yields[k];
-				species_yields[0] = dust_yields[0];
+				species_yields[0] = dust_yields[4]+dust_yields[6]+dust_yields[7]+dust_yields[10]
 
 
 	return yields, dust_yields, species_yields
@@ -305,7 +305,7 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 	dust_yields = np.zeros(11)
 	species_yields = np.zeros(4)
 	atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
-	if routine == 'species':
+	if 'species' in routine:
 		sil_num_atoms = [3.631,1.06,1.,0.571]  # O, Mg, Si, Fe
 		sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe 
 		SNeII_sil_cond = 0.00035; SNeII_C_cond = 0.15; SNeII_SiC_cond = 0.0003; SNeII_Fe_cond = 0.001; SNeI_Fe_cond = 0.005;
@@ -314,8 +314,8 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 		missing_element = 0
 		key_elem = 0
 	else:
-		C_condens_eff = 0.5;
-		other_condens_eff = 0.8;
+		C_condens_eff = 0.5
+		other_condens_eff = 0.8
 
 	# Return if first timestep
 	if star_age == 0.:
@@ -387,7 +387,7 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 			# sum heavy element yields to get the 'total Z' yield here, multiplying by a small correction term to account for trace species not explicitly followed above [mean for CC] */
 			yields[0]=0 
 			for k in range(2,10):
-				 yields[0] += 1.0144 * yields[k] # assume here that there is some trace species proportional to each species, not really correct but since it's such a tiny correction this is pretty negligible //
+				yields[0] += 1.0144 * yields[k] # assume here that there is some trace species proportional to each species, not really correct but since it's such a tiny correction this is pretty negligible //
 
 	if FIRE_ver <= 2:
 		agemax = 0.03753
@@ -397,7 +397,7 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 		else:
 			SNeIaFlag=0 
 			Msne=10.5 
-		 # SNIa  from Iwamoto et al. 1999; 'W7' models 
+		# SNIa  from Iwamoto et al. 1999; 'W7' models
 		if SNeIaFlag: 
 			yields[0]=1; # total metal mass
 			yields[1]=0.0; # He
@@ -438,7 +438,7 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 	yields = yields*Msne
 
 	# Now create the dust
-	if routine == "species":
+	if "species" in routine:
 		# Create all the dust species w for SNe II
 		if star_age < agemax:
 			# silicates
@@ -489,7 +489,7 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 		dust_yields[4] = 16 * (dust_yields[6]/atomic_mass[6] + dust_yields[7]/atomic_mass[7] + dust_yields[10]/atomic_mass[10]); # O
 		for k in range(2,11):
 			dust_yields[0] += dust_yields[k]; # Fraction of yields that is dust
-		species_yields[0] = dust_yields[4] + dust_yields[6] + dust_yields[7] + dust_yields[10];
+		species_yields[0] = dust_yields[4] + dust_yields[6] + dust_yields[7] + dust_yields[10]
 		species_yields[1] = dust_yields[2];
 	
 	return yields, dust_yields, species_yields
@@ -635,12 +635,9 @@ def totalStellarYields(max_time, N, Z, FIRE_ver=2, routine='species'):
 
 		p = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver)
 		stellar_yields, stellar_dust_yields, stellar_species_yields = stellarYields(age,Z,time_step,FIRE_ver=FIRE_ver,routine=routine)
-		if routine == 'species':
-			stellar_yields *= p
-		else:
-			stellar_yields *= p
-			stellar_dust_yields *= p
-			stellar_species_yields *= p
+		stellar_yields *= p
+		stellar_dust_yields *= p
+		stellar_species_yields *= p
 
 		p = SNeRates(age, Z, time_step,FIRE_ver=FIRE_ver)
 		SNe_yields,SNe_dust_yields,SNe_species_yields = SNeYields(age,Z,FIRE_ver=FIRE_ver,routine=routine)
@@ -665,11 +662,9 @@ def onlyAGBYields(max_time, N, Z, FIRE_ver=2, routine='species'):
 	for i,age in enumerate(time):
 		p = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver)
 		stellar_yields, stellar_dust_yields, stellar_species_yields = stellarYields(age,Z,time_step,FIRE_ver=FIRE_ver,routine=routine)
-		if routine == 'species':
-			stellar_yields *= p
-		else:
-			stellar_yields *= p
-			stellar_dust_yields *= p
+		stellar_yields *= p
+		stellar_dust_yields *= p
+		stellar_species_yields *= p
 
 		cum_yields[i] = cum_yields[i-1] + stellar_yields
 		cum_dust_yields[i] = cum_dust_yields[i-1] + stellar_dust_yields

@@ -25,6 +25,21 @@ class Halo(object):
         self.BH = sp.BH
         self.part = sp.part
 
+        # Set later if you want to zoom in
+        self.zoom = False
+
+        return
+
+
+    # Set zoom-in region if you don't want all data in rvir
+    def set_zoom(self, rout=1.0, kpc=False, ptype=4):
+
+        # How far out do you want to load data, default is rvir
+        self.rout = rout
+        self.outkpc = kpc
+        self.zoom_ptype = ptype
+        self.zoom = True
+
         return
 
 
@@ -102,8 +117,14 @@ class Halo(object):
         part = self.part[ptype]
 
         part.load()
-        part.center([self.xc,self.yc,self.zc])
-        in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(self.rvir,2.)
+        if self.zoom:
+            rmax = self.rout*self.rvir if not self.outkpc else self.rout
+            xc,yc,zc = self.calculate_zoom_center(ptype=self.zoom_ptype)
+        else:
+            rmax = self.rvir
+            xc=self.xc; yc=self.yc; zc=self.zc
+        part.center([xc,yc,zc])
+        in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
         part.mask(in_halo)
 
         return part
