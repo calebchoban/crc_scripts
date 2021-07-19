@@ -27,6 +27,21 @@ def get_particle_data(particle, property):
 		data = particle.z[:,0]*particle.m*config.UnitMass_in_Msolar
 	elif property == 'M_dust':
 		data = particle.dz[:,0]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_sil':
+		data = particle.spec[:,0]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_carb':
+		data = particle.spec[:,1]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_SiC':
+		data = particle.spec[:,2]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_iron':
+		if particle.sp.Flag_DustSpecies>4:
+			data = (particle.spec[:,3]+particle.spec[:,5])*particle.m*config.UnitMass_in_Msolar
+		else:
+			data = particle.spec[:,3]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_ORes':
+		data = particle.spec[:,4]*particle.m*config.UnitMass_in_Msolar
+	elif property == 'M_sil+':
+		data = (particle.spec[:,0]+np.sum(particle.spec[:,2:],axis=0))*particle.m*config.UnitMass_in_Msolar
 	elif property == 'fH2':
 		data = particle.fH2
 		data[data>1] = 1
@@ -45,6 +60,9 @@ def get_particle_data(particle, property):
 		data = particle.z[:,0]/config.SOLAR_Z
 	elif property == 'Z_all':
 		data = particle.z
+	elif property == 'O/H':
+		O = particle.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(particle.z[:,0]+particle.z[:,1]))/config.ATOMIC_MASS[0]
+		data = 12+np.log10(O/H)
 	elif property == 'Si/C':
 		data = particle.spec[:,0]/particle.spec[:,1]
 	elif property == 'D/Z':
@@ -285,9 +303,7 @@ def calc_gal_int_params(property, G):
 	elif property == 'Z':
 		val = utils.weighted_percentile(get_particle_data(G,'Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'O/H':
-		Z = get_particle_data(G,'Z_all')
-		O = Z[:,4]/config.ATOMIC_MASS[4]; H = (1-(Z[:,0]+Z[:,1]))/config.ATOMIC_MASS[0]
-		val = utils.weighted_percentile(12+np.log10(O/H), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+		val = utils.weighted_percentile(get_particle_data(G,'O/H'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'M_gas':
 		val = np.sum(G.m*config.UnitMass_in_Msolar)
 	else:
@@ -295,3 +311,91 @@ def calc_gal_int_params(property, G):
 		return None
 
 	return val
+
+
+
+def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
+	"""
+	Calculates the 2D projection of a give property given the projection orientation and resolution
+
+	Parameters
+	----------
+	property: string
+		Name of property to project
+	snap : Snapshot/Halo
+	    Snapshot data structure (either gas or star particle depending on property)
+	side_len : list
+		Size of box to consider (L1, L2, Lz), L1 ands L2 are side lengths and Lz depth is depth of box
+	pixel_res : double
+		Size resolution of each pixel bin in kpc
+	proj : string
+		What 2D coordinates you want to project (xy,yz,zx)
+
+	Returns
+	-------
+	pixel_data : array
+		Projected data for each pixel
+	coord1_bins : array
+		Bins for first coordinate
+	coord2_bins : array
+		Bins for second coordinate
+	"""
+
+	L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
+
+	if 'star' in property: P = snap.loadpart(4)
+	else: 				   P = snap.loadpart(0)
+	x = P.p[:,0];y=P.p[:,1];z=P.p[:,2]
+
+	# Set up coordinates to project
+	if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
+	elif proj=='yz': coord1 = y; coord2 = z; coord3 = x;
+	elif proj=='xz': coord1 = x; coord2 = z; coord3 = y;
+	else:
+		print("Projection must be xy, yz, or xz for calc_projected_prop()")
+		return None
+
+	# Only include particles in the box
+	mask = (coord1>-L1) & (coord1<L1) & (coord2>-L2) & (coord2<L2) & (coord3>-Lz) & (coord3<Lz)
+
+	pixel_bins = int(np.ceil(2*L1/pixel_res)) + 1
+	coord1_bins = np.linspace(-L1,L1,pixel_bins)
+	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
+	coord2_bins = np.linspace(-L2,L2,pixel_bins)
+
+	pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
+
+	# Get the data to be projected
+	if property in ['D/Z','fH2','fMC']:
+		if property == 'D/Z':
+			proj_data1 = get_particle_data(P,'M_dust')
+			proj_data2 = get_particle_data(P,'M_metals')
+		elif property == 'fH2':
+			proj_data1 = get_particle_data(P,'M_gas')
+			proj_data2 = get_particle_data(P,'M_H2')
+		elif property == 'fMC':
+			proj_data1 = get_particle_data(P,'M_gas')
+			proj_data2 = get_particle_data(P,'M_mc')
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic[0]/binned_stats.statistic[1]
+
+	else:
+		if   property == 'sigma_dust':  	proj_data = get_particle_data(P,'M_dust')
+		elif property == 'sigma_gas': 		proj_data = get_particle_data(P,'M_gas')
+		elif property == 'sigma_H2': 		proj_data = get_particle_data(P,'M_H2')
+		elif property == 'sigma_metals': 	proj_data = get_particle_data(P,'M_metals')
+		elif property == 'sigma_sil': 		proj_data = get_particle_data(P,'M_sil')
+		elif property == 'sigma_sil+':  	proj_data = get_particle_data(P,'M_sil+')
+		elif property == 'sigma_carb':  	proj_data = get_particle_data(P,'M_carb')
+		elif property == 'sigma_SiC': 		proj_data = get_particle_data(P,'M_SiC')
+		elif property == 'sigma_iron':  	proj_data = get_particle_data(P,'M_iron')
+		elif property == 'sigma_ORes': 		proj_data = get_particle_data(P,'M_ORes')
+		elif property == 'sigma_star':  	proj_data = get_particle_data(P,'M_star')
+		else:
+			print("%s is not a supported parameter in calc_obs_projection()."%property)
+			return None
+
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = binned_stats.statistic/pixel_area
+
+	return pixel_stats, coord1_bins, coord2_bins

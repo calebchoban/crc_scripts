@@ -397,61 +397,8 @@ def setup_2D_hist_fig(hist_proj = True):
 	return fig,axes
 
 
-def setup_multi_2D_hist_fig(num_plots = 1):
 
-
-	axes = []
-	base_size = 10
-	# Ratio of color bar size to projection plot
-	cbar_ratio = 0.05
-
-	# if num_plots > 4:
-	# 	num_rows = int(np.ceil(num_plots/4))
-	# 	gs0 = gridspec.GridSpec(num_rows, 1)
-	# 	for i in range(num_rows):
-	# 		gs00 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=gs0[i])
-	# 	fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
-	# 	for i in range(int(np.ceil(num_plots/4))):
-	# 		gs = gridspec.GridSpec(2,4,height_ratios=height_ratios, width_ratios=[1,1])
-
-
-	gs = gridspec.GridSpec(1+num_plots,1)
-	#gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
-	#fig=plt.figure(figsize=((num_plots+ratio)*base_size,base_size))
-	fig.plt.figure()
-
-	for i in range(num_plots):
-		ax = plt.subplot(gs[i,0])
-	cbarax = plt.subplot(gs[num_plots,0])
-	axes = [ax1,ax2,cbarax]
-
-	fig = plt.figure(1, figsize=(14/1.2,10/1.2))
-	# definitions for the axes
-	left, width = 0.1, 0.65
-	bottom, height = 0.1, 0.65
-	bottom_h = left_h = left + width + 0.02
-
-	rect_scatter = [left, bottom, width, height]
-	rect_histx = [left, bottom_h, width, 0.2]
-	rect_histy = [left_h, bottom, 0.2, height]
-
-	# start with a rectangular Figure
-	plt.figure(1, figsize=(8, 8))
-
-	axHist2D = plt.axes(rect_scatter)
-	axHistx = plt.axes(rect_histx)
-	axHisty = plt.axes(rect_histy)
-
-	# no labels
-	axHistx.xaxis.set_major_formatter(nullfmt)
-	axHisty.yaxis.set_major_formatter(nullfmt)
-
-	axes = np.array([axHist2D,axHistx,axHisty])
-
-	return fig,axes
-
-
-def setup_projection(num_plots,L,Lz=None,time=None):
+def setup_projection(num_plots,L,Lz=None):
 
 	axes = []
 	base_size = 10
@@ -468,19 +415,77 @@ def setup_projection(num_plots,L,Lz=None,time=None):
 			gs = gridspec.GridSpec(2,4,height_ratios=height_ratios, width_ratios=[1,1])
 	# X-Y and X-Z Projection
 	if Lz != None:
-		gs = gridspec.GridSpec(3,num_plots,height_ratios=[L,Lz,cbar_ratio*L])
-		gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
-		ratio = 1+1.0*Lz/L + 2*cbar_ratio
-		fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
+		# gs = gridspec.GridSpec(3,num_plots,height_ratios=[L,Lz,cbar_ratio*L])
+		# #gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
+		# ratio = 1+1.0*Lz/L + 2*cbar_ratio
+		# fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
+		# for i in range(num_plots):
+		# 	ax1 = plt.subplot(gs[0,i])
+		# 	#ax1.xaxis.set_visible(False)
+		# 	#ax1.yaxis.set_visible(False)
+		# 	ax1.set_aspect('equal', adjustable='box')
+		# 	ax2 = plt.subplot(gs[1,i])
+		# 	#ax2.xaxis.set_visible(False)
+		# 	#ax2.yaxis.set_visible(False)
+		# 	ax2.set_aspect('equal', adjustable='box')
+		# 	cbarax = plt.subplot(gs[2,i])
+		# 	axes += [[ax1,ax2,cbarax]]
+
+		# fig, axs = plt.subplots(nrows=3, ncols=1, gridspec_kw={'hspace':0.1, 'height_ratios':[L,Lz,cbar_ratio*L]},
+		# 						figsize=(12*1.1, 12*(1+cbar_ratio+Lz/L)))
+		# ax1 = axs[0]
+		# ax1.set_xlim([-L,L])
+		# ax1.set_ylim([-L,L])
+		# ax1.xaxis.set_visible(False)
+		# ax1.yaxis.set_visible(False)
+		# ax1.set_aspect('equal', adjustable='box')
+		# ax2 = axs[1]
+		# ax2.set_ylim([-Lz,Lz])
+		# ax2.set_xlim([-L,L])
+		# ax2.xaxis.set_visible(False)
+		# ax2.yaxis.set_visible(False)
+		# ax2.set_aspect('equal', adjustable='box')
+		#
+		#
+		# ax3 = axs[2]
+		# ax3.set_ylim([-cbar_ratio*L,cbar_ratio*L])
+		# ax3.set_xlim([-L,L])
+		#
+		# axes += [axs]
+		#plt.tight_layout()
+
+		fig, axs = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':[L,Lz]},
+								figsize=[num_plots*L,(L+Lz)*(1+2*cbar_ratio)])
+
 		for i in range(num_plots):
-			ax1 = plt.subplot(gs[0,i])
+			print(i)
+			ax1 = axs[0,i]
+			ax1.set_xlim([-L,L])
+			ax1.set_ylim([-L,L])
 			ax1.xaxis.set_visible(False)
 			ax1.yaxis.set_visible(False)
-			ax2 = plt.subplot(gs[1,i])
+			ax1.set_aspect('equal', adjustable='box')
+			for axe in ['top','bottom','left','right']:
+				ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+			ax2 = axs[1,i]
+			ax2.set_ylim([-Lz,Lz])
+			ax2.set_xlim([-L,L])
 			ax2.xaxis.set_visible(False)
 			ax2.yaxis.set_visible(False)
-			cbarax = plt.subplot(gs[2,i])
-			axes += [[ax1,ax2,cbarax]]
+			ax2.set_aspect('equal', adjustable='box')
+			for axe in ['top','bottom','left','right']:
+					ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+
+			# Add scale bar
+			bar, label = find_scale_bar(L)
+			ax1.plot([-0.7*L-bar/2,-0.7*L+bar/2], [-0.87*L,-0.87*L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+			ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+
+		axes = axs
+
+
+		plt.savefig("proj.png")
+
 	# Only X-Y Projection
 	else:
 		gs = gridspec.GridSpec(2,num_plots,height_ratios=[L,cbar_ratio*L],hspace=0.0,wspace=0.025,top=0.975, bottom=0.025, left=0.025, right=0.975)
@@ -502,41 +507,41 @@ def setup_projection(num_plots,L,Lz=None,time=None):
 # find appropriate scale bar and label
 def find_scale_bar(L):
 
-    if (L>=10000):
-        bar = 1000.; label = '1 Mpc'
-    elif (L>=1000):
-        bar = 100.; label = '100 kpc'
-    elif (L>=500):
-        bar = 50.; label = '50 kpc'
-    elif (L>=200):
-        bar = 20.; label = '20 kpc'
-    elif (L>=100):
-        bar = 10.; label = '10 kpc'
-    elif (L>=50):
-        bar = 5.; label = '5 kpc'
-    elif (L>=20):
-        bar = 2.; label = '2 kpc'
-    elif (L>=10):
-        bar = 1.; label = '1 kpc'
-    elif (L>=5):
-        bar = 0.5; label = '500 pc'
-    elif (L>=2):
-        bar = 0.2; label = '200 pc'
-    elif (L>=1):
-        bar = 0.1; label = '100 pc'
-    elif (L>0.5):
-        bar = 0.05; label = '50 pc'
-    elif (L>0.2):
-        bar = 0.02; label = '20 pc'
-    elif (L>0.1):
-        bar = 0.01; label = '10 pc'
-    elif (L>0.05):
-        bar = 0.005; label = '5 pc'
-    elif (L>0.02):
-        bar = 0.002; label = '2 pc'
-    elif (L>0.01):
-        bar = 0.001; label = '1 pc'
-    else:
-        bar = 0.0005; label = '0.5 pc'
+	if (L>=10000):
+		bar = 1000.; label = '1 Mpc'
+	elif (L>=1000):
+		bar = 100.; label = '100 kpc'
+	elif (L>=500):
+		bar = 50.; label = '50 kpc'
+	elif (L>=200):
+		bar = 20.; label = '20 kpc'
+	elif (L>=100):
+		bar = 10.; label = '10 kpc'
+	elif (L>=50):
+		bar = 5.; label = '5 kpc'
+	elif (L>=20):
+		bar = 2.; label = '2 kpc'
+	elif (L>=10):
+		bar = 1.; label = '1 kpc'
+	elif (L>=5):
+		bar = 0.5; label = '500 pc'
+	elif (L>=2):
+		bar = 0.2; label = '200 pc'
+	elif (L>=1):
+		bar = 0.1; label = '100 pc'
+	elif (L>0.5):
+		bar = 0.05; label = '50 pc'
+	elif (L>0.2):
+		bar = 0.02; label = '20 pc'
+	elif (L>0.1):
+		bar = 0.01; label = '10 pc'
+	elif (L>0.05):
+		bar = 0.005; label = '5 pc'
+	elif (L>0.02):
+		bar = 0.002; label = '2 pc'
+	elif (L>0.01):
+		bar = 0.001; label = '1 pc'
+	else:
+		bar = 0.0005; label = '0.5 pc'
 
-    return bar, label
+	return bar, label
