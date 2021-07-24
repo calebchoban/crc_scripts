@@ -113,22 +113,23 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 
 	elif property == 'depletion':
 		if elem == 'C':
-			# J09 C relation is derived from only a handful of sightlines over a limited range so just plot the relation over the observed range and no
-			# WNM depletion approximation
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
+			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
+			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,phys_dens=False)
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='J09', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:black', zorder=2)
 			# Add in data from Parvathi which sampled twice as many sightlines 
 			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max')
-			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
+						  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:grey", lw=0, zorder=2)
 		else:
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem, C_corr=False)
+			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
 			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=config.BASE_MARKERSIZE**2)
 			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH, zorder=2)
 

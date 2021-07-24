@@ -40,6 +40,8 @@ plt.rcParams['figure.dpi'] = 200
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
 mpl.rcParams["legend.labelspacing"] = 0.35
 mpl.rcParams["legend.columnspacing"] = 0.75
+# This looks to be the only way to set hatch line widths!
+mpl.rcParams['hatch.linewidth'] = BASE_ELINEWIDTH
 
 # Conversion factors for code to cgs units
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
@@ -65,6 +67,7 @@ else:
 
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
+ELEMENT_NAMES				= ['Metals','Helium','Carbon','Nitrogen','Oxygen','Neon','Magnesium','Silicon','Sulfur','Calcium','Iron']
 ATOMIC_MASS					= [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
 
 DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir','Iron Inclusions']

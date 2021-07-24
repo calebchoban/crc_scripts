@@ -1,30 +1,9 @@
 import numpy as np
 import pandas as pd
+from astropy.io import ascii
+from gizmo_library import config
 
 OBS_DIR = './observations/data/'
-
-
-def get_observational_data(dust_property, second_property):
-	"""
-	Retrieves observational dust data vs the property.
-
-	Parameters
-	----------
-	dust_property : str
-		Property of dust ('D/Z','sigma_dust','C/O/Si/Mg/Fe_depl')
-	second_property: str
-		Secondary environment property ('sigma_gas','sigma_metals','Z','nH','r','sigma_H2','fH2')
-
-	Returns
-	-------
-	data : pandas.DataFrame
-		Loaded data
-	"""
-
-
-	data=None
-	return data
-
 
 
 def galaxy_integrated_DZ(paper):
@@ -152,10 +131,11 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 
 
 
-def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
+def Jenkins_Savage_2009_WNM_Depl(elem):
 	"""
 	Gives the depletion for Mg, Si, or Fe in the WNM based on comparison of Jenkins (2009)
-	with Savage & Sembach (1996a)
+	with Savage & Sembach (1996a). Note C depletions are reduced by a factor of 2 in line with
+	Sofia+2011 and Parvathi+2012.
 	"""
 
 	# Typical nH for WNM
@@ -172,11 +152,9 @@ def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
 	solar_Mx_MH = np.power(10,solar-12)*amu/amu_H
 	total_Z = np.sum(solar_Mx_MH)
 	# Fit parameters for depletions
-	factor = 0.
-	if C_corr:
-		factor = np.log10(2)
+	corr_factor = np.log10(2)
 	Ax = np.array([-0.101,0,-0.225,-0.997,-1.136,-0.945,-1.242,-2.048,-1.447,-0.857,-1.285,-1.49,-0.71,-0.61,-0.615,-0.166])
-	Bx = np.array([-0.193-factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
+	Bx = np.array([-0.193-corr_factor,-0.109,-0.145,-0.8,-0.57,-0.166,-0.314,-1.957,-1.508,-1.354,-1.513,-1.829,-1.102,-0.279,-0.725,-0.332])
 	zx = np.array([0.803,0.55,0.598,0.531,0.305,0.488,0.609,0.43,0.47,0.52,0.437,0.599,0.711,0.555,0.69,0.684])
 
 	# Depletion factor of element x at a given F_star
@@ -205,6 +183,74 @@ def Jenkins_Savage_2009_WNM_Depl(elem, C_corr=True):
 
 	return nH_dens, 1.-WNM_depl, WNM_error
 
+
+def Jenkins_2009_Elem_Depl(elem,phys_dens=False):
+	"""
+	Gives element depletion data vs <nH> from sightlines in Jenkins (2009).
+
+	Parameters
+	----------
+	elem : string
+	  	Which element to get depletions for
+	phy_dens : boolean
+		If True use physical nH conversion from Zhukovska+16. If False use average sight line nH.
+
+	Returns
+	------
+	elem_depl : list
+		Element depletions for all sightlines
+	elem_err : list
+		Upper an lower errors for each depletion
+	nH : list
+		Sight line density (cm^-3) for each sight line
+	"""
+
+	# TODO : Check that this works for all elements. Currently only checked for Carbon
+
+	if elem in config.ELEMENTS:
+		elem_name = config.ELEMENT_NAMES[config.ELEMENTS.index(elem)]
+	else:
+		print("Element %s is not supported in Jenkins_2009_Elem_Depl"%elem)
+		return None,None,None
+
+
+	NElem_data = ascii.read(OBS_DIR+'Jenkins09/elem_depletions.txt')
+	fit_data = ascii.read(OBS_DIR+'Jenkins09/element_depletion_parameters.txt')
+	ref_abund = fit_data['X/H'][fit_data['El']==elem].data[0] # in 12+log(X/H) units
+	# Fill in all the missing data with NaNs
+	NElem_data['F*'].fill_value = np.nan; NElem_data['logNEl'].fill_value = np.nan;
+	NElem_data = NElem_data.filled()
+	# Only use sight lines with all the data we want
+	elem_mask = (NElem_data['El']==elem_name) & (~np.isnan(NElem_data['F*'])) & (~np.isnan(NElem_data['logNEl']))
+	NEl = NElem_data['logNEl'][elem_mask].data
+	lower_NEl = NElem_data['e_logNEl'][elem_mask].data; upper_NEl = NElem_data['E_logNEl'][elem_mask].data
+	# This table only has expected depletion values from fit and the residual with the actual depletion values
+	elem_depl = NElem_data['Res'][elem_mask].data+NElem_data['Elgas'][elem_mask].data
+	# Need to do this backwards way of calculating N_H from depletion and N_element values
+	NH = NEl-elem_depl-(ref_abund-12) # in dex
+	lower_depl = lower_NEl-NH-(ref_abund-12)
+	upper_depl = upper_NEl-NH-(ref_abund-12)
+	# If Carbon need to decrease depletion by a factor of log10(2) based on Sofia+2012 findings
+	if elem=='C':
+		corr_factor = np.log10(2)
+		elem_depl-=corr_factor
+		lower_depl-=corr_factor; upper_depl-=corr_factor
+	elem_depl = np.power(10,elem_depl)
+	lim_depl = np.power(10,np.stack((lower_depl, upper_depl)))
+	err_depl = np.abs(elem_depl-lim_depl)
+
+	# Now get density values from F* depletion parameter
+	F_star = NElem_data['F*'][elem_mask].data
+	avg_nH = np.power(10,(F_star-0.772)/0.461)
+	if phys_dens:
+		phys_nH = 147.234*np.power(avg_nH,1.054)
+		# This conversion is only valid for a certain range of densities
+		obs_range = np.array([10, 1E3])
+		nH = phys_nH
+	else:
+		nH = avg_nH
+
+	return elem_depl, err_depl, nH
 
 
 
