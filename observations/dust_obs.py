@@ -202,7 +202,7 @@ def Jenkins_2009_Elem_Depl(elem,phys_dens=False):
 	elem_err : list
 		Upper an lower errors for each depletion
 	nH : list
-		Sight line density (cm^-3) for each sight line
+		Sight line density (cm^-3) for each sight lineJenkins_Savage_2009_WNM_Depl
 	"""
 
 	# TODO : Check that this works for all elements. Currently only checked for Carbon

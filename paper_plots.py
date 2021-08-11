@@ -210,9 +210,14 @@ for i, num in enumerate(snaps):
 	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
 
+	# Need larger font size for this plot
+	config.LARGE_FONT       = 40
+	config.EXTRA_LARGE_FONT = 56
 	elems = ['Mg','Si','Fe','O','C']
 	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
+	config.LARGE_FONT       = 30
+	config.EXTRA_LARGE_FONT = 36
 
 
 ###############################################################################
@@ -259,10 +264,14 @@ for i, num in enumerate(snaps):
 	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
 
+	# Need larger font size for this plot
+	config.LARGE_FONT       = 40
+	config.EXTRA_LARGE_FONT = 56
 	elems = ['Mg','Si','Fe','O','C']
 	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
-
+	config.LARGE_FONT       = 30
+	config.EXTRA_LARGE_FONT = 36
 
 	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
 	dmol_vs_props(['fMC','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)

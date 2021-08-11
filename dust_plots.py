@@ -9,6 +9,7 @@ import os
 
 import observations.dust_obs as obs
 import analytical_models.stellar_yields as st_yields
+import analytical_models.dust_accretion as dust_acc
 import plot_setup as plt_set
 import gizmo_library.config as config
 import gizmo_library.utils as utils
@@ -71,7 +72,7 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
 		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
 		# range of C depeletions since they are not observed for this regime
-		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z', C_corr=True)
+		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z')
 		axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D',  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE ,zorder=2)
 		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])),
 				  c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH, zorder=2)
@@ -122,7 +123,14 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
 						  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
 			# Add in shaded region for 20-40% of C in CO bars
-			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:grey", lw=0, zorder=2)
+			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
+
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=0)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=0)
+
+
 		else:
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
@@ -387,7 +395,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 		labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
-		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = 2*config.LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 	plt.tight_layout()
 	plt.savefig(foutname)
@@ -973,10 +981,10 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 
 	Parameters
 	----------
-	params : array
+	params : list
 		List of parameters to plot diagnostics for (inst_dust_prod, growth_timescale, )
-	snaps : array
-	    Array of snapshots to use
+	snaps : list
+	    List of snapshots to use
 	bin_nums: int
 		Number of bins to use
 	style : string
@@ -990,7 +998,7 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 	"""
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), properties=config.DUST_SPECIES, style=style)
 
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_figure(len(params))
@@ -998,7 +1006,7 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 	for i,param in enumerate(params):
 		axis = axes[i]
 		if param == 'inst_dust_prod':
-			plt_set.setup_axis(axis, 'nH', param)
+			plt_set.setup_axis(axis, 'nH', param, x_lim=[1.1E0,0.9E3])
 		if param == 'g_timescale':
 			plt_set.setup_axis(axis, param, 'g_timescale_frac')
 
@@ -1010,21 +1018,22 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 				imp = implementation
 
 			G =	snap.loadpart(0)
-			H = snap.loadheader()
-
 			nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
 
 			if param == 'inst_dust_prod':
-				weight_vals = calc_dust_acc(G,implementation=imp, CNM_thresh=1.0, CO_frac=0.2, nano_iron=False)
+				weight_vals = dust_acc.calc_dust_acc(G,implementation=imp, nano_iron=True, O_res=True)
 				x_vals = dict.fromkeys(weight_vals.keys(), nH)
+				density = False
 			elif param == 'g_timescale':
 				if imp == 'species':
-					x_vals = calc_spec_acc_timescale(G, CNM_thresh=1.0, nano_iron=False)
+					x_vals = dust_acc.calc_spec_acc_timescale(G, nano_iron=True)
 				else:
-					x_vals = calc_elem_acc_timescale(G)
+					x_vals = dust_acc.calc_elem_acc_timescale(G)
 				for key in x_vals.keys():
+					x_vals[key] = x_vals[key][x_vals[key]>0]
 					x_vals[key]*=1E-9
 				weight_vals=dict.fromkeys(x_vals.keys(), np.full(len(nH),1./len(nH)))
+				density = True
 			else:
 				print('%s is not a valid parameter for dust_growth_diag()'%param)
 				return
@@ -1040,16 +1049,28 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 			else:
 				bins = np.linspace(limits[0],limits[1],bin_nums)
 
-			for k,key in enumerate(sorted(weight_vals.keys())):
-				axis.hist(x_vals[key], bins=bins, weights=weight_vals[key], histtype='step', cumulative=True, label=labels[j], color=colors[j], \
-				         linewidth=linewidths[0], linestyle=linestyles[k])
-				lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[k],label=key)]
+			for k,spec in enumerate(config.DUST_SPECIES):
+				if spec in x_vals.keys():
+					print(spec,param)
+					print(np.sum(weight_vals[spec]))
+					axis.hist(x_vals[spec], bins=bins, weights=weight_vals[spec], histtype='step', cumulative=True, density=density, label=labels[j], color=colors[k], \
+							 linewidth=linewidths[j], linestyle=linestyles[j])
+					lines += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle =linestyles[j],label=spec)]
 
-			# Want legend only on first plot
-			if i == 0:
-				axis.legend(handles=lines,loc=2, frameon=False)
+		# Need to manually set legend handles
+		handles = []
+		for j, label in enumerate(labels):
+			handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linewidth=config.BASE_LINEWIDTH, linestyle=linestyles[j],label=label)]
+		for j, spec in enumerate(config.DUST_SPECIES):
+			if spec != 'Iron Inclusions' and spec != 'SiC':
+				handles += [mlines.Line2D([], [], color=colors[j], linewidth=config.BASE_LINEWIDTH, linestyle=config.BASE_LINESTYLE,label=spec)]
+
+		# Setup legend on first axis
+		if i == 0 and len(handles)>1:
+			axis.legend(handles=handles, loc='best', fontsize=config.SMALL_FONT, frameon=False, ncol=2)
 
 
+	plt.tight_layout()
 	plt.savefig(foutname)
 	plt.close()
 

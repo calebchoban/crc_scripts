@@ -27,7 +27,7 @@ BASE_ELINEWIDTH = 3
 XSMALL_FONT					= 16
 SMALL_FONT					= 22
 LARGE_FONT					= 30
-EXTRA_LARGE_FONT			= 36
+EXTRA_LARGE_FONT			= 40
 BASE_FIG_XSIZE = 10
 BASE_FIG_YSIZE = 7.5
 # Change these on the fly if you want to increase or decrease image size
@@ -68,7 +68,11 @@ else:
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
 ELEMENT_NAMES				= ['Metals','Helium','Carbon','Nitrogen','Oxygen','Neon','Magnesium','Silicon','Sulfur','Calcium','Iron']
-ATOMIC_MASS					= [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
+ATOMIC_MASS					= np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
+# number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
+# with olivine fraction of 0.32 and Mg fraction of 0.8
+SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
 
 DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir','Iron Inclusions']
 DUST_SOURCES				= ['Accretion','SNe Ia', 'SNe II', 'AGB']
@@ -107,7 +111,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', [0., 1.], False],
 				  'Fe_depletion': [r'$\delta_{\rm Fe}$', 									[1E-3,1.1E0],   True],
 				 'cum_dust_prod': [r'Cum. Dust Ratio $[M_{\rm dust}/M_{\star}]$', 			[1E-6,1E-2], 	True],
 			   'cum_metal_yield': [r'Cum. Metal Ratio $[M_{\rm metal}/M_{\star}]$',			[1E-4,0.7E-1], 	True],
-				'inst_dust_prod': [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', 				[0,2], 			False],
+				'inst_dust_prod': [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', 				[1E-2,1E0], 	True],
 				   'g_timescale': [r'$\tau_{\rm g}$ [Gyr]',									[1E-4,1E0],		True],
 			  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',						[0,1.05],		False],
 				   'source_frac': ['Source Mass Fraction', 									[1E-2,1.05], 	True],
