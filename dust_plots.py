@@ -116,19 +116,19 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 		if elem == 'C':
 			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
 			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,phys_dens=False)
-			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='J09', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
 					  mfc='xkcd:white', mec='xkcd:black', zorder=2)
 			# Add in data from Parvathi which sampled twice as many sightlines 
-			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max')
-			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='<nH>')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
 						  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
 			# Add in shaded region for 20-40% of C in CO bars
 			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
 
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=0)
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=0)
+			#dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=True)
+			#axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=0)
+			#dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=True)
+			#axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=0)
 
 
 		else:
@@ -172,6 +172,24 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 		axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=config.BASE_MARKERSIZE, mew=config.LINE_WIDTHS[1],
 					  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
 					  ecolor=config.MARKER_COLORS[2], zorder=2)
+
+	elif property=='NH' or property=='NH_neutral':
+		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,'NH')
+		lower_lim = np.isinf(depl_err[1,:])
+		depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
+		upper_lim = np.isinf(depl_err[0,:])
+		depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
+		axis.errorbar(NH_vals, depl, yerr=depl_err, label='Jenkins09', lolims=lower_lim, uplims=upper_lim, fmt='o', c='xkcd:black',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:black', zorder=2, alpha=1)
+		if elem=='C':
+			C_depl, C_error, NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
+			axis.errorbar(NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=0.5*config.BASE_ELINEWIDTH,
+						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2, alpha=1)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
+
+
 
 	else:
 		print("D/Z vs %s observational data is not available."%property)
@@ -435,7 +453,7 @@ def binned_phase_plot(prop, snaps, bin_nums=200, labels=None, color_map=config.B
 	for i, snap in enumerate(snaps):
 		# Set up for each plot
 		axis = axes[i]
-		plt_set.setup_axis(axis, 'nH', 'T', x_lim=[1.1E-3,0.9E3], y_lim=[1.1*1E1,2E6])
+		plt_set.setup_axis(axis, 'nH', 'T')
 		axis.set_facecolor('xkcd:light grey')
 
 		G = snap.loadpart(0)
@@ -466,6 +484,97 @@ def binned_phase_plot(prop, snaps, bin_nums=200, labels=None, color_map=config.B
 	plt.close()
 
 	return
+
+
+
+def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data=True, bin_nums=20, labels=None, foutname='sightline_depl_vs_prop.png', \
+						 std_bars=True, style='color-linestyle', include_obs=True):
+	"""
+	Plots binned relations of specified elemental depletion vs various properties for multiple simulations
+
+	Parameters
+	----------
+	elems : list
+		List of which elements you want to plot depletions for
+	prop: string
+		Property to plot depletion against (fH2, nH)
+	sightline_data_files : list
+	    List of file names to pull sightline data from
+	bin_data : boolean, optional
+		Bin sight line data instead of scatter plotting
+	bin_nums : int, optional
+		Number of bins to use
+	labels : list, optional
+		List of labels for each data set
+	foutname: string, optional
+		Name of file to be saved
+	std_bars : boolean, optional
+		Include standard deviation bars for the data
+	style : string, optional
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	include_obs : boolean, optional
+		Overplot observed data if available
+
+	Returns
+	-------
+	None
+	"""
+
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(sightline_data_files), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes = plt_set.setup_figure(len(elems))
+
+	labels_handles = {}
+	for i,elem in enumerate(elems):
+		axis = axes[i]
+		plt_set.setup_axis(axis, prop, elem+'_depletion')
+
+		if include_obs:
+			plot_observational_data(axis, property=prop, elem=elem)
+
+		for j,data_file in enumerate(sightline_data_files):
+
+			# Load in sight line data
+			data = pickle.load(open(data_file, "rb" ))
+			elem_indx = config.ELEMENTS.index(elem)
+			depl_X = data['depl_X'][:,elem_indx]
+			NH = data[prop]
+
+
+			if bin_data:
+				NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH, depl_X, [1E18,1E22], bin_nums=bin_nums, weight_vals=None, log=True)
+				axis.plot(NH_vals, mean_depl_X, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+				if std_bars:
+					axis.fill_between(NH_vals, std_depl_X[:,0], std_depl_X[:,1], alpha = 0.3, color=colors[j], zorder=1)
+			else:
+				axis.scatter(NH, depl_X, label=labels[j], c=colors[j], marker=config.MARKER_STYLES[j], s=2*config.BASE_MARKERSIZE, zorder=3)
+
+
+		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		hands, labs = axis.get_legend_handles_labels()
+		new_lh = dict(zip(labs, hands))
+		for key in labels_handles.keys(): new_lh.pop(key,0);
+		if len(new_lh)>0:
+			ncol = 2 if len(new_lh) > 4 else 1
+			axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+		labels_handles = dict(zip(labs, hands))
+
+		# Add label for each element
+		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+
 
 
 
@@ -692,9 +801,11 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 			if param_labels is None:
 				axis.plot(time_data, data_vals, color=config.BASE_COLOR, linestyle=config.LINE_STYLES[j], label=labels[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
 			else:
+				# Renormalize just in case since some of the older snapshots aren't normalized
+				data_vals = data_vals/np.sum(data_vals,axis=1)[:,np.newaxis]
 				for k in range(np.shape(data_vals)[1]):
 					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
-			axis.set_xlim([time_data[1],time_data[-1]])
+			axis.set_xlim([0.8E-2,time_data[-1]])
 		# Only need to label the seperate simulations in the first plot
 		if i==0 and len(data_objs)>1:
 			axis.legend(loc='upper left', frameon=False, fontsize=config.SMALL_FONT)
@@ -895,8 +1006,8 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 	----------
 	props: list
 		List of properties
-	snaps : list
-	    List of snapshots to plot
+	snap : Snapshot
+	    Snapshot to pull data from
 	L : float
 		Length size in kpc for x and y directions
 	Lz : float
@@ -923,6 +1034,7 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 
 	"""	
 	# TODO : Add ability to only put colorbar on right side if multiple plots if they all share the same projected data but are from different snapshots
+	# TODO : Add ability to plot multiple snapshots
 
 	# Set up subplots based on number of parameters given
 	fig,axes = plt_set.setup_projection(len(props), L, Lz=Lz)
@@ -956,7 +1068,6 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 		# Plot x-z projection below
 		pixel_stats, xedges, yedges = calc.calc_projected_prop(param, snap, [L,Lz,L], pixel_res=pixel_res, proj='xz')
 		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
-		print([xedges[0], xedges[-1], yedges[0], yedges[-1]])
 		ax2.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
            aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(cmap), norm=norm)
 

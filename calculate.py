@@ -41,7 +41,7 @@ def get_particle_data(particle, property):
 	elif property == 'M_ORes':
 		data = particle.spec[:,4]*particle.m*config.UnitMass_in_Msolar
 	elif property == 'M_sil+':
-		data = (particle.spec[:,0]+np.sum(particle.spec[:,2:],axis=0))*particle.m*config.UnitMass_in_Msolar
+		data = (particle.spec[:,0]+np.sum(particle.spec[:,2:],axis=1))*particle.m*config.UnitMass_in_Msolar
 	elif property == 'fH2':
 		data = particle.fH2
 		data[data>1] = 1
@@ -174,6 +174,9 @@ def calc_phase_hist_data(property, G, bin_nums=100):
 		func = np.mean
 	bin_data = get_particle_data(G,property)
 	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
+	# Need to catch case were np.sum is given empty array which will return zero
+	if property in ['M_H2','M_gas']:
+		ret.statistic[ret.statistic<=0] = np.nan
 
 	return ret
 

@@ -59,15 +59,15 @@ def bin_values(bin_data, data_vals, bin_lims, bin_nums=50, weight_vals=None, log
 
     Parameters
     ----------
-    bin_data : array
+    bin_data : ndarray
         Data over which binning will take place
-    data_vals : array
+    data_vals : ndarray
         Data to be binned
-    bin_lims : array
+    bin_lims : ndarray
         Limits for bins
     bin_num : int
         Number of
-    weight_vals : array, optional
+    weight_vals : ndarray, optional
         The weights to be sued when binning data_vals.  Equal weighting if None
         is specified
     log : boolean, optional

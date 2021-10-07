@@ -405,14 +405,6 @@ def setup_projection(num_plots,L,Lz=None):
 	# Ratio of color bar size to projection plot
 	cbar_ratio = 0.05
 
-	if num_plots > 4:
-		num_rows = int(np.ceil(num_plots/4))
-		gs0 = gridspec.GridSpec(num_rows, 1)
-		for i in range(num_rows):
-			gs00 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=gs0[i])
-		fig,axes = plt.subplots(num_plots/3, 3, figsize=(3*14/1.2,num_plots/3*10/1.2), squeeze=True)
-		for i in range(int(np.ceil(num_plots/4))):
-			gs = gridspec.GridSpec(2,4,height_ratios=height_ratios, width_ratios=[1,1])
 	# X-Y and X-Z Projection
 	if Lz != None:
 		# gs = gridspec.GridSpec(3,num_plots,height_ratios=[L,Lz,cbar_ratio*L])
@@ -456,9 +448,11 @@ def setup_projection(num_plots,L,Lz=None):
 
 		fig, axs = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':[L,Lz]},
 								figsize=[num_plots*L,(L+Lz)*(1+2*cbar_ratio)])
+		# Deal with only one projection being plotted
+		if num_plots==1:
+			axs = np.array([[axs[0]],[axs[1]]])
 
 		for i in range(num_plots):
-			print(i)
 			ax1 = axs[0,i]
 			ax1.set_xlim([-L,L])
 			ax1.set_ylim([-L,L])
@@ -482,9 +476,6 @@ def setup_projection(num_plots,L,Lz=None):
 			ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
 
 		axes = axs
-
-
-		plt.savefig("proj.png")
 
 	# Only X-Y Projection
 	else:

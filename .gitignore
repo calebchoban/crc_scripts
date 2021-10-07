@@ -2,8 +2,10 @@ dust_evo_data/
 analytic_dust_yields/
 observations/data/**
 __pycache__/
-vis_test.py
+NH_test.py
 .idea/
+
+
 
 
 *.pyc
@@ -12,6 +14,7 @@ vis_test.py
 *.hdf5
 *.csv
 *.pickle
+*.ewah
 
 *.png
 *.pdf
