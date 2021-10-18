@@ -10,7 +10,7 @@ import os
 import observations.dust_obs as obs
 import analytical_models.stellar_yields as st_yields
 import analytical_models.dust_accretion as dust_acc
-import plot_setup as plt_set
+`import plot_setup as plt_set
 import gizmo_library.config as config
 import gizmo_library.utils as utils
 import calculate as calc
@@ -115,7 +115,7 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 	elif property == 'depletion':
 		if elem == 'C':
 			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
-			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,phys_dens=False)
+			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='<nH>')
 			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
 					  mfc='xkcd:white', mec='xkcd:black', zorder=2)
 			# Add in data from Parvathi which sampled twice as many sightlines 
@@ -133,9 +133,9 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 
 		else:
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H,neutral} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
 			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
 			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=config.BASE_MARKERSIZE**2)
@@ -174,20 +174,41 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 					  ecolor=config.MARKER_COLORS[2], zorder=2)
 
 	elif property=='NH' or property=='NH_neutral':
-		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,'NH')
+		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
 		lower_lim = np.isinf(depl_err[1,:])
 		depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
 		upper_lim = np.isinf(depl_err[0,:])
 		depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
-		axis.errorbar(NH_vals, depl, yerr=depl_err, label='Jenkins09', lolims=lower_lim, uplims=upper_lim, fmt='o', c='xkcd:black',
+		no_lim = ~upper_lim & ~lower_lim
+		# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
+		axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
 					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-					  mfc='xkcd:white', mec='xkcd:black', zorder=2, alpha=1)
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
+			  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
 		if elem=='C':
-			C_depl, C_error, NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
-			axis.errorbar(NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=0.5*config.BASE_ELINEWIDTH,
-						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2, alpha=1)
+			C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
+			NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
+			axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
+						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:medium grey' , zorder=2, alpha=1)
 			# Add in shaded region for 20-40% of C in CO bars
 			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
+
+				# Now bin the data
+		bin_lims = [np.min(NH_vals),np.max(NH_vals)]
+		# Set bins to be ~0.2 dex in size since range of data varies for each element
+		bin_nums = int((np.log10(np.max(NH_vals))-np.log10(np.min(NH_vals)))/0.33)
+		NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums, weight_vals=None, log=True)
+		# Get rid of any bins with too few points to even get error bars for
+		bad_mask = ~np.isnan(std_depl_X[:,0]) & ~np.isnan(std_depl_X[:,1]) & (std_depl_X[:,0]!=mean_depl_X) & (std_depl_X[:,1]!=mean_depl_X)
+		NH_vals=NH_vals[bad_mask]; mean_depl_X=mean_depl_X[bad_mask]; std_depl_X=std_depl_X[bad_mask,:];
+		axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X-std_depl_X.T), label='Binned Obs.', fmt='s', c='xkcd:black',
+			  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+			  mfc='xkcd:white', mec='xkcd:black', zorder=3, alpha=1)
 
 
 
@@ -550,7 +571,7 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 				NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH, depl_X, [1E18,1E22], bin_nums=bin_nums, weight_vals=None, log=True)
 				axis.plot(NH_vals, mean_depl_X, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 				if std_bars:
-					axis.fill_between(NH_vals, std_depl_X[:,0], std_depl_X[:,1], alpha = 0.3, color=colors[j], zorder=1)
+					axis.fill_between(NH_vals, std_depl_X[:,0], std_depl_X[:,1], alpha = 0.3, color=colors[j], zorder=3)
 			else:
 				axis.scatter(NH, depl_X, label=labels[j], c=colors[j], marker=config.MARKER_STYLES[j], s=2*config.BASE_MARKERSIZE, zorder=3)
 
@@ -561,8 +582,9 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 		for key in labels_handles.keys(): new_lh.pop(key,0);
 		if len(new_lh)>0:
 			ncol = 2 if len(new_lh) > 4 else 1
-			axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
-		labels_handles = dict(zip(labs, hands))
+			axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol, markerscale=2.)
+			labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
 		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
@@ -947,7 +969,6 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 			spec_cum_spec = np.sum(cum_species_yields[:,indices], axis=1)
 			axis.loglog(time, spec_cum_spec, color = colors[j], linestyle = linestyles[1], nonpositive = 'clip', linewidth = linewidths[j])
 
-		axis.set_ylim([1E-7,1E-2])
 
 	plt.tight_layout()
 	plt.savefig(foutname, transparent=False, bbox_inches='tight')

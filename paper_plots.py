@@ -168,8 +168,8 @@ labels = ['Fiducial','Decreased Acc.','Enhanced Dest.']
 implementation = 'elemental'
 
 main_dir = '/work/06185/tg854841/frontera/non_cosmo/Elemental/'
-names = ['fiducial','decreased_acc','enhanced_dest']
-labels = ['Fiducial','Decreased Acc.','Enhanced Dest.']
+names = ['fiducial','enhanced_acc','enhanced_dest']
+labels = ['Fiducial','Enhanced Acc.','Enhanced Dest.']
 
 
 
@@ -210,16 +210,19 @@ main_dir = '/oasis/tscc/scratch/cchoban/non_cosmo/Elemental/'
 
 main_dir = '/work/06185/tg854841/frontera/non_cosmo/Elemental/'
 
-names = ['decreased_acc']
+names = ['fiducial']
 snap_dirs += [main_dir + i + '/output/' for i in names] 
-labels += ['Elemental Low Acc.']
+labels += ['Elemental']
 
-implementations = ['species','species','elemental']
+implementations = ['species','species','species','elemental']
 
 cosmological = False
 
 # List of snapshots to compare
 snaps = [300]
+
+# Number of sightlines from simulation
+N_sightlines = 10000
 
 # Maximum radius, disk, height, and disk orientation used for getting data
 r_max = 20 # kpc
@@ -248,15 +251,18 @@ for i, num in enumerate(snaps):
 	sightline_data_files = []
 	for j,snap_dir in enumerate(snap_dirs):
 		sight_lines = Sight_Lines(snap_dir, num, cosmological=0, dust_impl=implementations[j], periodic_bound_fix=True, dirc='./', name=None)
-		sight_lines.create_sightlines(N=10000, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
-		sightline_data_files = [sight_lines.name]
+		sight_lines.create_sightlines(N=N_sightlines, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
+		sightline_data_files += [sight_lines.name]
 
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'binned_sightline_depl_vs_NH.png', \
+	config.FIG_XRATIO = 1.1
+
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'binned_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'raw_sightline_depl_vs_NH.png', \
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'raw_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	config.LARGE_FONT       = 30
 	config.EXTRA_LARGE_FONT = 36
+	config.FIG_XRATIO = 1.
 
 
 ###############################################################################
@@ -307,12 +313,12 @@ for i, num in enumerate(snaps):
 	sightline_data_files = []
 	for j,snap_dir in enumerate(snap_dirs):
 		sight_lines = Sight_Lines(snap_dir, num, cosmological=0, dust_impl=implementations[j], periodic_bound_fix=True, dirc='./', name=None)
-		sight_lines.create_sightlines(N=10000, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
-		sightline_data_files = [sight_lines.name]
+		sight_lines.create_sightlines(N=N_sightlines, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
+		sightline_data_files += [sight_lines.name]
 
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'Coulomb_binned_sightline_depl_vs_NH.png', \
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'Coulomb_binned_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'Coulomb_raw_sightline_depl_vs_NH.png', \
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'Coulomb_raw_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	config.LARGE_FONT       = 30
 	config.EXTRA_LARGE_FONT = 36
@@ -375,12 +381,12 @@ for i, num in enumerate(snaps):
 	sightline_data_files = []
 	for j,snap_dir in enumerate(snap_dirs):
 		sight_lines = Sight_Lines(snap_dir, num, cosmological=0, dust_impl=implementations[j], periodic_bound_fix=True, dirc='./', name=None)
-		sight_lines.create_sightlines(N=10000, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
-		sightline_data_files = [sight_lines.name]
+		sight_lines.create_sightlines(N=N_sightlines, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
+		sightline_data_files += [sight_lines.name]
 
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'FIRE2-3_binned_sightline_depl_vs_NH.png', \
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'FIRE2-3_binned_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
-	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'FIRE2-3_raw_sightline_depl_vs_NH.png', \
+	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'FIRE2-3_raw_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	config.LARGE_FONT       = 30
 	config.EXTRA_LARGE_FONT = 36
@@ -451,7 +457,7 @@ for key in gtimes.keys():
 	plt.hist(gtimes[key][mask], bins=bins, weights=G.m[mask], histtype='step', label=key, cumulative=True)
 plt.legend()
 plt.xscale('log')
-plt.savefig("elem_t_grow_hist.png")
+plt.savefig("elem_t_grow_hist.`png`")
 plt.close()
 
 S = galaxy.loadpart(4)

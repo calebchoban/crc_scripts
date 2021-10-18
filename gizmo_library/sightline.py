@@ -38,14 +38,14 @@ class Sight_Lines(object):
 			self.name = name
 
 		# Check if data has already been saved and if so load that instead
-		if os.path.isfile(dirc+name):
-			with open(dirc+name, 'rb') as handle:
+		if os.path.isfile(dirc+self.name):
+			with open(dirc+self.name, 'rb') as handle:
 				self.sightline_data = pickle.load(handle)
-			print("Preexisting file %s already exists and is loaded!"%name)
+			print("Preexisting file %s already exists and is loaded!"%self.name)
 			self.k = 1
 			return
 		else:
-			print("Preexisting file does not exist, so you to load in the data."%name)
+			print("Preexisting file %s does not exist, so you need to load in the data."%self.name)
 			self.k = 0
 
 
@@ -113,8 +113,10 @@ class Sight_Lines(object):
 			NH_neutral[i] = np.sum(ray["gas", "density"]*ray['dts']*(distance*config.Kpc_to_cm*self.ds.units.cm)*ray["PartType0", "NeutralHydrogenAbundance"]*(1.-ray["gas", "metallicity"]-ray["gas", "He_metallicity"])/(config.H_MASS*self.ds.units.g))
 			if ('PartType0', 'MolecularMassFraction') in self.ds.field_list:
 				fH2 = ray[('PartType0', 'MolecularMassFraction')]
-			else:
+			elif ('PartType0', 'DustMolecular') in self.ds.field_list:
 				fH2 = ray[('PartType0', 'DustMolecular')][:,0]
+			else:
+				fH2 = np.zeros(len(ray["gas", "density"]))
 			NH2[i] = np.sum(ray["gas", "density"]*ray['dts']*(distance*config.Kpc_to_cm*self.ds.units.cm)*fH2*(1.-ray["gas", "metallicity"]-ray["gas", "He_metallicity"])/(config.H_MASS*self.ds.units.g))
 
 			# Go through each each element

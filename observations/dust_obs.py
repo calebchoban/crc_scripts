@@ -184,7 +184,7 @@ def Jenkins_Savage_2009_WNM_Depl(elem):
 	return nH_dens, 1.-WNM_depl, WNM_error
 
 
-def Jenkins_2009_Elem_Depl(elem,dense='NH'):
+def Jenkins_2009_Elem_Depl(elem,density='NH'):
 	"""
 	Gives element depletion data vs <nH> from sightlines in Jenkins (2009).
 
@@ -194,7 +194,7 @@ def Jenkins_2009_Elem_Depl(elem,dense='NH'):
 	  	Which element to get depletions for
 	phy_dens : boolean
 		If True use physical nH conversion from Zhukovska+16. If False use average sight line nH.
-	dense : string
+	density : string
 		Desired density property which include NH (raw surface number density), <nH> (average sight line density),
 		nH (physical density conversion from Zhukovska+16)
 
@@ -214,8 +214,8 @@ def Jenkins_2009_Elem_Depl(elem,dense='NH'):
 		print("Element %s is not supported in Jenkins_2009_Elem_Depl()"%elem)
 		return None,None,None
 
-	if dense not in ['NH','<nH>','nH']:
-		print("Density parameter %s is not supported in Jenkins_2009_Elem_Depl(). Must be NH,<nH>, or nH"%dense)
+	if density not in ['NH','<nH>','nH']:
+		print("Density parameter %s is not supported in Jenkins_2009_Elem_Depl(). Must be NH,<nH>, or nH"%density)
 		return None,None,None
 
 	# Get NElem data for the specified element and reference abundance
@@ -289,20 +289,20 @@ def Jenkins_2009_Elem_Depl(elem,dense='NH'):
 	err_depl = np.stack((lower_elem_depl, upper_elem_depl))
 
 
-	if dense == 'NH':
-		density = NH_n
+	if density == 'NH':
+		density_vals = NH_n
 	else:
 		# Now get density values from F* depletion parameter
 		avg_nH = np.power(10,(F_star-0.772)/0.461)
-		if dense == 'nH':
+		if density == 'nH':
 			phys_nH = 147.234*np.power(avg_nH,1.054)
 			# This conversion is only valid for a certain range of densities
 			obs_range = np.array([10, 1E3])
-			density = phys_nH
-		elif dense == '<nH>':
-			density = avg_nH
+			density_vals = phys_nH
+		elif density == '<nH>':
+			density_vals = avg_nH
 
-	return elem_depl, err_depl, density
+	return elem_depl, err_depl, density_vals
 
 
 
@@ -351,11 +351,11 @@ def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 		return None,None,None
 
 	if density == 'NH':
-		density = NH
+		density_vals = NH
 	elif density=='<nH>':
-		density = nH
+		density_vals = nH
 
-	return C_depl, C_error, density
+	return C_depl, C_error, density_vals
 
 
 
