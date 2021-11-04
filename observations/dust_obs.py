@@ -547,7 +547,7 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
 	# Remove IC342 since it's a bit odd
-	IDs = IDs[IDs!='IC342']
+	#IDs = IDs[IDs!='IC342']
 
 
 	SNR = data['GOODSNR']

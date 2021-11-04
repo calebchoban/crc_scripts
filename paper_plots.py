@@ -237,15 +237,22 @@ for i, num in enumerate(snaps):
 		galaxies += [galaxy]
 
 	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
+	plot_prop_vs_prop(['nH_neutral'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'DZ_vs_nH_neutral.pdf', std_bars=True, style='color-linestyle', include_obs=True)
 
+	config.SMALL_FONT=20
 	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
+	plot_obs_prop_vs_prop(['sigma_gas_neutral','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'B13_obs_DZ_vs_surf_neutral.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
+	config.SMALL_FONT=22
 
 	# Need larger font size for this plot
 	config.LARGE_FONT       = 40
 	config.EXTRA_LARGE_FONT = 56
 	elems = ['Mg','Si','Fe','O','C']
-	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_dens.pdf', \
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_nH.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
+	plot_elem_depletion_vs_prop(elems, 'nH_neutral', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'obs_elemental_dep_vs_nH_neutral.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
 
 	sightline_data_files = []
@@ -299,15 +306,19 @@ for i, num in enumerate(snaps):
 		galaxies += [galaxy]
 
 	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'Coulomb_DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
+	plot_prop_vs_prop(['nH_neutral'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'Coulomb_DZ_vs_nH_neutral.pdf', std_bars=True, style='color-linestyle', include_obs=True)
 
-	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'Coulomb_B13_obs_DZ_vs_surf.pdf', \
+	config.SMALL_FONT=20
+	plot_obs_prop_vs_prop(['sigma_gas_neutral','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'Coulomb_B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
-
+	config.SMALL_FONT=22
 	# Need larger font size for this plot
 	config.LARGE_FONT       = 40
 	config.EXTRA_LARGE_FONT = 56
 	elems = ['Mg','Si','Fe','O','C']
-	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'Coulomb_obs_elemental_dep_vs_dens.pdf', \
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'Coulomb_elemental_dep_vs_nH.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
+	plot_elem_depletion_vs_prop(elems, 'nH_neutral', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'Coulomb_elemental_dep_vs_nH_neutral.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
 
 	sightline_data_files = []
@@ -316,12 +327,15 @@ for i, num in enumerate(snaps):
 		sight_lines.create_sightlines(N=N_sightlines, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
 		sightline_data_files += [sight_lines.name]
 
+	config.FIG_XRATIO = 1.1
+
 	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'Coulomb_binned_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'Coulomb_raw_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	config.LARGE_FONT       = 30
 	config.EXTRA_LARGE_FONT = 36
+	config.FIG_XRATIO = 1.0
 
 
 
@@ -366,17 +380,26 @@ for i, num in enumerate(snaps):
 	config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E3]
 	config.PROP_INFO['T'][1]=[1.1E1, 0.9E5]
 
+
 	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
-
-	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
+	# Need to cutoff weird low density portion due to odd FIRE-3 results (most likely due to using development version)
+	config.PROP_INFO['nH_neutral'][1]=[0.5E-1, 0.9E3]
+	plot_prop_vs_prop(['nH_neutral'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_DZ_vs_nH_neutral.pdf', std_bars=True, style='color-linestyle', include_obs=True)
+	config.PROP_INFO['nH_neutral'][1]=[1.1E-2, 0.9E3]
+	config.SMALL_FONT=20
+	plot_obs_prop_vs_prop(['sigma_gas_neutral','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname=plot_dir+'FIRE2-3_B13_obs_DZ_vs_surf.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
-
+	config.SMALL_FONT=22
 	# Need larger font size for this plot
 	config.LARGE_FONT       = 40
 	config.EXTRA_LARGE_FONT = 56
-	elems = ['Mg','Si','Fe','O','C']
-	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_obs_elemental_dep_vs_dens.pdf', \
+	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_elemental_dep_vs_nH.pdf', \
 						std_bars=True, style='color-linestyle', include_obs=True)
+	# Need to cutoff weird low density portion due to odd FIRE-3 results (most likely due to using development version)
+	config.PROP_INFO['nH_neutral'][1]=[0.5E-1, 0.9E3]
+	plot_elem_depletion_vs_prop(elems, 'nH_neutral', galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_elemental_dep_vs_nH_neutral.pdf', \
+						std_bars=True, style='color-linestyle', include_obs=True)
+	config.PROP_INFO['nH_neutral'][1]=[1.1E-2, 0.9E3]
 
 	sightline_data_files = []
 	for j,snap_dir in enumerate(snap_dirs):
@@ -384,12 +407,14 @@ for i, num in enumerate(snaps):
 		sight_lines.create_sightlines(N=N_sightlines, radius=config.SOLAR_GAL_RADIUS, dist_lims=[0.1,1.9])
 		sightline_data_files += [sight_lines.name]
 
+	config.FIG_XRATIO = 1.1
 	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=True, bin_nums=20, labels=labels, foutname=plot_dir+'FIRE2-3_binned_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	plot_sightline_depletion_vs_prop(elems, 'NH_neutral', sightline_data_files, bin_data=False, labels=labels, foutname=plot_dir+'FIRE2-3_raw_sightline_depl_vs_NH.pdf', \
 							 std_bars=True, style='color-linestyle', include_obs=True)
 	config.LARGE_FONT       = 30
 	config.EXTRA_LARGE_FONT = 36
+	config.FIG_XRATIO = 1.0
 
 
 	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
@@ -478,3 +503,4 @@ for k in range(len(S.sft)):
 	total_SNe+=RSNe*S.m[k]*config.UnitMass_in_Msolar
 print("Total SNe per Year = ",total_SNe/1E6)
 print("M_ISM =",np.sum(G.m*config.UnitMass_in_Msolar)/1E9)
+

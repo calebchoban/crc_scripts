@@ -270,3 +270,72 @@ class Particle:
         self.p = p
 
         return
+
+    # Gets derived properties from particle data
+    def get_property(self, property):
+
+        if property in ['M','M_gas','M_star']:
+            data = self.m*config.UnitMass_in_Msolar
+        elif property == 'M_gas_neutral':
+            data = self.m*self.nh*config.UnitMass_in_Msolar
+        elif property == 'M_metals':
+            data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_dust':
+            data = self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_sil':
+            data = self.spec[:,0]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_carb':
+            data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_SiC':
+            data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_iron':
+            if self.sp.Flag_DustSpecies>4:
+                data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+            else:
+                data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_ORes':
+            data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+        elif property == 'M_sil+':
+            data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
+        elif property == 'fH2':
+            data = self.fH2
+            data[data>1] = 1
+        elif property == 'fMC':
+            data = self.fMC
+            data[data>1] = 1
+        elif property == 'CinCO':
+            data = self.CinCO/self.z[:,2]
+        elif property == 'nH':
+            data = self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS
+        elif property == 'nH_neutral':
+            data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
+        elif property == 'T':
+            data = self.T
+        elif property == 'r':
+            data = np.sqrt(np.power(self.p[:,0],2) + np.power(self.p[:,1],2))
+        elif property == 'Z':
+            data = self.z[:,0]/config.SOLAR_Z
+        elif property == 'Z_all':
+            data = self.z
+        elif property == 'O/H':
+            O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+            data = 12+np.log10(O/H)
+        elif property == 'Si/C':
+            data = self.spec[:,0]/self.spec[:,1]
+        elif property == 'D/Z':
+            data = self.dz[:,0]/self.z[:,0]
+            data[data > 1] = 1.
+        elif 'depletion' in property:
+            elem = property.split('_')[0]
+            if elem not in config.ELEMENTS:
+                print('%s is not a valid element to calculate depletion for. Valid elements are'%elem)
+                print(config.ELEMENTS)
+                return None
+            elem_indx = config.ELEMENTS.index(elem)
+            data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
+            data[data > 1] = 1.
+        else:
+            print("Property given to Particle is not supported:",property)
+            return None
+
+        return data

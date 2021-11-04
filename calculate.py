@@ -4,86 +4,6 @@ import gizmo_library.utils as utils
 from scipy.stats import binned_statistic_2d
 
 
-def get_particle_data(particle, property):
-	"""
-	Retrieves property data from particle, reducing or converting as needed
-
-	Parameters
-	----------
-	particle: Particle
-	    Particle to get data from
-	property: string
-		Name of property to get data for
-
-	Returns
-	-------
-	data : ndarray
-		Data for given property from the particle
-
-	"""
-	if property == 'M' or property == 'M_gas':
-		data = particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_metals':
-		data = particle.z[:,0]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_dust':
-		data = particle.dz[:,0]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_sil':
-		data = particle.spec[:,0]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_carb':
-		data = particle.spec[:,1]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_SiC':
-		data = particle.spec[:,2]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_iron':
-		if particle.sp.Flag_DustSpecies>4:
-			data = (particle.spec[:,3]+particle.spec[:,5])*particle.m*config.UnitMass_in_Msolar
-		else:
-			data = particle.spec[:,3]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_ORes':
-		data = particle.spec[:,4]*particle.m*config.UnitMass_in_Msolar
-	elif property == 'M_sil+':
-		data = (particle.spec[:,0]+np.sum(particle.spec[:,2:],axis=1))*particle.m*config.UnitMass_in_Msolar
-	elif property == 'fH2':
-		data = particle.fH2
-		data[data>1] = 1
-	elif property == 'fMC':
-		data = particle.fMC
-		data[data>1] = 1
-	elif property == 'CinCO':
-		data = particle.CinCO/particle.z[:,2]
-	elif property == 'nH':
-		data = particle.rho*config.UnitDensity_in_cgs * (1. - (particle.z[:,0]+particle.z[:,1])) / config.H_MASS
-	elif property == 'T':
-		data = particle.T
-	elif property == 'r':
-		data = np.sqrt(np.power(particle.p[:,0],2) + np.power(particle.p[:,1],2))
-	elif property == 'Z':
-		data = particle.z[:,0]/config.SOLAR_Z
-	elif property == 'Z_all':
-		data = particle.z
-	elif property == 'O/H':
-		O = particle.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(particle.z[:,0]+particle.z[:,1]))/config.ATOMIC_MASS[0]
-		data = 12+np.log10(O/H)
-	elif property == 'Si/C':
-		data = particle.spec[:,0]/particle.spec[:,1]
-	elif property == 'D/Z':
-		data = particle.dz[:,0]/particle.z[:,0]
-		data[data > 1] = 1.
-	elif 'depletion' in property:
-		elem = property.split('_')[0]
-		if elem not in config.ELEMENTS:
-			print('%s is not a valid element to calculate depletion for. Valid elements are'%elem)
-			print(config.ELEMENTS)
-			return None,None,None
-		elem_indx = config.ELEMENTS.index(elem)
-		data =  particle.dz[:,elem_indx]/particle.z[:,elem_indx]
-		data[data > 1] = 1.
-	else:
-		print("Property given to get_particle_data is not supported:",property)
-		return None
-
-	return data
-
-
 
 def calc_binned_property_vs_property(property1, property2, G, bin_nums=50, prop_lims=None):
 	"""
@@ -118,7 +38,7 @@ def calc_binned_property_vs_property(property1, property2, G, bin_nums=50, prop_
 	# Get property data
 	data = np.zeros([2,G.npart])
 	for i, property in enumerate([property1,property2]):
-		data[i] = get_particle_data(G, property)
+		data[i] = G.get_property(property)
 
 	if prop_lims is None:
 		prop_lims = config.PROP_INFO[property2][1]
@@ -155,8 +75,8 @@ def calc_phase_hist_data(property, G, bin_nums=100):
 	"""
 
 	# Set up x and y data, limits, and bins
-	nH_data = get_particle_data(G,'nH')
-	T_data = get_particle_data(G,'T')
+	nH_data = G.get_property('nH')
+	T_data = G.get_property('T')
 	nH_bin_lims = config.PROP_INFO['nH'][1]
 	T_bin_lims = config.PROP_INFO['T'][1]
 	if config.PROP_INFO['nH'][2]:
@@ -172,7 +92,7 @@ def calc_phase_hist_data(property, G, bin_nums=100):
 		func = np.sum
 	else:
 		func = np.mean
-	bin_data = get_particle_data(G,property)
+	bin_data = G.get_property(property)
 	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
 	# Need to catch case were np.sum is given empty array which will return zero
 	if property in ['M_H2','M_gas']:
@@ -237,27 +157,32 @@ def calc_binned_obs_property_vs_property(property1, property2, G, r_max=20, pixe
 	for i, property in enumerate([property1,property2]):
 
 		if property == 'sigma_dust':
-			bin_data = get_particle_data(G,'M_dust')
+			bin_data = G.get_property('M_dust')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			dust_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = dust_pixel
 		elif property=='sigma_gas':
-			bin_data = get_particle_data(G,'M_gas')
+			bin_data = G.get_property('M_gas')
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			M_pixel = ret.flatten()/pixel_area
+			pixel_data[i] = M_pixel
+		elif property=='sigma_gas_neutral':
+			bin_data = G.get_property('M_gas_neutral')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_H2':
-			bin_data = get_particle_data(G,'M_H2')
+			bin_data = G.get_property('M_H2')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			MH2_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = MH2_pixel
 		elif property == 'sigma_Z':
-			bin_data = get_particle_data(G,'M_metals')
+			bin_data = G.get_property('M_metals')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			Z_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = Z_pixel
 		elif property == 'fH2':
-			bin_data = [get_particle_data(G,'M_H2'),get_particle_data(G,'M_gas')]
+			bin_data = [G.get_property('M_H2'),G.get_property('M_gas')]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			fH2_pixel = ret[0].flatten()/(ret[1].flatten())
 			pixel_data[i] = fH2_pixel
@@ -268,7 +193,7 @@ def calc_binned_obs_property_vs_property(property1, property2, G, r_max=20, pixe
 			# Makes more sense to force the number of bins for this
 			bin_nums = pixel_bins//2
 		elif property == 'D/Z':
-			bin_data = [get_particle_data(G,'M_dust'),get_particle_data(G,'M_metals')]
+			bin_data = [G.get_property('M_dust'),G.get_property('M_metals')]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			DZ_pixel = np.divide(ret[0].flatten(),ret[1].flatten(),where=ret[1].flatten()!=0)
 			pixel_data[i] = DZ_pixel
@@ -302,11 +227,11 @@ def calc_gal_int_params(property, G):
 	"""
 
 	if property == 'D/Z':
-		val = utils.weighted_percentile(get_particle_data(G,'D/Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+		val = utils.weighted_percentile(G.get_property('D/Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'Z':
-		val = utils.weighted_percentile(get_particle_data(G,'Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+		val = utils.weighted_percentile(G.get_property('Z'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'O/H':
-		val = utils.weighted_percentile(get_particle_data(G,'O/H'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
+		val = utils.weighted_percentile(G.get_property('O/H'), percentiles=np.array([50]), weights=G.m, ignore_invalid=True)
 	elif property == 'M_gas':
 		val = np.sum(G.m*config.UnitMass_in_Msolar)
 	else:
@@ -371,29 +296,29 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 	# Get the data to be projected
 	if property in ['D/Z','fH2','fMC']:
 		if property == 'D/Z':
-			proj_data1 = get_particle_data(P,'M_dust')
-			proj_data2 = get_particle_data(P,'M_metals')
+			proj_data1 = P.get_property('M_dust')
+			proj_data2 = P.get_property('M_metals')
 		elif property == 'fH2':
-			proj_data1 = get_particle_data(P,'M_gas')
-			proj_data2 = get_particle_data(P,'M_H2')
+			proj_data1 = P.get_property('M_gas')
+			proj_data2 = P.get_property('M_H2')
 		elif property == 'fMC':
-			proj_data1 = get_particle_data(P,'M_gas')
-			proj_data2 = get_particle_data(P,'M_mc')
+			proj_data1 = P.get_property('M_gas')
+			proj_data2 = P.get_property('M_mc')
 		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], statistic=np.sum, bins=[coord1_bins,coord2_bins])
 		pixel_stats = binned_stats.statistic[0]/binned_stats.statistic[1]
 
 	else:
-		if   property == 'sigma_dust':  	proj_data = get_particle_data(P,'M_dust')
-		elif property == 'sigma_gas': 		proj_data = get_particle_data(P,'M_gas')
-		elif property == 'sigma_H2': 		proj_data = get_particle_data(P,'M_H2')
-		elif property == 'sigma_metals': 	proj_data = get_particle_data(P,'M_metals')
-		elif property == 'sigma_sil': 		proj_data = get_particle_data(P,'M_sil')
-		elif property == 'sigma_sil+':  	proj_data = get_particle_data(P,'M_sil+')
-		elif property == 'sigma_carb':  	proj_data = get_particle_data(P,'M_carb')
-		elif property == 'sigma_SiC': 		proj_data = get_particle_data(P,'M_SiC')
-		elif property == 'sigma_iron':  	proj_data = get_particle_data(P,'M_iron')
-		elif property == 'sigma_ORes': 		proj_data = get_particle_data(P,'M_ORes')
-		elif property == 'sigma_star':  	proj_data = get_particle_data(P,'M_star')
+		if   property == 'sigma_dust':  	proj_data = P.get_property('M_dust')
+		elif property == 'sigma_gas': 		proj_data = P.get_property('M_gas')
+		elif property == 'sigma_H2': 		proj_data = P.get_property('M_H2')
+		elif property == 'sigma_metals': 	proj_data = P.get_property('M_metals')
+		elif property == 'sigma_sil': 		proj_data = P.get_property('M_sil')
+		elif property == 'sigma_sil+':  	proj_data = P.get_property('M_sil+')
+		elif property == 'sigma_carb':  	proj_data = P.get_property('M_carb')
+		elif property == 'sigma_SiC': 		proj_data = P.get_property('M_SiC')
+		elif property == 'sigma_iron':  	proj_data = P.get_property('M_iron')
+		elif property == 'sigma_ORes': 		proj_data = P.get_property('M_ORes')
+		elif property == 'sigma_star':  	proj_data = P.get_property('M_star')
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%property)
 			return None

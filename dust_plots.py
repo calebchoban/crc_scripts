@@ -10,7 +10,7 @@ import os
 import observations.dust_obs as obs
 import analytical_models.stellar_yields as st_yields
 import analytical_models.dust_accretion as dust_acc
-`import plot_setup as plt_set
+import plot_setup as plt_set
 import gizmo_library.config as config
 import gizmo_library.utils as utils
 import calculate as calc
@@ -49,13 +49,22 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 						  fmt=config.MARKER_STYLES[i], elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
 
 	elif property == 'r':
-		data = obs.Chiang_20_DZ_vs_param(property, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=15, log=False, goodSNR=goodSNR)
+		data = obs.Chiang_20_DZ_vs_param(property, bin_data=True, CO_opt=CO_opt, phys_r=True, bin_nums=10, log=False, goodSNR=goodSNR)
 		for i, gal_name in enumerate(data.keys()):
 			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
-			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i],
-						  fmt=config.MARKER_STYLES[i], elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+			#axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i],
+			#			  fmt=config.MARKER_STYLES[i], elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], mec=config.MARKER_COLORS[i], ecolor='xkcd:dark grey',
+			   mew=0.75*config.BASE_ELINEWIDTH, fmt=config.MARKER_STYLES[i], mfc='xkcd:white', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+
+		data = obs.Chiang_20_DZ_vs_param(property, bin_data=False, CO_opt=CO_opt, bin_nums=15, log=True, goodSNR=True)
+		for i, gal_name in enumerate(data.keys()):
+			r_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
+			axis.errorbar(r_vals, mean_DZ, fmt=config.MARKER_STYLES[i], c=config.MARKER_COLORS[i],
+					ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH, mfc=config.MARKER_COLORS[i],
+					mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
 
 	elif property == 'r25':
 		data = obs.Chiang_20_DZ_vs_param('r', bin_data=True, CO_opt=CO_opt, phys_r=False, bin_nums=30, log=False, goodSNR=goodSNR)
@@ -66,7 +75,7 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 			axis.errorbar(r_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], fmt=config.MARKER_STYLES[i],
 						   elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,zorder=2)
 
-	elif property == 'nH':
+	elif property == 'nH' or property == 'nH_neutral':
 		# Plot J09 with Zhuk16/18 conversion to physical density
 		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
 		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
@@ -89,19 +98,27 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i],
 						  fmt=config.MARKER_STYLES[i], elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
 
-	elif property == 'sigma_gas':
-		data = obs.Chiang_20_DZ_vs_param(property, bin_data=True, CO_opt=CO_opt, bin_nums=15, log=True, goodSNR=True)
+	elif property == 'sigma_gas' or property == 'sigma_gas_neutral':
+		data = obs.Chiang_20_DZ_vs_param('sigma_gas', bin_data=True, CO_opt=CO_opt, bin_nums=10, log=True, goodSNR=True)
 		for i, gal_name in enumerate(data.keys()):
 			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 			if log:
 				std_DZ[std_DZ == 0] = config.EPSILON
-			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i],
-						  fmt=config.MARKER_STYLES[i], elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+			axis.errorbar(sigma_vals, mean_DZ, yerr = np.abs(mean_DZ-np.transpose(std_DZ)), label=gal_name, c=config.MARKER_COLORS[i], mec=config.MARKER_COLORS[i], ecolor='xkcd:dark grey',
+						   mew=0.75*config.BASE_ELINEWIDTH, fmt=config.MARKER_STYLES[i], mfc='xkcd:white', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
+
+		data = obs.Chiang_20_DZ_vs_param('sigma_gas', bin_data=False, CO_opt=CO_opt, bin_nums=15, log=True, goodSNR=True)
+		for i, gal_name in enumerate(data.keys()):
+			sigma_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
+			axis.errorbar(sigma_vals, mean_DZ, fmt=config.MARKER_STYLES[i],
+					c=config.MARKER_COLORS[i], ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH,
+					  mfc=config.MARKER_COLORS[i], mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
+
 		if not goodSNR:
-			data = obs.Chiang_20_DZ_vs_param(property, bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
+			data = obs.Chiang_20_DZ_vs_param('sigma_gas', bin_data=False, CO_opt=CO_opt, log=True, goodSNR=False)
 			for i, gal_name in enumerate(data.keys()):
 				sigma_vals = data[gal_name][0]; DZ = data[gal_name][1]
-				axis.scatter(sigma_vals, DZ, c=config.MARKER_COLORS[i], marker=config.MARKER_STYLES[i], s=config.BASE_MARKERSIZE**2, zorder=0, alpha=0.4)
+				axis.scatter(sigma_vals, DZ, c=config.MARKER_COLORS[i], marker=config.MARKER_STYLES[i], s=config.BASE_MARKERSIZ1E**2, zorder=0, alpha=0.4)
 	
 	elif property == 'sigma_H2':
 		data = obs.Chiang_20_DZ_vs_param(property, bin_data=True, CO_opt=CO_opt, bin_nums=30, log=True, goodSNR=goodSNR)
@@ -133,7 +150,7 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 
 		else:
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H,neutral} \right>$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
 			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
 			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
@@ -198,7 +215,7 @@ def plot_observational_data(axis, property, elem=None, log=True, CO_opt='B13', g
 			# Add in shaded region for 20-40% of C in CO bars
 			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
 
-				# Now bin the data
+		# Now bin the data
 		bin_lims = [np.min(NH_vals),np.max(NH_vals)]
 		# Set bins to be ~0.2 dex in size since range of data varies for each element
 		bin_nums = int((np.log10(np.max(NH_vals))-np.log10(np.min(NH_vals)))/0.33)
@@ -413,7 +430,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 		axis = axes[i]
 		plt_set.setup_axis(axis, prop, elem+'_depletion')
 
-		if include_obs and prop == 'nH':
+		if include_obs and (prop == 'nH' or prop == 'nH_neutral'):
 			plot_observational_data(axis, property='depletion', elem=elem)
 
 		for j,snap in enumerate(snaps):
@@ -430,7 +447,8 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 		for key in labels_handles.keys(): new_lh.pop(key,0);
 		if len(new_lh)>0:
 			ncol = 2 if len(new_lh) > 4 else 1
-			axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
+			loc = 'best' if elem!='C' else 'upper right'
+			axis.legend(new_lh.values(), new_lh.keys(), loc=loc, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 		labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
@@ -587,16 +605,13 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 			labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
-		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
+		axis.text(.10, .3, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 	plt.tight_layout()
 	plt.savefig(foutname)
 	plt.close()
 
 	return
-
-
-
 
 
 
@@ -665,6 +680,11 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 			axis.plot(x_vals, y_mean, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+		# Add filler objects to make nice legend
+		if len(snaps) < 5:
+			for j in range(5-len(snaps)):
+				axis.plot(np.zeros(1), np.zeros([1,3]), color='w', alpha=0, label=' ')
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		hands, labs = axis.get_legend_handles_labels()
@@ -800,10 +820,10 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 			loc = 'upper left'
 		elif y_param == 'source_frac':
 			param_labels = config.DUST_SOURCES
-			loc = 'lower left'
+			loc = 'center right'
 		elif y_param=='spec_frac':
 			param_labels = config.DUST_SPECIES
-			loc = 'upper right'
+			loc = 'upper left'
 		elif y_param == 'Si/C':
 			loc = 'upper right'
 		else:
@@ -828,7 +848,7 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 				for k in range(np.shape(data_vals)[1]):
 					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
 			axis.set_xlim([0.8E-2,time_data[-1]])
-		# Only need to label the seperate simulations in the first plot
+		# Only need to label the separate simulations in the first plot
 		if i==0 and len(data_objs)>1:
 			axis.legend(loc='upper left', frameon=False, fontsize=config.SMALL_FONT)
 		# If there are subparameters need to make their own legend

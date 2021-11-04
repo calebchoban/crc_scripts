@@ -126,7 +126,7 @@ def SNeRates(star_age, Z, time_step, FIRE_ver=2):
 
 
 # Total metal and dust yields for stellar winds
-def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine = 'species_nano', trim_excess=True):
+def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine='species_nano', trim_excess=True):
 	yields = np.zeros(11)
 	dust_yields = np.zeros(11)
 	species_yields = np.zeros(4)
