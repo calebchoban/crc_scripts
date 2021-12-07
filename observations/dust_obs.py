@@ -184,7 +184,7 @@ def Jenkins_Savage_2009_WNM_Depl(elem):
 	return nH_dens, 1.-WNM_depl, WNM_error
 
 
-def Jenkins_2009_Elem_Depl(elem,phys_dens=False):
+def Jenkins_2009_Elem_Depl(elem,density='NH'):
 	"""
 	Gives element depletion data vs <nH> from sightlines in Jenkins (2009).
 
@@ -194,67 +194,119 @@ def Jenkins_2009_Elem_Depl(elem,phys_dens=False):
 	  	Which element to get depletions for
 	phy_dens : boolean
 		If True use physical nH conversion from Zhukovska+16. If False use average sight line nH.
+	density : string
+		Desired density property which include NH (raw surface number density), <nH> (average sight line density),
+		nH (physical density conversion from Zhukovska+16)
 
 	Returns
 	------
 	elem_depl : list
-		Element depletions for all sightlines
+		Element depletions for all sight lines
 	elem_err : list
-		Upper an lower errors for each depletion
-	nH : list
-		Sight line density (cm^-3) for each sight line
+		Upper and lower errors for each depletion
+	density : list
+		Desired density property for each sight line
 	"""
-
-	# TODO : Check that this works for all elements. Currently only checked for Carbon
 
 	if elem in config.ELEMENTS:
 		elem_name = config.ELEMENT_NAMES[config.ELEMENTS.index(elem)]
 	else:
-		print("Element %s is not supported in Jenkins_2009_Elem_Depl"%elem)
+		print("Element %s is not supported in Jenkins_2009_Elem_Depl()"%elem)
 		return None,None,None
 
+	if density not in ['NH','<nH>','nH']:
+		print("Density parameter %s is not supported in Jenkins_2009_Elem_Depl(). Must be NH,<nH>, or nH"%density)
+		return None,None,None
 
+	# Get NElem data for the specified element and reference abundance
 	NElem_data = ascii.read(OBS_DIR+'Jenkins09/elem_depletions.txt')
 	fit_data = ascii.read(OBS_DIR+'Jenkins09/element_depletion_parameters.txt')
 	ref_abund = fit_data['X/H'][fit_data['El']==elem].data[0] # in 12+log(X/H) units
-	# Fill in all the missing data with NaNs
-	NElem_data['F*'].fill_value = np.nan; NElem_data['logNEl'].fill_value = np.nan;
+	err_ref_abund = fit_data['e_X/H'][fit_data['El']==elem].data[0]
+
+	# Fill in all the missing data for needed fields with NaNs, +/-infinity, or 0
+	NElem_data['F*'].fill_value = np.nan; NElem_data['logNEl'].fill_value = np.nan; NElem_data['VComp'].fill_value = 0;
+	NElem_data['E_logNEl'].fill_value = np.inf; NElem_data['e_logNEl'].fill_value = -np.inf;
+	NElem_data['Res'].fill_value = 0;
 	NElem_data = NElem_data.filled()
-	# Only use sight lines with all the data we want
-	elem_mask = (NElem_data['El']==elem_name) & (~np.isnan(NElem_data['F*'])) & (~np.isnan(NElem_data['logNEl']))
-	NEl = NElem_data['logNEl'][elem_mask].data
-	lower_NEl = NElem_data['e_logNEl'][elem_mask].data; upper_NEl = NElem_data['E_logNEl'][elem_mask].data
-	# This table only has expected depletion values from fit and the residual with the actual depletion values
-	elem_depl = NElem_data['Res'][elem_mask].data+NElem_data['Elgas'][elem_mask].data
-	# Need to do this backwards way of calculating N_H from depletion and N_element values
-	NH = NEl-elem_depl-(ref_abund-12) # in dex
-	lower_depl = lower_NEl-NH-(ref_abund-12)
-	upper_depl = upper_NEl-NH-(ref_abund-12)
-	# If Carbon need to decrease depletion by a factor of log10(2) based on Sofia+2012 findings
+
+	# Only use sight lines with all the data we want for the specified element only
+	elem_mask = (NElem_data['El']==elem_name) & (~np.isnan(NElem_data['logNEl']))
+
+	# Some elements may need a correction factor for NEl, notably C should be reduced by half
 	if elem=='C':
-		corr_factor = np.log10(2)
-		elem_depl-=corr_factor
-		lower_depl-=corr_factor; upper_depl-=corr_factor
-	elem_depl = np.power(10,elem_depl)
-	lim_depl = np.power(10,np.stack((lower_depl, upper_depl)))
-	err_depl = np.abs(elem_depl-lim_depl)
+		corr_factor = -np.log10(2)
+	else: corr_factor = 0.
 
-	# Now get density values from F* depletion parameter
+	NEl = NElem_data['logNEl'][elem_mask].data+corr_factor
+	# Get upper/lower limits and convert to upper/lower errors
+	lower_NEl = NEl-(NElem_data['e_logNEl'][elem_mask].data+corr_factor); upper_NEl = (NElem_data['E_logNEl'][elem_mask].data+corr_factor)-NEl;
 	F_star = NElem_data['F*'][elem_mask].data
-	avg_nH = np.power(10,(F_star-0.772)/0.461)
-	if phys_dens:
-		phys_nH = 147.234*np.power(avg_nH,1.054)
-		# This conversion is only valid for a certain range of densities
-		obs_range = np.array([10, 1E3])
-		nH = phys_nH
+	NEl = np.power(10,NEl)
+	# Error propagation: 10^NEl for lower and upper limits/errors
+	lower_NEl = np.log(10.)*NEl*lower_NEl; upper_NEl = np.log(10.)*NEl*upper_NEl;
+
+	# Get IDs to match with sight line NH data
+	Elem_ID1 =  NElem_data['Name'][elem_mask].data; Elem_ID2 = NElem_data['VComp'][elem_mask].data;
+	Elem_ID = np.char.add(Elem_ID1,Elem_ID2.astype(str))
+
+	# Get NHI and NH2 data
+	NH_data = ascii.read(OBS_DIR+'Jenkins09/sightline_NH.txt')
+	NH_data['logNHOb'].fill_value = np.nan; NH_data['VComp'].fill_value = 0;
+	NH_data['e_logNHOb'].fill_value = -np.inf; NH_data['E_logNHOb'].fill_value = np.inf;
+	NH_data = NH_data.filled()
+	H_ID1 = NH_data['Name'].data; H_ID2 = NH_data['VComp'].data;
+	H_ID = np.char.add(H_ID1,H_ID2.astype(str))
+	NH_mask = np.in1d(H_ID,Elem_ID)
+
+	# Dispose of any sight lines with only lower or upper limits on NH
+	NH_mask = NH_mask & (~np.isnan(NH_data['logNHOb'].data))
+
+	# Now need to remask element data to avoid these no NH sight lines
+	H_ID = H_ID[NH_mask]
+	elem_mask = np.in1d(Elem_ID, H_ID)
+	NEl = NEl[elem_mask]; lower_NEl = lower_NEl[elem_mask]; upper_NEl = upper_NEl[elem_mask];
+	F_star = F_star[elem_mask]
+
+	# Get NH_neutral data for each sight line
+	NH_n = NH_data['logNHOb'].data[NH_mask];
+	lower_NH_n = NH_n-NH_data['e_logNHOb'].data[NH_mask]; upper_NH_n = NH_data['E_logNHOb'].data[NH_mask]-NH_n;
+	NH_n=np.power(10,NH_n)
+	lower_NH_n = np.log(10.)*NH_n*lower_NH_n; upper_NH_n = np.log(10.)*NH_n*upper_NH_n;
+	# Deal with large errors greater than expected value
+	mask = lower_NH_n>NH_n
+	lower_NH_n[mask] = -np.inf
+
+	# Convert reference abundance to ppm
+	ref_abund = np.power(10,ref_abund-12)
+	# Error propagation: 10^(ref-12) for uncertainty
+	err_ref_abund = np.log(10.)*ref_abund*err_ref_abund;
+	# Calculate linear depletion
+	elem_depl = (NEl/NH_n)/ref_abund
+	# Error propagation: add in percentile quadrature
+	lower_elem_depl = elem_depl*np.sqrt(np.square(lower_NH_n/NH_n)+np.square(lower_NEl/NEl)+np.square(err_ref_abund/ref_abund))
+	upper_elem_depl = elem_depl*np.sqrt(np.square(upper_NH_n/NH_n)+np.square(upper_NEl/NEl)+np.square(err_ref_abund/ref_abund))
+	err_depl = np.stack((lower_elem_depl, upper_elem_depl))
+
+
+	if density == 'NH':
+		density_vals = NH_n
 	else:
-		nH = avg_nH
+		# Now get density values from F* depletion parameter
+		avg_nH = np.power(10,(F_star-0.772)/0.461)
+		if density == 'nH':
+			phys_nH = 147.234*np.power(avg_nH,1.054)
+			# This conversion is only valid for a certain range of densities
+			obs_range = np.array([10, 1E3])
+			density_vals = phys_nH
+		elif density == '<nH>':
+			density_vals = avg_nH
 
-	return elem_depl, err_depl, nH
+	return elem_depl, err_depl, density_vals
 
 
 
-def Parvathi_2012_C_Depl(solar_abund='max'):
+def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 	"""
 	Gives C depletion data vs <nH> from sightlines in Parvathi+ (2012).
 
@@ -280,6 +332,7 @@ def Parvathi_2012_C_Depl(solar_abund='max'):
 	gas_phase_C = np.array([382,202,116,365,275,112,173,138,193,290,85,464,131,321,317,93,92,99,98,215,69],dtype=float)
 	C_error     = np.array([56, 24, 102, 94, 96, 19, 34, 24, 31, 58, 28, 57, 27, 70, 46, 32, 38, 36, 23, 54, 21],dtype=float)
 	nH          = np.power(10,np.array([0.41,-0.73,-1.15,-0.47,-0.69,-0.41,0.08,-0.27,-0.13,-0.90,0.55,-0.03,0.04,-0.70,-0.92,0.53,0.61,0.66,1.11,-0.28,0.40]))
+	NH			= np.power(10,np.array([21.46,21.16,21.02,21.34,20.66,21.44,21.41,21.48,21.15,21.00,21.44,21.25,21.32,21.33,21.19,21.36,21.68,21.73,21.77,21.47,21.68]))
 
 	if solar_abund=='max':
 		i_max = np.argmax(gas_phase_C)
@@ -297,7 +350,12 @@ def Parvathi_2012_C_Depl(solar_abund='max'):
 		print("%s is not a valid argument for Parvathi_2012_C_Depl()"%solar_abund)
 		return None,None,None
 
-	return C_depl, C_error, nH
+	if density == 'NH':
+		density_vals = NH
+	elif density=='<nH>':
+		density_vals = nH
+
+	return C_depl, C_error, density_vals
 
 
 
@@ -460,28 +518,36 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 
-def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
+def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=True, goodSNR=True):
 	file_name = OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
-	if param == 'sigma_gas':
+	if param == 'sigma_gas' or param == 'sigma_gas_neutral':
 		vals = np.power(10,data['gas'])
 	elif param == 'sigma_H2':
 		vals = np.power(10,data['h2'])
 	elif param == 'fH2':
 		vals = data['fh2']
 	elif param == 'sigma_Z':
+		vals = data['metal_z']
+	elif param in ['Z','O/H']:
 		vals = data['metal']
+		if param == 'O/H':
+			Z = data['metal']
+			# Convert from Z back to 12+log{0/H} given Eq. 9 in Chiang2021
+			vals = np.log10(Z*0.51*(1.36*config.ATOMIC_MASS[0]/config.ATOMIC_MASS[4]))+12
 	elif param == 'sigma_dust':
 		vals = data['dust']
-	elif param == 'r':
+	elif param in ['r','r25','r*']:
 		# kpc distance to galaxy
 		gal_distance = {'IC342': 2.29E3,'M101': 6.96E3,'M31': 0.79E3,'M33': 0.92E3,'NGC628': 9.77E3}
-		if phys_r:
+		if param == 'r':
 			arcsec_to_rad = 4.848E-6
 			vals = data['radius_arcsec']*arcsec_to_rad
-		else: 
+		elif param == 'r25':
 			vals = data['radius_r25']
+		elif param == 'r*':
+			vals = data['radius_r25']*0.2 # Assume r* ~ 0.2 * r25
 	else:
 		print("%s is not a valid param for Chiang_20_DZ_vs_param"%param)
 		return
@@ -489,7 +555,7 @@ def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_n
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
 	# Remove IC342 since it's a bit odd
-	IDs = IDs[IDs!='IC342']
+	#IDs = IDs[IDs!='IC342']
 
 
 	SNR = data['GOODSNR']

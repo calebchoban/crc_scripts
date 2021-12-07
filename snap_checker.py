@@ -1,78 +1,86 @@
 import os
-import subprocess
 from gizmo_library.time_evolution import Dust_Evo
 from gizmo import *
 from dust_plots import *
-import gizmo_library.config as config
 
 # Directory of snap file
-snap_dirs = ['/oasis/tscc/scratch/cchoban/non_cosmo/Species/nano_Fe/output/','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-2/output/',
-				'/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3_cool/output','/oasis/tscc/scratch/cchoban/new_gizmo/FIRE-3/output']
+snap_dirs = ['/scratch1/06185/tg854841/cosmo/m12i_res7100_new/output/']
 # Snapshots to check
-snaps = [110,150]
+snaps = [201]
 
-cosmological = False
-pb_fix=True
-dust_depl=False
+cosmological = True
+pb_fix=False
 
 # Label for test plots
-labels = ['FIRE-2 Old', 'FIRE-2 New','FIRE-3 New Cool', 'FIRE-3 Old Cool']
+labels = ['cosmo']
+
+hdir='/scratch1/06185/tg854841/cosmo/m12i_res7100_new/AHF_data/AHF_output/'
 
 
-# Maximum radius, disk, height, and disk orientation used for getting data
-r_max = 20 # kpc
-disk_height = 2 # kpc
+# First setup directory for all the plots
+plot_dir = './snap_check_plots/'
 
+# First create output directory if needed
+try:
+	# Create target Directory
+	os.mkdir(plot_dir)
+	print("Directory " + plot_dir +  " Created ")
+except:
+	print("Directory " + plot_dir +  " already exists")
+
+
+# Maximum radius, disk, height, and disk orientation used for getting data in the galactic disk
+rmax = 20 # kpc
+disk_height = 5 # kpc
 
 for snap_num in snaps:
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
 		print("Snap Dirc: ",snap_dir)
 		print("Snap Num:",snap_num)
-		galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
-		galaxies += [galaxy]
+		label = labels[j]
+		sp = load_snap(snap_dir, snap_num, cosmological=cosmological)
+		galaxies += [sp]
 
-		print("NumParts:", galaxy.sp.npart)
-		print("Dust Implementation:", galaxy.sp.dust_impl)
-		print("Number of Metal Elements:",galaxy.sp.Flag_Metals)
-		print("Number of Dust Elements:",galaxy.sp.Flag_DustMetals)
-		print("Number of Dust Species:",galaxy.sp.Flag_DustSpecies)
+
+		print("NumParts:", sp.npart)
+		print("Dust Implementation:", sp.dust_impl)
+		print("Number of Metal Elements:",sp.Flag_Metals)
+		print("Number of Dust Elements:",sp.Flag_DustMetals)
+		print("Number of Dust Species:",sp.Flag_DustSpecies)
 
 		flag_species = 0
-		if galaxy.sp.dust_impl=='species':
+		if sp.dust_impl=='species':
 			flag_species = 1
 
 
-		G = galaxy.loadpart(0)
-		nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
 
-		print("Making simple phase plot and projection to check by eye...\n")
-		binned_phase_plot('m', [galaxy], bin_nums=250, labels=None, color_map='plasma', foutname=labels[j]+"_phase_plot_"+str(snap_num)+".png")
-		binned_phase_plot('D/Z', [galaxy], bin_nums=250, labels=None, color_map='magma', foutname=labels[j]+"_DZ_phase_plot_"+str(snap_num)+".png")
+		G=sp.loadpart(0)
+		nH = G.get_property('nH')
+		T = G.get_property('T')
 
-		
-		plt.hist2d(G.p[:,0],G.p[:,1],bins=200)
-		plt.savefig(labels[j]+"_hist_"+str(snap_num)+".png")
-		plt.close()
+		print("*****************************************************")
+		print("First check all particles in snapshot for any issues")
+		print("*****************************************************")
 
 		print("\n########################################\n")
 
-		print("Checking for Nans...")
-		nan_ind = np.argwhere(np.isnan(G.dz[:,0]))
+		print("Checking for Nans...\n")
+		nan_ind = np.argwhere(np.isnan(G.dz).any(axis=1) | np.isnan(G.dzs).any(axis=1) | np.isnan(G.spec).any(axis=1))
+
 		if len(nan_ind) > 0:
 			print("%i particles with NaNs detected"%len(nan_ind))
-			nan_ind = np.argwhere(np.isnan(G.dz[:,0]))
 			print("Dust Metals:",G.dz[nan_ind])
 			if flag_species:
 				print("Species:",G.spec[nan_ind])
 			print("Sources:",G.dzs[nan_ind])
 			print("nH:", nH[nan_ind])
-			print("T:", G.T[nan_ind])
+			print("T:", T[nan_ind])
 
 		print("########################################\n")
 
 		print("Checking for negative numbers...\n")
-		neg_ind = np.argwhere(np.logical_and(np.any(G.dz<0,axis=1),np.any(G.dzs<0,axis=1),np.any(G.spec<0,axis=1)))
+		neg_ind = np.argwhere(np.logical_or(np.any(G.dz<0,axis=1),np.any(G.dzs<0,axis=1),np.any(G.spec<0,axis=1)))
 		if len(neg_ind) > 0:
 			print("%i particles with negative numbers detected"%len(neg_ind))
 			print("Dust Metals:",G.dz[neg_ind])
@@ -80,12 +88,12 @@ for snap_num in snaps:
 				print("Species:",G.spec[neg_ind])
 			print("Sources:",G.dzs[neg_ind])
 			print("nH:", nH[neg_ind])
-			print("T:", G.T[neg_ind])
+			print("T:", T[neg_ind])
 
 
-		print("\n########################################\n")
+		print("########################################\n")
 
-		print("Checking for too much dust...\n")
+		print("Checking for too much dust compared to metals...\n")
 		over_ind = np.argwhere(np.any(G.dz>G.z[:,:11],axis=1)).flatten()
 		if len(over_ind) > 0:
 			print("%i particles with too much dust detected"%len(over_ind))
@@ -95,7 +103,7 @@ for snap_num in snaps:
 				print("Species:",G.spec[over_ind])
 			print("Sources:",G.dzs[over_ind])
 			print("nH:", nH[over_ind])
-			print("T:", G.T[over_ind])
+			print("T:", T[over_ind])
 			print("\t fH2:",G.fH2[over_ind])
 			print("\t fMC:",G.fMC[over_ind])
 			print("\t CinCO:",G.CinCO[over_ind]/G.z[over_ind,2],"\n")
@@ -108,19 +116,24 @@ for snap_num in snaps:
 			print("Checking dust metals and dust species add up...\n")
 			# Maximum allowed error between species and dust metals
 			abs_error = 1E-2
+			# Min DZ to look for error. Helps avoid vanishingly small amounts of dust which are prone
+			# to precision errors
+			min_DZ = 1E-2
 			# Add up the elements from each dust species
 			dust_metals = np.zeros(np.shape(G.dz))
 			sil_num_atoms = [3.631,1.06,1.,0.571] # O, Mg, Si, Fe
-			sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe 
+			sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe
 			dust_formula_mass = 0
 
-			if galaxy.sp.Flag_DustSpecies==4:
+			print("%i dust species detected."%sp.Flag_DustSpecies)
+			if sp.Flag_DustSpecies==4:
+				print("Assuming silicates, carbonaceous, SiC, and free-flying metallic iron...\n")
 				# Silicates
 				for k in range(len(sil_num_atoms)):
 					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
 					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
-				
+
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
@@ -131,14 +144,15 @@ for snap_num in snaps:
 
 				# Iron
 				dust_metals[:,10] += G.spec[:,3]
-			
-			elif galaxy.sp.Flag_DustSpecies==5:
+
+			elif sp.Flag_DustSpecies==5:
+				print("Assuming silicates, carbonaceous, SiC, free-flying metallic iron, and oxygen reservoir...\n")
 				# Silicates
 				for k in range(len(sil_num_atoms)):
 					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
 					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
-				
+
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
@@ -153,17 +167,18 @@ for snap_num in snaps:
 				# Oxygen Reservoir
 				dust_metals[:,4] += G.spec[:,4]
 
-			elif galaxy.sp.Flag_DustSpecies==6:
-				# Iron in silicates comes in the form of a seperate dust species 'iron inclusions'
+			elif sp.Flag_DustSpecies==6:
+				print("Assuming silicates, carbonaceous, SiC, free-flying metallic iron, oxygen reservoir, and metallic iron inclusions...\n")
+				# Iron in silicates comes in the form of a separate dust species 'iron inclusions'
 				sil_num_atoms = [3.631,1.06,1.] # O, Mg, Si, Fe
-				sil_elems_index = [4,6,7] # O,Mg,Si,Fe 
+				sil_elems_index = [4,6,7] # O,Mg,Si,Fe
 
 				# Silicates
 				for k in range(len(sil_num_atoms)):
 					dust_formula_mass += sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]]
 				for k in range(len(sil_num_atoms)):
 					dust_metals[:,sil_elems_index[k]] += G.spec[:,0] * sil_num_atoms[k] * config.ATOMIC_MASS[sil_elems_index[k]] / dust_formula_mass
-				
+
 				# Carbon
 				dust_metals[:,2] += G.spec[:,1]
 
@@ -177,23 +192,23 @@ for snap_num in snaps:
 
 				# Oxygen Reservoir
 				dust_metals[:,4] += G.spec[:,4]
-			
+
 			else:
-				print("\t Number of dust species not supported for this check:",galaxy.sp.Flag_DustSpecies)
+				print("\t Number of dust species not supported for this check:",sp.Flag_DustSpecies)
 
 			dust_metals[:,0]=np.sum(dust_metals[:,2:],axis=1)
-			bad_ind = np.argwhere(np.logical_and(np.any(~np.isclose(G.dz, dust_metals, rtol=abs_error, atol=0,equal_nan=True),axis=1),G.dz[:,0]/G.z[:,0]>0.01)).flatten()
+			bad_ind = np.argwhere(np.logical_and(np.any(~np.isclose(G.dz, dust_metals, rtol=abs_error, atol=0,equal_nan=True),axis=1),G.dz[:,0]/G.z[:,0]>min_DZ)).flatten()
 
 			if len(bad_ind) > 0:
 				bad_ind = bad_ind[:5]
-				print("%i particles with D/Z>0.01 and element and species not matching by %f%% "%(len(bad_ind),abs_error*100))
+				print("%i particles with D/Z>%f and element and species not matching by %f%% "%(len(bad_ind),min_DZ,abs_error*100))
 				print("Dust Metals:",G.dz[bad_ind])
 				print("Dust Metals from Species:",dust_metals[bad_ind])
 				print("D/Z:",G.dz[bad_ind]/G.z[bad_ind,:11])
 				print("Species:",G.spec[bad_ind])
 				print("Sources:",G.dzs[bad_ind])
 				print("nH:", nH[bad_ind])
-				print("T:", G.T[bad_ind])
+				print("T:", T[bad_ind])
 				print("\t fH2:",G.fH2[bad_ind])
 				print("\t fMC:",G.fMC[bad_ind])
 				print("\t CinCO:",G.CinCO[bad_ind]/G.z[bad_ind,2],"\n")
@@ -223,7 +238,7 @@ for snap_num in snaps:
 		print("\t fH2: %e \t fMC: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fMC[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
 
 
-		if flag_species and galaxy.sp.Flag_DustSpecies>4:
+		if flag_species and sp.Flag_DustSpecies>4:
 			print("Particle with Max O Reservoir...")
 			max_ind = np.nanargmax(G.spec[:,4])
 			print("\t D/Z:",G.dz[max_ind]/G.z[max_ind,:11])
@@ -236,25 +251,125 @@ for snap_num in snaps:
 			print("\t Sum of Species: %e \t Sum of Elements: %e Total Dust: %e\n"%(np.sum(G.spec[max_ind]),np.sum(G.dz[max_ind,2:]),G.dz[max_ind,0]))
 			print("\t fH2: %e \t fMC: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fMC[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
 
-		
+
+		del(G)
+
+		if cosmological:
+			print("*****************************************************")
+			print("Since this snapshot is cosmological let's look at \n gas in the halo and make some plots!")
+			print("*****************************************************")
+
+			hl=sp.loadhalo(id=-1,mode='AHF',hdir=hdir)
+			print(hl.id,hl.npart)
+			print(hl.mvir/1E10,hl.mgas/1E10)
+			print(hl.xc,hl.yc,hl.zc,hl.rvir)
+
+
+			halo = load_halo(snap_dir, snap_num, cosmological=cosmological, id=-1, mode='AHF',hdir=hdir)
+			halo.set_zoom(rout=0.5)
+
+			G = halo.loadpart(0)
+			L=0.8*0.5*hl.rvir
+			Lz=0.5*L
+
+			config.PROP_INFO['sigma_gas'][1]=[1E0,1E3] # Increase the density range
+			snap_projection(['sigma_gas','sigma_metals','sigma_dust', 'D/Z'], halo, L=L, Lz=Lz, pixel_res=0.1,
+							labels=['gas','metals','dust','D/Z'], color_map=['inferno','viridis','cividis','cividis'],
+							foutname=label+'_halo_0.5rvir_snap_projection.png')
+			snap_projection(['sigma_sil','sigma_carb','sigma_iron', 'sigma_ORes'], halo, L=L, Lz=Lz, pixel_res=0.1,
+					labels=['silicates','carbon','iron','O res'], color_map='inferno',
+							foutname=label+'_halo_0.5rvir_dust_snap_projection.png')
+			config.PROP_INFO['sigma_gas'][1]=[1E0,1E2] # Increase the density range
+
+			config.PROP_INFO['nH'][1]=[1.1E-3, 0.9E4] # Increase the density range
+			config.PROP_INFO['T'][1]=[1.1E1, 2E6] # Increase the temp range
+			binned_phase_plot('M_gas', [halo], bin_nums=250, labels=None, color_map='plasma',
+							  foutname=label+'_halo_0.5rvir_phase_plot.png')
+			binned_phase_plot('D/Z', [halo], bin_nums=250, labels=None, color_map='magma',
+							  foutname=label+'_halo_0.5rvir_DZ_phase_plot.png')
+			config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
+
+
+			halo.set_zoom(rout=0.1)
+			L=0.8*0.1*hl.rvir
+			Lz=0.5*L
+
+			config.PROP_INFO['sigma_gas'][1]=[1E0,1E3] # Increase the density range
+			snap_projection(['sigma_gas','sigma_metals','sigma_dust', 'D/Z'], halo, L=L, Lz=Lz, pixel_res=0.05,
+							labels=['gas','metals','dust','D/Z'], color_map=['inferno','viridis','cividis','cividis'],
+							foutname=label+'_halo_0.1rvir_snap_projection.png')
+			snap_projection(['sigma_sil','sigma_carb','sigma_iron', 'sigma_ORes'], halo, L=L, Lz=Lz, pixel_res=0.05,
+					labels=['silicates','carbon','iron','O res'], color_map='inferno',
+							foutname=label+'_halo_0.1rvir_dust_snap_projection.png')
+			config.PROP_INFO['sigma_gas'][1]=[1E0,1E2] # Increase the density range
+
+			config.PROP_INFO['nH'][1]=[1.1E-3, 2E3] # Increase the density range
+			config.PROP_INFO['T'][1]=[1.1E1, 2E6] # Increase the temp range
+			binned_phase_plot('M_gas', [halo], bin_nums=250, labels=None, color_map='plasma',
+							  foutname=label+'_halo_0.1rvir_phase_plot.png')
+			binned_phase_plot('D/Z', [halo], bin_nums=250, labels=None, color_map='magma',
+							  foutname=label+'_halo_0.1rvir_DZ_phase_plot.png')
+			config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
+
+			dmol_vs_props(['fH2','fMC','CinCO'], ['nH','T'], [halo], labels=None, bin_nums=100, std_bars=True,
+				foutname=label+'_halo_0.1rvir_dmol_vs_props.png')
+
+			galaxy_int_DZ_vs_prop(['Z','O/H'],[halo],labels=labels,
+								  foutname=label+'_halo_0.1rvir_galaxy_int_DZ_vs_Z.png')
+
+			del(halo)
+
+
+		print("*****************************************************")
+		print("Now let's look at gas in the disc and make some more plots!")
+		print("*****************************************************")
+
+		disk = sp.loaddisk(id=-1,mode='AHF',hdir=hdir,rmax=rmax,height=disk_height)
+		disk.set_disk()
+
+		L=0.8*rmax
+		Lz=disk_height
 
 
 
-	print("Creating dust plots to check by eye...")	
+		config.PROP_INFO['sigma_gas'][1]=[1E0,1E3] # Increase the density range
+		snap_projection(['sigma_gas','sigma_metals','sigma_dust', 'D/Z'], disk, L=L, Lz=Lz, pixel_res=0.05,
+						labels=['gas','metals','dust','D/Z'], color_map=['inferno','viridis','cividis','cividis'],
+						foutname=label+'_disk_gas_snap_projection.png')
+		snap_projection(['sigma_sil','sigma_carb','sigma_iron', 'sigma_ORes'], disk, L=L, Lz=Lz, pixel_res=0.05,
+				labels=['silicates','carbon','iron','O res'], color_map='inferno', foutname=
+						label+'_disk_dust_snap_projection.png')
+		config.PROP_INFO['sigma_gas'][1]=[1E0,1E2] # Increase the density range
 
-	
-	binned_phase_plot('m', galaxies, bin_nums=250, labels=labels, color_map='plasma', foutname="compare_phase_plot_"+str(snap_num)+".png")
-	binned_phase_plot('D/Z', galaxies, bin_nums=250, labels=labels, color_map='magma', foutname="compare_DZ_phase_plot_"+str(snap_num)+".png")
 
-	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_fH2_and_fMC_vs_nH_T.png', std_bars=True)
+		config.PROP_INFO['nH'][1]=[1.1E-3, 2E3] # Increase the density range
+		config.PROP_INFO['T'][1]=[1.1E1, 2E6] # Increase the temp range
+		binned_phase_plot('M_gas', [disk], bin_nums=250, labels=None, color_map='plasma',
+						  foutname=label+'_disk_phase_plot.png')
+		binned_phase_plot('D/Z', [disk], bin_nums=250, labels=None, color_map='magma',
+						  foutname=label+'_disk_DZ_phase_plot.png')
+		config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
 
-	dmol_vs_props(['CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_CinCO_vs_nH_T.png', std_bars=True)
+		dmol_vs_props(['fH2','fMC','CinCO'], ['nH','T'], [disk], labels=None, bin_nums=100, std_bars=True,
+			foutname=label+'_disk_dmol_vs_props.png')
 
-	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname='check_snap_'+str(snap_num)+'_DZ_vs_nH.png', std_bars=True, style='color', include_obs=True)
+		galaxy_int_DZ_vs_prop(['Z','O/H'],[disk],labels=None,foutname=label+'_halo_DZ_disk.png')
 
-	elems = ['Mg','Si','Fe','O','C']
-	plot_elem_depletion_vs_prop(elems, 'nH', galaxies, bin_nums=50, labels=labels, foutname='check_snap_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png', \
-						std_bars=True, style='color', include_obs=True)
 
-	plot_obs_prop_vs_prop(['sigma_gas','r'], ['D/Z','D/Z'], galaxies, pixel_res=2, bin_nums=40, labels=labels, foutname='compare_B13_obs_DZ_vs_surf_'+str(snap_num)+'.png', \
-						std_bars=True, style='color', include_obs=True)
+		plot_prop_vs_prop(['nH','T'],['D/Z','D/Z'],[disk],labels=None,std_bars=True, style='color-linestyle',
+						foutname=label+'_disk_DZ_vs_nH_T.png')
+		elems = ['Mg','Si','Fe','O','C']
+		plot_elem_depletion_vs_prop(elems, 'nH', [disk], bin_nums=100, labels=None,
+						foutname=label+'_disk_'+str(snap_num)+'_obs_elemental_dep_vs_dens.png',
+						std_bars=True, style='color-linestyle', include_obs=True)
+
+		plot_obs_prop_vs_prop(['sigma_gas_neutral','r','Z'], ['D/Z','D/Z','D/Z'], [disk], pixel_res=2, bin_nums=40,
+						labels=None, foutname=label+'_disk_obs_DZ_vs_surf_'+str(snap_num)+'.png',
+						std_bars=True, style='color-linestyle', include_obs=True)
+		plot_obs_prop_vs_prop(['r','r25'], ['D/Z','D/Z'], [disk], pixel_res=2, bin_nums=40, labels=None,
+						foutname=label+'_disk_obs_DZ_vs_r25_'+str(snap_num)+'.png',
+						std_bars=True, style='color-linestyle', include_obs=True)
+
+		del(disk)
+
+		# TODO: Add ability to plot mock Hubble images using Phil's visualization routine

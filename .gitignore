@@ -2,16 +2,21 @@ dust_evo_data/
 analytic_dust_yields/
 observations/data/**
 __pycache__/
-vis_test.py
+NH_test.py
+paper2_plots.py
+.ipynb_checkpoints/
 .idea/
 
 
+
+*.ipynb
 *.pyc
 *.e
 *.o
 *.hdf5
 *.csv
 *.pickle
+*.ewah
 
 *.png
 *.pdf

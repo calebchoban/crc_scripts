@@ -28,7 +28,6 @@ class Dust_Evo(object):
 		self.num_snaps = (snap_lims[1]+1)-snap_lims[0]
 		self.cosmological = cosmological
 		self.dirc = dirc
-		self.Flag_DustDepl = dust_depl
 		# In case the sim was non-cosmological and used periodic BC which causes
 		# galaxy to be split between the 4 corners of the box
 		self.pb_fix = False
@@ -143,7 +142,6 @@ class Dust_Evo_Data(object):
 			self.redshift = np.zeros(self.num_snaps)
 
 
-		self.Flag_DustDepl = dust_depl
 		# In case the sim was non-cosmological and used periodic BC which causes
 		# galaxy to be split between the 4 corners of the box
 		self.pb_fix = False

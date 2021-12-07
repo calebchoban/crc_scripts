@@ -1,9 +1,8 @@
 import numpy as np
 import h5py
-import os
 from . import utils
 from . import config
-
+from . import coordinate
 
 class Header:
 
@@ -23,6 +22,9 @@ class Header:
         self.k = 1
         self.npart = sp.npart
         self.time = sp.time
+        if sp.cosmological:
+            self.scale_factor = sp.scale_factor
+        else: self.scale_factor = 1
         self.redshift = sp.redshift
         self.boxsize = sp.boxsize
         self.hubble = sp.hubble
@@ -39,8 +41,22 @@ class Particle:
         self.k = -1 if sp.k==-1 else 0
         self.ptype = ptype
 
-        # Used to make sure particles isn't centered twice
-        self.centered = False
+        self.time = sp.time
+        if sp.cosmological:
+            self.scale_factor = sp.scale_factor
+        else: self.scale_factor = 1
+        self.redshift = sp.redshift
+        self.boxsize = sp.boxsize
+        self.hubble = sp.hubble
+
+        # Used to make sure particles aren't orientated twice
+        self.orientated = False
+
+        # To be used for centering if wanted
+        self.center_position = None
+        self.center_velocity = None
+        self.principal_axes_vectors = None
+        self.principal_axes_ratios = None
 
         return
 
@@ -125,16 +141,16 @@ class Particle:
                     dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
                 if 'DustMolecular' in grp:
-                    fMC = grp['DustMolecular'][:,0]
-                    CinCO = grp['DustMolecular'][:,1]
+                    fMC[nL:nR] = grp['DustMolecular'][:,0]
+                    CinCO[nL:nR] = grp['DustMolecular'][:,1]
                     if 'MolecularMassFraction' in grp:
-                        fH2 = grp['MolecularMassFraction'][...]
-                    # Deal with the inbetween case when molecular data was all in one place
+                        fH2[nL:nR] = grp['MolecularMassFraction'][...]
+                    # Deal with the in between case when molecular data was all in one place
                     # Can probably delete this soon since only a few sims have this specific output
                     else: 
-                        fH2 = grp['DustMolecular'][:,0]
-                        fMC = grp['DustMolecular'][:,1]
-                        CinCO = grp['DustMolecular'][:,2]
+                        fH2[nL:nR] = grp['DustMolecular'][:,0]
+                        fMC[nL:nR] = grp['DustMolecular'][:,1]
+                        CinCO[nL:nR] = grp['DustMolecular'][:,2]
                 if (sp.Flag_DustSpecies>2):
                     spec[nL:nR] = grp['DustSpecies'][...]
                 elif (sp.Flag_DustMetals and sp.Flag_DustSpecies==2):
@@ -181,8 +197,6 @@ class Particle:
                 if (sp.Flag_DustMetals):
                     self.dz = dz
                     self.dzs = dzs
-                    if (sp.Flag_DustDepl):
-                        self.z += self.dz
                     if (sp.Flag_DustSpecies):
                         self.spec = spec
                     self.fH2 = fH2
@@ -260,6 +274,36 @@ class Particle:
 
         return
 
+    def orientate(self, center_pos=None, center_vel=None, principal_vec=None):
+
+        if self.orientated: return
+
+        print('adjusting particle coordinates to be relative to galaxy center')
+        print('  and aligned with the principal axes\n')
+
+        if center_vel is not None and center_pos is not None:
+            # convert to be relative to galaxy center [km / s]
+            self.v = coordinate.get_velocity_differences(
+                        self.v, center_vel, self.p, center_pos,
+                        self.boxsize, self.scale_factor, self.hubble)
+            if principal_vec is not None:
+                # convert to be aligned with galaxy principal axes
+                self.v = coordinate.get_coordinates_rotated(self.v, principal_vec)
+
+        if center_pos is not None:
+            # convert to be relative to galaxy center [kpc physical]
+            self.p = coordinate.get_distances(self.p, center_pos,
+                self.boxsize, self.scale_factor)
+            if principal_vec is not None:
+                # convert to be aligned with galaxy principal axes
+                self.p = coordinate.get_coordinates_rotated(
+                    self.p, principal_vec)
+
+        self.orientated=1
+
+        return
+
+
 
     # Fixes coordinate issue for non-cosmological periodic BCs
     def pb_fix(self):
@@ -270,3 +314,85 @@ class Particle:
         self.p = p
 
         return
+
+    # Gets derived properties from particle data
+    def get_property(self, property):
+
+        if self.ptype==0:
+            if property=='M' or property=='M_gas' or property=='m':
+                data = self.m*config.UnitMass_in_Msolar
+            elif property == 'M_gas_neutral':
+                data = self.m*self.nh*config.UnitMass_in_Msolar
+            elif property == 'M_metals':
+                data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_dust':
+                data = self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_sil':
+                data = self.spec[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_carb':
+                data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_SiC':
+                data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_iron':
+                if self.sp.Flag_DustSpecies>4:
+                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                else:
+                    data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_ORes':
+                data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_sil+':
+                data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
+            elif property == 'fH2':
+                data = self.fH2
+                data[data>1] = 1
+            elif property == 'fMC':
+                data = self.fMC
+                data[data>1] = 1
+            elif property == 'CinCO':
+                data = self.CinCO/self.z[:,2]
+            elif property == 'nH':
+                data = self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS
+            elif property == 'nH_neutral':
+                data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
+            elif property == 'T':
+                data = self.T
+            elif property == 'r':
+                data = np.sqrt(np.power(self.p[:,0],2) + np.power(self.p[:,1],2))
+            elif property == 'Z':
+                data = self.z[:,0]/config.SOLAR_Z
+            elif property == 'Z_all':
+                data = self.z
+            elif property == 'O/H':
+                O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)
+            elif property == 'Si/C':
+                data = self.spec[:,0]/self.spec[:,1]
+            elif property == 'D/Z':
+                data = self.dz[:,0]/self.z[:,0]
+                data[data > 1] = 1.
+            elif 'depletion' in property:
+                elem = property.split('_')[0]
+                if elem not in config.ELEMENTS:
+                    print('%s is not a valid element to calculate depletion for. Valid elements are'%elem)
+                    print(config.ELEMENTS)
+                    return None
+                elem_indx = config.ELEMENTS.index(elem)
+                data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
+                data[data > 1] = 1.
+
+        elif self.ptype==4:
+            if property in ['M','M_star','M_stellar']:
+                data = self.m*config.UnitMass_in_Msolar
+            elif property == 'Z':
+                data = self.z[:,0]/config.SOLAR_Z
+            elif property == 'Z_all':
+                data = self.z
+            elif property == 'O/H':
+                O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)
+
+        else:
+            print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+            return None
+
+        return data
