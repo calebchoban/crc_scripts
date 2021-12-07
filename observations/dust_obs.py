@@ -518,28 +518,36 @@ def Chiang_2020_dust_surf_dens_vs_param(param):
 
 
 
-def Chiang_20_DZ_vs_param(param, bin_data=True, CO_opt='B13', phys_r=True, bin_nums=10, log=True, goodSNR=True):
+def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=True, goodSNR=True):
 	file_name = OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
-	if param == 'sigma_gas':
+	if param == 'sigma_gas' or param == 'sigma_gas_neutral':
 		vals = np.power(10,data['gas'])
 	elif param == 'sigma_H2':
 		vals = np.power(10,data['h2'])
 	elif param == 'fH2':
 		vals = data['fh2']
 	elif param == 'sigma_Z':
+		vals = data['metal_z']
+	elif param in ['Z','O/H']:
 		vals = data['metal']
+		if param == 'O/H':
+			Z = data['metal']
+			# Convert from Z back to 12+log{0/H} given Eq. 9 in Chiang2021
+			vals = np.log10(Z*0.51*(1.36*config.ATOMIC_MASS[0]/config.ATOMIC_MASS[4]))+12
 	elif param == 'sigma_dust':
 		vals = data['dust']
-	elif param == 'r':
+	elif param in ['r','r25','r*']:
 		# kpc distance to galaxy
 		gal_distance = {'IC342': 2.29E3,'M101': 6.96E3,'M31': 0.79E3,'M33': 0.92E3,'NGC628': 9.77E3}
-		if phys_r:
+		if param == 'r':
 			arcsec_to_rad = 4.848E-6
 			vals = data['radius_arcsec']*arcsec_to_rad
-		else: 
+		elif param == 'r25':
 			vals = data['radius_r25']
+		elif param == 'r*':
+			vals = data['radius_r25']*0.2 # Assume r* ~ 0.2 * r25
 	else:
 		print("%s is not a valid param for Chiang_20_DZ_vs_param"%param)
 		return

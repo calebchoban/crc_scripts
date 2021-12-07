@@ -9,40 +9,20 @@ from .AHF import AHF
 
 class Snapshot:
 
-    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False, dust_depl=False):
+    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False):
 
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological
         self.nsnap = self.check_snap_exist()
         self.k = -1 if self.nsnap==0 else 1
-        self.Flag_DustDepl = dust_depl
 
         # In case the sim was non-cosmological and used periodic BC which causes
         # galaxy to be split between the 4 corners of the box
         self.pb_fix = False
         if periodic_bound_fix and cosmological==0:
             self.pb_fix=True
-        
-        # initialize particle types
-        self.header = Header(self)
-        self.gas = Particle(self, 0)
-        self.DM = Particle(self, 1)
-        self.disk = Particle(self, 2)
-        self.bulge = Particle(self, 3)
-        self.star = Particle(self, 4)
-        self.BH = Particle(self, 5)
-        self.part = [self.gas,self.DM,self.disk,self.bulge,self.star,self.BH]
-        
-        # initialize catalogs and/or halos
-        if (self.cosmological==1):
-            # we support AHF
-            self.AHF = AHF(self)
-            self.AHFhaloIDs = []
-            self.AHFhalos = []
-        else:
-            # non-cosmological snapshot has only one galaxy
-            self.halo = Halo(self)
+
 
         # now, read snapshot header if it exists
         if (self.k==-1): return
@@ -53,7 +33,9 @@ class Snapshot:
         self.redshift = f['Header'].attrs['Redshift']
         self.boxsize = f['Header'].attrs['BoxSize']
         if cosmological:
-            self.omega = f['Header'].attrs['Omega_Matter']
+            self.scale_factor = self.time
+            self.omega = f['Header'].attrs.get('Omega_Matter',0)
+            if self.omega==0: f['Header'].attrs.get('Omega0',0)
         self.hubble = f['Header'].attrs['HubbleParam']
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
@@ -61,7 +43,7 @@ class Snapshot:
         self.Flag_Metals = f['Header'].attrs['Flag_Metals']
         self.Flag_DustMetals = f['Header'].attrs.get('Flag_Dust',0)
         self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species',0)
-        if(self.Flag_DustSpecies==0): self.Flag_DustSpecies=2 # just generalized silicate and carbonaceous
+        if(self.Flag_DustSpecies==0 and self.Flag_DustMetals !=0): self.Flag_DustSpecies=2 # just generalized silicate and carbonaceous
         # Determine if the snapshot came from a simulations with on-the-fly dust
         if self.Flag_Metals and self.Flag_DustSpecies>2:
             self.dust_impl = 'species'
@@ -74,6 +56,29 @@ class Snapshot:
 
         # correct for cosmological runs
         if (self.cosmological==1): self.boxsize *= (self.time/self.hubble)
+
+        # initialize particle types
+        self.header = Header(self)
+        self.gas = Particle(self, 0)
+        self.DM = Particle(self, 1)
+        self.disk = Particle(self, 2)
+        self.bulge = Particle(self, 3)
+        self.star = Particle(self, 4)
+        self.BH = Particle(self, 5)
+        self.part = [self.gas,self.DM,self.disk,self.bulge,self.star,self.BH]
+
+        # initialize catalogs and/or halos
+        if (self.cosmological==1):
+            # we support AHF
+            self.AHF = AHF(self)
+            self.AHFhaloIDs = []
+            self.AHFhalos = []
+            self.AHFdiskIDs = []
+            self.AHFdisks = []
+
+        # non-cosmological snapshot has only one galaxy
+        self.halo = Halo(self)
+
 
         return
 
@@ -94,39 +99,6 @@ class Snapshot:
         return header
 
 
-    def viewpart(self, ptype, field='None', method='simple', **kwargs):
-        
-        if (self.k==-1): return -1
-    
-        part = self.part[ptype]; part.load()
-        if (part.k==-1): return -1
-
-        if 'cen' not in kwargs: kwargs['cen'] = self.boxsize*np.ones(3)/2
-        if 'L' not in kwargs: kwargs['L'] = self.boxsize/2
-        
-        # add time label for the image
-        kwargs['time'] = r"$z=%.1f$" % self.redshift if self.cosmological else r"$t=%.1f$" %self.time
-        
-        # check which field to show
-        h, wt = None, part.m
-        if (ptype==0):
-            # for gas, check if we want a field from the list below
-            if (field in ['nh','ne','z']) and (field in dir(part)): wt*=getattr(part,field)
-        if (ptype==4):
-            # for stars, check if we want luminosity from some band
-            import colors
-            if field in colors.colors_available:
-                wt*=colors.colors_table(part.age,part.z/0.02,band=field)
-        if (method=='smooth'):
-            h = part.h if ptype==0 else utils.get_particle_hsml(part.p[:,0],part.p[:,1],part.p[:,2])
-
-        # now, call the routine
-        import visual
-        H = visual.make_projected_image(part.p, wt, h=h, method=method, **kwargs)
-        
-        return H
-
-
     def loadAHF(self, hdir=None):
         
         # non-cosmological snapshots do not have AHF attribute
@@ -138,22 +110,22 @@ class Snapshot:
         return AHF
     
 
-    def loadhalo(self, id=-1, mode='AHF', hdir=None, nclip=1000):
+    def loadhalo(self, id=-1, mode='AHF', hdir=None):
     
 
-        # non-cosmological, use the only galaxy attribute
-        if (self.cosmological==0):
+        # non-cosmological or not using AHF so use the only galaxy attribute
+        if self.cosmological==0 or mode!='AHF':
             hl = self.halo
-            hl.load()
+            hl.load(mode)
 
             return hl
         
         # cosmological, use AHF
-        if (mode=='AHF'):
+        if mode=='AHF':
             id = self.AHF.get_valid_halo_id(id, hdir=hdir)
-            if (id<0): return
+            if id<0: return
         
-            if (id in self.AHFhaloIDs):
+            if id in self.AHFhaloIDs:
                 index = self.AHFhaloIDs.index(id)
                 hl = self.AHFhalos[index]
             else:
@@ -161,18 +133,14 @@ class Snapshot:
                 self.AHFhaloIDs.append(id)
                 self.AHFhalos.append(hl)
 
-        else:
-            print("Need to set mode to AHF to load halos for cosmological snapshots.")
-            return
-
-        hl.load()
+        hl.load(mode)
         return hl
 
 
-    def loaddisk(self, id=-1, mode='AHF', hdir=None, nclip=1000, rmax=20, height=5):
+    def loaddisk(self, id=-1, mode='AHF', hdir=None, rmax=20, height=5):
     
-        # non-cosmological, use the only galaxy attribute
-        if (self.cosmological==0):
+        # non-cosmological or not using AHF so use the only galaxy attribute
+        if self.cosmological==0 or mode!='AHF':
             disk = Disk(self, id=id,rmax=rmax,height=height)
             disk.load()
 
@@ -183,19 +151,19 @@ class Snapshot:
             id = self.AHF.get_valid_halo_id(id, hdir=hdir)
             if (id<0): return
         
-            if (id in self.AHFhaloIDs):
-                index = self.AHFhaloIDs.index(id)
-                disk = self.AHFhalos[index]
+            if id in self.AHFdiskIDs:
+                index = self.AHFdiskIDs.index(id)
+                disk = self.AHFdisks[index]
             else:
                 disk = Disk(self, id=id,rmax=rmax,height=height)
-                self.AHFhaloIDs.append(id)
-                self.AHFhalos.append(disk)
+                self.AHFdiskIDs.append(id)
+                self.AHFdisks.append(disk)
 
         else:
             disk = Disk(self, id=id,rmax=rmax,height=height)
     
                     
-        disk.load(mode=mode)
+        disk.load(mode)
     
         return disk
 

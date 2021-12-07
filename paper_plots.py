@@ -7,9 +7,9 @@ import analytical_models.dust_accretion as dust_acc
 
 
 # First setup directory for all the plots
-plot_dir = './dust_plots/'
+plot_dir = './paper_plots/'
 
-# First create ouput directory if needed
+# First create output directory if needed
 try:
 	# Create target Directory
 	os.mkdir(plot_dir)

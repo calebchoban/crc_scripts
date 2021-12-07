@@ -3,11 +3,13 @@ analytic_dust_yields/
 observations/data/**
 __pycache__/
 NH_test.py
+paper2_plots.py
+.ipynb_checkpoints/
 .idea/
 
 
 
-
+*.ipynb
 *.pyc
 *.e
 *.o

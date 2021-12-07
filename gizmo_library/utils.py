@@ -1,7 +1,7 @@
 from . import config
 import numpy as np
 from . import shieldLengths as SL
-
+from scipy.optimize import curve_fit
 
 def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ignore_invalid=True):
     """
@@ -16,7 +16,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
     weights : ndarray, optional
         The weights to assign to values of a. Equal weighting if None
         is specified
-    ingore_invalid : boolean, optional
+    ignore_invalid : boolean, optional
         Set whether invalid values (inf,NaN) are not considered in calculation
 
     Returns
@@ -65,8 +65,8 @@ def bin_values(bin_data, data_vals, bin_lims, bin_nums=50, weight_vals=None, log
         Data to be binned
     bin_lims : ndarray
         Limits for bins
-    bin_num : int
-        Number of
+    bin_nums : int
+        Number of bins
     weight_vals : ndarray, optional
         The weights to be sued when binning data_vals.  Equal weighting if None
         is specified
@@ -236,3 +236,10 @@ def calc_rotate_matrix(vec1, vec2):
     kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
     rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
     return rotation_matrix
+
+
+def fit_exponential(x_data, y_data, guess = None, bounds=None):
+    def exp_func(x, coeff, scale_l):
+        return coeff*np.exp(-x/scale_l)
+
+    return curve_fit(exp_func,x_data,y_data, p0=guess, bounds=bounds)

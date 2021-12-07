@@ -447,7 +447,7 @@ def setup_projection(num_plots,L,Lz=None):
 		#plt.tight_layout()
 
 		fig, axs = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':[L,Lz]},
-								figsize=[num_plots*L,(L+Lz)*(1+2*cbar_ratio)])
+								figsize=[num_plots*config.BASE_FIG_SIZE,(L+Lz)/L*(1+2*cbar_ratio)*config.BASE_FIG_SIZE])
 		# Deal with only one projection being plotted
 		if num_plots==1:
 			axs = np.array([[axs[0]],[axs[1]]])
