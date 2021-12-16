@@ -84,7 +84,7 @@ DUST_SOURCES				= ['Accretion','SNe Ia', 'SNe II', 'AGB']
 
 # Houses labels, limits, and if they should be plotted in log space for possible properties
 PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 										[0., 1.], 		False],
-						   'fMC': [r'$f_{\rm MC}$', 										[0,1.05], 		False],
+						   'fdense': [r'$f_{\rm dense}$', 									[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 									[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 											[0.1,20], 		False],
 						   'r25': [r'Radius [R$_{25}$]', 									[0.1,2], 		False],
@@ -115,6 +115,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 										[0., 1.], 		False],
 							 'Z': [r'Z [Z$_{\odot}$]', 										[1.1E-3,5E0], 	True],
 					 'stellar_Z': [r'Z_{\rm star} [Z$_{\odot}$]', 							[1.1E-3,5E0], 	True],
 						   'O/H': ['12+log(O/H)', 											[6.5,9.5], 	    False],
+				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 								[6.5,9.5], 	    False],
 						   'D/Z': ['D/Z', 													[0,1.05],   	False],
 					 'depletion': [r'$\delta_{\rm X}$', 									[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 									[1E-1,1.1E0],   True],

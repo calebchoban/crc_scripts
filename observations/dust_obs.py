@@ -570,7 +570,7 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 	data = dict()
 	for gal_name in IDs:
 		gal_vals = vals[gal==gal_name]
-		if param =='r' and phys_r:
+		if param == 'r':
 			gal_vals *= gal_distance[gal_name]
 		DZ_vals = DZ[gal==gal_name]
 		if bin_data:

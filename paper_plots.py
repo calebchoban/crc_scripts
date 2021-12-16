@@ -1,4 +1,7 @@
 import os
+
+import matplotlib.pyplot as plt
+
 from gizmo_library.time_evolution import Dust_Evo
 from gizmo_library.sightline import Sight_Lines
 from gizmo import *
@@ -36,6 +39,8 @@ Z=1
 elems =['C','O','Mg','Si','Fe']
 compare_FIRE_metal_yields(Z, elems, foutname=plot_dir+'FIRE_yields_comparison.pdf')
 
+
+
 ###############################################################################
 # Plot D/Z evolution over time
 ###############################################################################
@@ -55,6 +60,7 @@ pb_fix=True
 dust_depl=False
 
 config.FIG_XRATIO=1.2 # Make the aspect ratio a little wider
+
 
 ###############################################################################
 # Species Implementation w/ creation efficiency variations
@@ -189,7 +195,6 @@ for i,snap_dir in enumerate(snap_dirs):
 # Now plot a comparison of each of the runs
 dust_data_vs_time(['D/Z','source_frac', 'spec_frac'], dust_evo_data, foutname=plot_dir+'acc_elem_all_data_vs_time.pdf',labels=labels, style='color')
 
-
 config.FIG_XRATIO=1. # Reset to normal
 
 
@@ -233,7 +238,8 @@ for i, num in enumerate(snaps):
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
 		print(snap_dir)
-		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy = load_disk(snap_dir, num, cosmological=cosmological, mode=None, hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy.set_disk()
 		galaxies += [galaxy]
 
 	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
@@ -302,7 +308,8 @@ for i, num in enumerate(snaps):
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
 		print(snap_dir)
-		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy = load_disk(snap_dir, num, cosmological=cosmological, mode=None, hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy.set_disk()
 		galaxies += [galaxy]
 
 	plot_prop_vs_prop(['nH'], ['D/Z'], galaxies, bin_nums=40, labels=labels, foutname=plot_dir+'Coulomb_DZ_vs_nH.pdf', std_bars=True, style='color-linestyle', include_obs=True)
@@ -367,7 +374,8 @@ for i, num in enumerate(snaps):
 	galaxies = []
 	for j,snap_dir in enumerate(snap_dirs):
 		print(snap_dir)
-		galaxy = load_disk(snap_dir, num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy = load_disk(snap_dir, num, cosmological=cosmological, mode=None, hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+		galaxy.set_disk()
 		galaxies += [galaxy]
 
 
@@ -417,24 +425,23 @@ for i, num in enumerate(snaps):
 	config.FIG_XRATIO = 1.0
 
 
-	dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_fMC.pdf', std_bars=True)
-	dmol_vs_props(['fMC','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)
+	dmol_vs_props(['fH2','fdense'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_fdense.pdf', std_bars=True)
+	dmol_vs_props(['fdense','CinCO'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'FIRE2-3_CinCO.pdf', std_bars=True)
 
 
 ###############################################################################
-# Plot comparisons for sub-resolved fMC routine
+# Plot comparisons for sub-resolved fdense routine
 ###############################################################################
 
 # Directory of snap file
 main_dir = '/oasis/tscc/scratch/cchoban/non_cosmo/fMC_test/'
-main_dir = '/work/06185/tg854841/frontera/non_cosmo/NH2_test/'
+main_dir = '/scratch1/06185/tg854841/NH2_test'
 snap_dirs = [main_dir+'/NH2_0.5/output/',main_dir+'/NH2_1.0/output/',
 				main_dir+'/NH2_1.5/output/',main_dir+'/NH2_2.0/output/']
 
 # Label for test plots
 labels = [r'$N_{\rm H_2}^{\rm crit}=0.5\times10^{21}$ cm$^{-3}$',r'$N_{\rm H_2}^{\rm crit}=1.0\times10^{21}$ cm$^{-3}$',
 			r'$N_{\rm H_2}^{\rm crit}=1.5\times10^{21}$ cm$^{-3}$',r'$N_{\rm H_2}^{\rm crit}=2.0\times10^{21}$ cm$^{-3}$']
-
 cosmological = False
 
 # Snapshot to check
@@ -443,10 +450,11 @@ snap_num = 19
 galaxies = []
 for j,snap_dir in enumerate(snap_dirs):
 	print(snap_dir)
-	galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+	galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, mode=None, hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+	galaxy.set_disk()
 	galaxies += [galaxy]
 
-dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'NH2_crit_variation.pdf', std_bars=True)
+dmol_vs_props(['fH2','fdense'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, foutname=plot_dir+'NH2_crit_variation.pdf', std_bars=True)
 
 
 
@@ -454,10 +462,35 @@ dmol_vs_props(['fH2','fMC'], ['nH', 'T'], galaxies, bin_nums=50, labels=labels, 
 # Get median gas-dust accretion timescales for analytical model
 ###############################################################################
 
-snap_dir ='/oasis/tscc/scratch/cchoban/non_cosmo/Species/fiducial/output/'
+snap_dir = '/work/06185/tg854841/frontera/non_cosmo/Elemental/fiducial/output/'
 snap_num = 300
 
-galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, id=-1, mode='AHF', hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+snap = load_snap(snap_dir, snap_num, cosmological=cosmological, periodic_bound_fix=pb_fix)
+t, sfr = snap.get_SFH()
+
+plt.plot(t,sfr)
+plt.xlabel('Time (Gyr)')
+plt.ylabel(r'SFR ($M_{\odot}$/Gyr)')
+plt.savefig('elem_last_snap_sfh.png')
+plt.close()
+
+
+snap_dir = '/work/06185/tg854841/frontera/non_cosmo/Species/fiducial/output/'
+snap_num = 300
+
+snap = load_snap(snap_dir, snap_num, cosmological=cosmological, periodic_bound_fix=pb_fix)
+t, sfr = snap.get_SFH()
+
+plt.plot(t,sfr)
+plt.xlabel('Time (Gyr)')
+plt.ylabel(r'SFR ($M_{\odot}$/Gyr)')
+plt.savefig('spec_last_snap_sfh.png')
+plt.close()
+
+
+
+galaxy = load_disk(snap_dir, snap_num, cosmological=cosmological, mode=None, hdir=None, periodic_bound_fix=pb_fix, rmax=r_max, height=disk_height)
+galaxy.set_disk()
 G = galaxy.loadpart(0)
 
 print("Species Accretion Timescales")
@@ -471,6 +504,7 @@ for key in gtimes.keys():
 plt.legend()
 plt.xscale('log')
 plt.savefig("spec_t_grow_hist.png")
+plt.close()
 
 print("Elemental Accretion Timescales")
 gtimes = dust_acc.calc_elem_acc_timescale(G)
@@ -482,7 +516,7 @@ for key in gtimes.keys():
 	plt.hist(gtimes[key][mask], bins=bins, weights=G.m[mask], histtype='step', label=key, cumulative=True)
 plt.legend()
 plt.xscale('log')
-plt.savefig("elem_t_grow_hist.`png`")
+plt.savefig("elem_t_grow_hist.png")
 plt.close()
 
 S = galaxy.loadpart(4)
@@ -502,5 +536,5 @@ for k in range(len(S.sft)):
 			RSNe = 5.3e-8 + 1.6e-5*np.exp(-0.5*((star_age-0.05)/0.01)*((star_age-0.05)/0.01));
 	total_SNe+=RSNe*S.m[k]*config.UnitMass_in_Msolar
 print("Total SNe per Year = ",total_SNe/1E6)
-print("M_ISM =",np.sum(G.m*config.UnitMass_in_Msolar)/1E9)
+print("M_ISM =",np.sum(G.m*config.UnitMass_in_Msolar)/1E9, ' 10^9 M_solar')
 

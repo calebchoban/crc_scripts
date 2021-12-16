@@ -39,6 +39,9 @@ for snap_num in snaps:
 		print("Snap Dirc: ",snap_dir)
 		print("Snap Num:",snap_num)
 		label = labels[j]
+
+		create_visualization(snap_dir, snap_num, image_key='star', foutprefix='test_image', fov=50, pixels=2048)
+
 		sp = load_snap(snap_dir, snap_num, cosmological=cosmological)
 		galaxies += [sp]
 
