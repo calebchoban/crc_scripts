@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
-from matplotlib.colorbar import Colorbar
 from scipy.stats import binned_statistic_2d
 import pickle
 import os
@@ -15,6 +14,53 @@ import gizmo_library.config as config
 import gizmo_library.utils as utils
 import calculate as calc
 
+# Check if Phil's visualization module is installed
+import importlib
+vis_installed = importlib.util.find_spec("visualization") is not None
+if vis_installed:
+	from visualization.image_maker import image_maker, edgeon_faceon_projection
+
+
+def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048, **kwargs):
+	"""
+	Wrapper for Phil's mock Hubble visualization routine. Documentation can be found here:
+	https://bitbucket.org/phopkins/pfh_python/src/master/ and check the docstring of
+	=visualization.image_maker.image_maker for more details and options.
+
+	Parameters
+	----------
+	snapdir: string
+		Directory of snapshot
+	snapnum: int
+		Number of snapshot
+	image_key : boolean
+		Restrict data to only that with good signal-to-noise if applicable
+	fov: float
+		Sets physical size of image in kpc
+	pixels: int
+		Number of pixels for image, sets resolution
+
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# TODO: Edit Phil's visualization routine to read in dust data from snapshots instead of using preset dust to metals ratio
+
+	# First check if Phil's routine is installed
+	if not vis_installed:
+		print("The visualization routine is not installed! Go to https://bitbucket.org/phopkins/pfh_python/src/master/ \
+			  and follow the instructions to install the routine.")
+		return
+
+	edgeon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov,image_key=image_key,
+										pixels=pixels, edgeon=True, **kwargs)
+	faceon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov, image_key=image_key,
+											pixels=pixels, faceon=True, **kwargs)
+
+	return
 
 
 
@@ -84,7 +130,7 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 			return None
 
 	elif 'depletion' in property1:
-		elem = property1[0]
+		elem = property1.split('_')[0]
 		if elem not in config.ELEMENTS:
 			print("%s is not a valid element depletion."%property1)
 			return None
@@ -666,8 +712,6 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums, pixel_res=pixel_res)
 
 			# Only need to label the separate simulations in the first plot
-			print(y_prop,x_prop)
-			print(x_vals,y_mean)
 			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
