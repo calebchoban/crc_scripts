@@ -4,15 +4,21 @@ from gizmo import *
 from dust_plots import *
 
 # Directory of snap file
-snap_dirs = ['/scratch1/06185/tg854841/cosmo/m12i_res7100_new/output/']
+snap_dirs = ['/scratch1/06185/tg854841/cosmo/m12i_res7100_new/output/','/scratch1/06185/tg854841/']
+snap_dirs = ['/scratch1/06185/tg854841/','/scratch1/06185/tg854841/cosmo/Species/m12i_res7100_FIRE2_new_winds/output/',
+			 '/scratch1/06185/tg854841/cosmo/Species/m12i_res7100_FIRE2_old_winds/output/',
+			 '/scratch1/06185/tg854841/cosmo/Species/m12i_res7100_FIRE2_dev/old_output/',
+			 '/scratch1/06185/tg854841/cosmo/Species/m12i_res7100_FIRE3/output/']
+snap_dirs = ['/scratch1/06185/tg854841/cosmo/Species/m12i_res7100_FIRE3/output/']
 # Snapshots to check
-snaps = [201]
+snaps = [190]
 
 cosmological = True
 pb_fix=False
 
 # Label for test plots
-labels = ['cosmo']
+labels = ['m12i_metaldiff','m12i_new_winds','m12i_old_winds','m12i_old_dev','FIRE-3']
+labels = ['FIRE-3']
 
 hdir='/scratch1/06185/tg854841/cosmo/m12i_res7100_new/AHF_data/AHF_output/'
 
@@ -40,10 +46,16 @@ for snap_num in snaps:
 		print("Snap Num:",snap_num)
 		label = labels[j]
 
-		create_visualization(snap_dir, snap_num, image_key='star', foutprefix='test_image', fov=50, pixels=2048)
+		#create_visualization(snap_dir, snap_num, image_key='star', foutprefix=label+'_mock_Hubble_image', fov=10, pixels=2048)
+		from visualization.image_maker import image_maker, edgeon_faceon_projection
+		faceon_image = edgeon_faceon_projection(snap_dir, snap_num, centering='', field_of_view=10, image_key='star',
+											pixels=2048, faceon=True, load_dust=False)
+		exit()
+		#continue
 
 		sp = load_snap(snap_dir, snap_num, cosmological=cosmological)
 		galaxies += [sp]
+		continue
 
 
 		print("NumParts:", sp.npart)
@@ -52,15 +64,72 @@ for snap_num in snaps:
 		print("Number of Dust Elements:",sp.Flag_DustMetals)
 		print("Number of Dust Species:",sp.Flag_DustSpecies)
 
+
+
 		flag_species = 0
 		if sp.dust_impl=='species':
 			flag_species = 1
 
 
+		halo = load_halo(snap_dir, snap_num, cosmological=cosmological, id=-1, mode='AHF',hdir=hdir)
 
+		config.PROP_INFO['sigma_gas'][1]=[1E1,1E4] # Increase the density range
+		config.PROP_INFO['sigma_star'][1]=[1E1,1E4] # Increase the density range
+		config.PROP_INFO['sigma_metals'][1]=[1E0,1E3] # Increase the density range
+		zooms = [0.5,0.1,0.025]
+		for zoom in zooms:
+			halo.set_zoom(rout=zoom)
+			L=0.8*zoom*halo.rvir
+			Lz=0.5*L
+
+
+			snap_projection(['sigma_gas','sigma_metals','sigma_star'], halo, L=L, Lz=Lz, pixel_res=L/200,
+							labels=['gas','metals','stars'], color_map=['inferno','viridis','cividis'],
+							foutname=label+'_halo_'+str(zoom)+'rvir_snap_projection.png')
+
+
+			config.PROP_INFO['nH'][1]=[1.1E-3, 0.9E4] # Increase the density range
+			config.PROP_INFO['T'][1]=[1.1E1, 2E6] # Increase the temp range
+			binned_phase_plot('M_gas', [halo], bin_nums=250, labels=None, color_map='plasma',
+							  foutname=label+'_halo_'+str(zoom)+'rvir_phase_plot.png')
+			config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
+
+
+
+		#del(halo)
+		galaxies +=[halo]
+
+	for k,sp in enumerate(galaxies):
+		t, sfr = sp.get_SFH()
+		plt.plot(t,sfr, label=labels[k])
+	plt.xlabel('Time (Gyr)')
+	plt.ylabel(r'SFR ($M_{\odot}$/yr)')
+	plt.yscale('log')
+	plt.ylim([1E-1,5E1])
+	plt.legend()
+	plt.savefig('m12i_sfh.png')
+	plt.close()
+
+	for k,sp in enumerate(galaxies):
+		t, sfr = sp.get_SFH(cum=1)
+		plt.plot(t,sfr, label=labels[k])
+	plt.xlabel('Time (Gyr)')
+	plt.ylabel(r'Cumulative SFR ($M_{\odot}$)')
+	plt.yscale('log')
+	plt.ylim([1E7,1E11])
+	plt.legend()
+	plt.savefig('m12i_cum_sfh.png')
+	plt.close()
+
+	exit()
+
+"""
 		G=sp.loadpart(0)
 		nH = G.get_property('nH')
 		T = G.get_property('T')
+
+		print(-np.sort(-nH))
+		exit()
 
 		print("*****************************************************")
 		print("First check all particles in snapshot for any issues")
@@ -108,7 +177,7 @@ for snap_num in snaps:
 			print("nH:", nH[over_ind])
 			print("T:", T[over_ind])
 			print("\t fH2:",G.fH2[over_ind])
-			print("\t fMC:",G.fMC[over_ind])
+			print("\t fdense:",G.fdense[over_ind])
 			print("\t CinCO:",G.CinCO[over_ind]/G.z[over_ind,2],"\n")
 
 
@@ -213,7 +282,7 @@ for snap_num in snaps:
 				print("nH:", nH[bad_ind])
 				print("T:", T[bad_ind])
 				print("\t fH2:",G.fH2[bad_ind])
-				print("\t fMC:",G.fMC[bad_ind])
+				print("\t fdense:",G.fdense[bad_ind])
 				print("\t CinCO:",G.CinCO[bad_ind]/G.z[bad_ind,2],"\n")
 				print("\t Sum of Species::",np.sum(G.spec[bad_ind],axis=1))
 				print("\t Sum of Elements:",np.sum(G.dz[bad_ind,2:],axis=1))
@@ -238,7 +307,7 @@ for snap_num in snaps:
 			print("\t Sum of Species: %e \t Sum of Elements: %e Total Dust: %e\n"%(np.sum(G.spec[max_ind]),np.sum(G.dz[max_ind,2:]),G.dz[max_ind,0]))
 		else:
 			print("\t Sum of Elements: %e Total Dust: %e\n"%(np.sum(G.dz[max_ind,2:]),G.dz[max_ind,0]))
-		print("\t fH2: %e \t fMC: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fMC[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
+		print("\t fH2: %e \t fdense: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fdense[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
 
 
 		if flag_species and sp.Flag_DustSpecies>4:
@@ -252,10 +321,12 @@ for snap_num in snaps:
 			print("\t nH:", nH[max_ind])
 			print("\t T:", G.T[max_ind])
 			print("\t Sum of Species: %e \t Sum of Elements: %e Total Dust: %e\n"%(np.sum(G.spec[max_ind]),np.sum(G.dz[max_ind,2:]),G.dz[max_ind,0]))
-			print("\t fH2: %e \t fMC: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fMC[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
+			print("\t fH2: %e \t fdense: %e \t CinCO: %e \n"%(G.fH2[max_ind],G.fdense[max_ind],G.CinCO[max_ind]/G.z[max_ind,2]))
 
 
 		del(G)
+
+		exit()
 
 		if cosmological:
 			print("*****************************************************")
@@ -314,7 +385,7 @@ for snap_num in snaps:
 							  foutname=label+'_halo_0.1rvir_DZ_phase_plot.png')
 			config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
 
-			dmol_vs_props(['fH2','fMC','CinCO'], ['nH','T'], [halo], labels=None, bin_nums=100, std_bars=True,
+			dmol_vs_props(['fH2','fdense','CinCO'], ['nH','T'], [halo], labels=None, bin_nums=100, std_bars=True,
 				foutname=label+'_halo_0.1rvir_dmol_vs_props.png')
 
 			galaxy_int_DZ_vs_prop(['Z','O/H'],[halo],labels=labels,
@@ -353,7 +424,7 @@ for snap_num in snaps:
 						  foutname=label+'_disk_DZ_phase_plot.png')
 		config.PROP_INFO['nH'][1]=[1.1E-2, 0.9E4] # Increase the density range
 
-		dmol_vs_props(['fH2','fMC','CinCO'], ['nH','T'], [disk], labels=None, bin_nums=100, std_bars=True,
+		dmol_vs_props(['fH2','fdense','CinCO'], ['nH','T'], [disk], labels=None, bin_nums=100, std_bars=True,
 			foutname=label+'_disk_dmol_vs_props.png')
 
 		galaxy_int_DZ_vs_prop(['Z','O/H'],[disk],labels=None,foutname=label+'_halo_DZ_disk.png')
@@ -375,4 +446,5 @@ for snap_num in snaps:
 
 		del(disk)
 
-		# TODO: Add ability to plot mock Hubble images using Phil's visualization routine
+		# TODO: Add ability to plot mock Hubble images using Phil's visualization routine and using tracked dust populations
+"""

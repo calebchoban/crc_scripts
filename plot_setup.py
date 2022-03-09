@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import matplotlib.lines as mlines
+import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from gizmo_library import config
+from gizmo_library import utils
 
 
 def setup_plot_style(snap_nums, properties=[], style='color-linestyle'):
@@ -189,29 +191,29 @@ def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False
 	if (sharex and orientation=='vertical') or (sharey and orientation=='horizontal'):
 		label_pad = 0.
 	else:
-		label_pad = 0.1
+		label_pad = 0.
 
 	if num_plots == 1:
 		fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
 		axes = np.array([axes])
 	elif num_plots%2 == 0:
 		if orientation == 'vertical':
-			fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(2+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,2*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 									squeeze=True, sharex=sharex, sharey=sharey)
 		else:
-			fig,axes = plt.subplots(num_plots//2, 2, figsize=((2+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 									squeeze=True, sharex=sharex, sharey=sharey)
 	elif num_plots%3 == 0:
 		if orientation == 'vertical':
-			fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(3+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,3*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 									squeeze=True, sharex=sharex, sharey=sharey)
 		else:
-			fig,axes = plt.subplots(num_plots//3, 3, figsize=((3+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 									squeeze=True, sharex=sharex, sharey=sharey)
 	else:
 		dim_num = 3 # default number of plots in specified orientation
 		if orientation == 'vertical':
-			fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,(dim_num+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,dim_num*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 						squeeze=True, sharex=sharex, sharey=sharey)
 			# Need to delete extra axes and reshow tick labels if axes were shared
 			axes[(dim_num-1)-(dim_num-num_plots%dim_num),num_plots//dim_num].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
@@ -219,7 +221,7 @@ def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False
 				fig.delaxes(axes[dim_num-1-i, num_plots//dim_num])
 				axes[dim_num-1-i, num_plots//dim_num] = None
 		else:
-			fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=((dim_num+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+			fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=(dim_num*(1)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
 									squeeze=True, sharex=sharex, sharey=sharey)
 			# Need to delete extra axes and reshow tick labels if axes were shared
 			for i in range(dim_num-num_plots%dim_num):
@@ -320,10 +322,37 @@ def setup_labels(axis, xlabel, ylabel):
 		axis.set_xlabel(xlabel, fontsize = config.LARGE_FONT)
 	if (len(axis.get_yaxis().get_ticklabels())!=0):
 		axis.set_ylabel(ylabel, fontsize = config.LARGE_FONT)
-	axis.minorticks_on()
-	axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-	axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-	axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+
+	# If plotting redshift need to make some specific changes
+	if xlabel == config.PROP_INFO['redshift'][0]:
+		# First manually set major ticks since ususal redshift range is small but still logarithmically spaced
+		xlims = axis.get_xlim()
+		major_xticks = range(int(xlims[0]),int(xlims[1])-1,-1)
+		axis.set_xticks(major_xticks,minor=False)
+		axis.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+		axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
+		axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+		# Make sure not to put minor ticks on redshift axis
+		axis.tick_params(axis='y', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+
+		# TODO: Add ability to plot cosmic time on top of plot and share this top axis across multiple subplots
+		# For redshift need to set tick locations and add secondary x-axis for cosmic time
+		# axis2 = axis.twiny()
+		# axis2.set_xlim(utils.quick_lookback_time(1/xlims[0]),utils.quick_lookback_time(1/xlims[1]))
+		# axis2.set_yscale("linear")
+		# if (len(axis.get_xaxis().get_ticklabels())!=0):
+		# 	axis2.set_xlabel('Cosmic Time [Gyr]', fontsize = config.LARGE_FONT)
+		#
+		# axis2.tick_params(axis='x',which='both',direction='in',top=True)
+		# axis2.tick_params(axis='x', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+		# axis2.tick_params(axis='x', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+
+	else:
+		axis.minorticks_on()
+		axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
+		axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+		axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+
 	for axe in ['top','bottom','left','right']:
 		axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 

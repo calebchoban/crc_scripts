@@ -175,7 +175,7 @@ class Halo(object):
         if (part.k==-1): return 0., 0.
 
         p, sft, m = part.p, part.sft, part.m
-        r = np.sqrt((p[:,0]-xc)**2+(p[:,1]-yc)**2+(p[:,2]-zc)**2)
+        r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
         rmax = rout*self.rvir if kpc==0 else rout
         t, sfr = utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=self.sp)
 
@@ -305,6 +305,10 @@ class Disk(Halo):
         print('assigning center of galaxy:')
         part = self.part[ptype]
         part.load()
+        if len(part.m) < 0:
+            print("""There are no particles of ptype %i to use for assigning center of galaxy. You should use another
+                  type of particle such as gas or dark matter."""%ptype)
+            return
 
         # calculate center position
         self.center_position = coordinate.get_center_position_zoom(part.p, part.m, self.sp.boxsize,
@@ -341,6 +345,11 @@ class Disk(Halo):
         '''
         part = self.part[ptype] # particle types to use to compute MOI tensor and principal axes
         part.load()
+        if len(part.m) < 0:
+            print("""There are no particles of ptype %i to use for assigning principle axes of galaxy. You should use another
+                  type of particle such as gas or dark matter."""%ptype)
+            return
+
 
         if self.sp.npart[ptype] <=0:
             print('! catalog not contain ptype %i particles, so cannot assign principal axes'%ptype)
@@ -356,7 +365,7 @@ class Disk(Halo):
             part_indices = np.where(
                 (ages >= min(age_limits)) * (ages < max(age_limits)))[0]
         else:
-            part_indices = np.arange(part.m)
+            part_indices = np.arange(len(part.m))
 
         # store galaxy center
         center_position = self.center_position
@@ -408,11 +417,12 @@ class Disk(Halo):
         part = self.part[ptype]
 
         part.load()
-        part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-        zmag = part.p[:,2]
-        smag = np.sqrt(np.sum(np.power(part.p[:,:2],2),axis=1))
-        in_disk = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
-        part.mask(in_disk)
+        if part.npart>0:
+            part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
+            zmag = part.p[:,2]
+            smag = np.sqrt(np.sum(np.power(part.p[:,:2],2),axis=1))
+            in_disk = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
+            part.mask(in_disk)
 
         return part
 

@@ -27,7 +27,7 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
 
     # First deal with empty array
     if len(a)==0:
-        return np.full(len(percentiles), np.nan)
+        return np.full(len(percentiles), 0.)
 
     if weights is None:
         weights = np.ones(a.size)
@@ -110,10 +110,18 @@ def bin_values(bin_data, data_vals, bin_lims, bin_nums=50, weight_vals=None, log
 
 
 # cosmic time in a flat cosmology
-def quick_lookback_time(a, sp):
-    
-    h = sp.hubble
-    omega = sp.omega
+def quick_lookback_time(a, sp=None, redshift=False):
+
+    if redshift:
+        a = 1/(1+a)
+
+    # Assume usual Hubble and omega values
+    if sp == None:
+        h = config.HUBBLE
+        omega = config.OMEGA_MATTER
+    else:
+        h = sp.hubble
+        omega = sp.omega
     
     x = omega / (1.0-omega) / (a*a*a)
     t = (2.0/(3.0*np.sqrt(1.0-omega))) * np.log(np.sqrt(x)/(-1.0+np.sqrt(1.+x)))

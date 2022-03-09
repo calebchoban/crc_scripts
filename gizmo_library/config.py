@@ -63,6 +63,8 @@ Kpc_to_cm					= 3.086E21
 km_per_kpc					= 3.086E16
 sec_per_Gyr					= 3.16E16
 SOLAR_GAL_RADIUS			= 8 # kpc
+HUBBLE 						= 0.702
+OMEGA_MATTER 				= 0.272
 
 FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
@@ -73,7 +75,7 @@ else:
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
 ELEMENT_NAMES				= ['Metals','Helium','Carbon','Nitrogen','Oxygen','Neon','Magnesium','Silicon','Sulfur','Calcium','Iron']
-ATOMIC_MASS					= np.array([1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+ATOMIC_MASS					= np.array([1.01, 4.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
 SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 # number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
 # with olivine fraction of 0.32 and Mg fraction of 0.8
@@ -106,7 +108,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 										[0., 1.], 		False],
 						  'time': ['Time [Gyr]',											[1E-2,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',							[2E-3,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',							[2E-3,1E1],		True],
-					  'redshift': ['z',														[1E-1,100],		True],
+					  'redshift': [r'1+$z$',												[6,1],			True],
 						 'M_gas': [r'$M_{\rm gas}\;[M_{\odot}]$',							[1E4,1E8],		True],
 						  'M_H2': [r'$M_{\rm H_2}\;[M_{\odot}]$',							[1E1,1E7],		True],
 							'nH': [r'$n_{\rm H}$ [cm$^{-3}$]', 								[1.1E-2,0.9E3], True],

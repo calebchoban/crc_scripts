@@ -70,6 +70,7 @@ class Particle:
 
         ptype = self.ptype
         npart = sp.npart[ptype]
+        self.npart = npart
 
         # no particle in this ptype
         if (npart==0): return
@@ -247,7 +248,6 @@ class Particle:
     
         if (self.ptype==4):
             if (self.sp.Flag_StellarAge):
-                if (self.sp.cosmological==0):
                     self.sft = self.sft[mask]
                     self.age = self.age[mask]
             if (self.sp.Flag_Metals):
@@ -321,6 +321,8 @@ class Particle:
         if self.ptype==0:
             if property=='M' or property=='M_gas' or property=='m':
                 data = self.m*config.UnitMass_in_Msolar
+            elif property=='h':
+                data = self.h
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
             elif property == 'M_mol' or property == 'M_H2':
@@ -334,29 +336,45 @@ class Particle:
             elif property == 'M_carb':
                 data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_SiC':
-                data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_iron':
-                if self.sp.Flag_DustSpecies>4:
-                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                if self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
                 else:
+                    data = np.zeros(len(self.m))
+            elif property == 'M_iron':
+                if self.sp.Flag_DustSpecies>5:
+                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                elif self.sp.Flag_DustSpecies>2:
                     data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'M_ORes':
-                data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+                if self.sp.Flag_DustSpecies>=5:
+                    data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'M_sil+':
                 data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
             elif property == 'dz_sil':
-                data = self.spec[:,0]
+                data = self.spec[:,0]/self.dz[:,0]
             elif property == 'dz_carb':
-                data = self.spec[:,1]
+                data = self.spec[:,1]/self.dz[:,0]
             elif property == 'dz_SiC':
-                data = self.spec[:,2]
-            elif property == 'dz_iron':
-                if self.sp.Flag_DustSpecies>4:
-                    data = (self.spec[:,3]+self.spec[:,5])
+                if self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,2]/self.dz[:,0]
                 else:
-                    data = self.spec[:,3]
+                    data = np.zeros(len(self.m))
+            elif property == 'dz_iron':
+                if self.sp.Flag_DustSpecies>5:
+                    data = (self.spec[:,3]+self.spec[:,5])/self.dz[:,0]
+                elif self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,3]/self.dz[:,0]
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'dz_ORes':
-                data = self.spec[:,4]
+                if self.sp.Flag_DustSpecies>=5:
+                    data = self.spec[:,4]/self.dz[:,0]
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'M_acc_dust':
                 data = self.dzs[:,0]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_SNeIa_dust':
@@ -366,13 +384,13 @@ class Particle:
             elif property == 'M_AGB_dust':
                 data = self.dzs[:,3]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'dz_acc':
-                data = self.dzs[:,0]*self.dz[:,0]
+                data = self.dzs[:,0]
             elif property == 'dz_SNeIa':
-                data = self.dzs[:,1]*self.dz[:,0]
+                data = self.dzs[:,1]
             elif property == 'dz_SNeII':
-                data = self.dzs[:,2]*self.dz[:,0]
+                data = self.dzs[:,2]
             elif property == 'dz_AGB':
-                data = self.dzs[:,3]*self.dz[:,0]
+                data = self.dzs[:,3]
             elif property == 'fH2':
                 data = self.fH2
                 data[data>1] = 1
@@ -415,6 +433,18 @@ class Particle:
                 elem_indx = config.ELEMENTS.index(elem)
                 data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
                 data[data > 1] = 1.
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
+
+        elif self.ptype in [1,2,3]:
+            if property=='M' or property=='M_dm' or property=='m':
+                data = self.m*config.UnitMass_in_Msolar
+            elif property=='h':
+                data = self.h
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
 
         elif self.ptype==4:
             if property in ['M','M_star','M_stellar']:
@@ -428,9 +458,13 @@ class Particle:
                 data = 12+np.log10(O/H)
             elif property == 'age':
                 data = self.age
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
 
         else:
             print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
             return None
 
-        return data
+        # Make sure to return a copy of the data
+        return data.copy()
