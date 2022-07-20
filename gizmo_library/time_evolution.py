@@ -258,7 +258,8 @@ class Dust_Evo_Data(object):
 
 		prepend=np.zeros(prepend_snaps); append=np.zeros(append_snaps);
 		self.time = np.append(np.concatenate((prepend,self.time)),append)
-		self.redshift = np.append(np.concatenate((prepend,self.redshift)),append)
+		if self.cosmological:
+			self.redshift = np.append(np.concatenate((prepend,self.redshift)),append)
 		self.snap_loaded = np.append(np.concatenate((prepend,self.snap_loaded)),append)
 
 		# Populate the data dictionaries

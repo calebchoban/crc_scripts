@@ -246,8 +246,17 @@ def calc_rotate_matrix(vec1, vec2):
     return rotation_matrix
 
 
-def fit_exponential(x_data, y_data, guess = None, bounds=None):
-    def exp_func(x, coeff, scale_l):
-        return coeff*np.exp(-x/scale_l)
+# Fits exponential disk to galactocentric vs sufrace density data
+def fit_exponential(x_data, y_data, guess=None, bounds=None):
+    def exp_func(x, coeff, scale_l, offset):
+        return coeff*np.exp(-x/scale_l)+offset
 
     return curve_fit(exp_func,x_data,y_data, p0=guess, bounds=bounds)
+
+# This fits a sersic+exponential disk profile to galactocentric vs sufrace density data
+def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None):
+    def sersic_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l, sersic_index):
+        return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./sersic_index))+coeff2*np.exp(-x/disk_l))
+
+    return curve_fit(sersic_and_exp_func,x_data,np.log10(y_data), p0=guess, bounds=bounds)
+

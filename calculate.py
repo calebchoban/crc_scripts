@@ -336,8 +336,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 
 	L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
 
-	if 'star' in property: P = snap.loadpart(4)
-	else: 				   P = snap.loadpart(0)
+	if 'star' in property or 'stellar' in property or 'sfr' in property: P = snap.loadpart(4)
+	else: 				   												 P = snap.loadpart(0)
 	x = P.p[:,0];y=P.p[:,1];z=P.p[:,2]
 
 	# Set up coordinates to project
@@ -356,7 +356,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
 	coord2_bins = np.linspace(-L2,L2,pixel_bins)
 
-	pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
+
 
 	# Get the data to be projected
 	if property in ['D/Z','fH2','fMC']:
@@ -384,11 +384,19 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 		elif property == 'sigma_iron':  	proj_data = P.get_property('M_iron')
 		elif property == 'sigma_ORes': 		proj_data = P.get_property('M_ORes')
 		elif property == 'sigma_star':  	proj_data = P.get_property('M_star')
+		elif property == 'T':				proj_data = P.get_property('T')
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%property)
 			return None
 
-		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		if 'sigma' in property:
+			stats = np.nansum
+			pixel_area = pixel_res**2 * 1E6 # area of pixel in pc^2
+		else:
+			stats = np.average
+			pixel_area = 1.
+
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=stats, bins=[coord1_bins,coord2_bins])
 		pixel_stats = binned_stats.statistic/pixel_area
 
 	return pixel_stats, coord1_bins, coord2_bins

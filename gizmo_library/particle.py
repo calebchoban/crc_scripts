@@ -121,6 +121,7 @@ class Particle:
             snapfile = sp.get_snap_file_name(i)
             f = h5py.File(snapfile, 'r')
             npart_this = f['Header'].attrs['NumPart_ThisFile'][ptype]
+            if npart_this <=0: continue  # if there are no particles of this type in the snap no reason to continue
             nR = nL + npart_this
 
             grp = f['PartType%d'%ptype]
@@ -148,7 +149,8 @@ class Particle:
                         fH2[nL:nR] = grp['MolecularMassFraction'][...]
                     # Deal with the in between case when molecular data was all in one place
                     # Can probably delete this soon since only a few sims have this specific output
-                    else: 
+                    else:
+                        print("Loading old dust molecular...")
                         fH2[nL:nR] = grp['DustMolecular'][:,0]
                         fdense[nL:nR] = grp['DustMolecular'][:,1]
                         CinCO[nL:nR] = grp['DustMolecular'][:,2]
@@ -248,8 +250,8 @@ class Particle:
     
         if (self.ptype==4):
             if (self.sp.Flag_StellarAge):
-                    self.sft = self.sft[mask]
-                    self.age = self.age[mask]
+                self.sft = self.sft[mask]
+                self.age = self.age[mask]
             if (self.sp.Flag_Metals):
                 self.z = self.z[mask]
 

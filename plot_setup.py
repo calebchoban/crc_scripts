@@ -265,7 +265,7 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
 
 	# Setup x axis
 	if x_prop not in config.PROP_INFO.keys():
-		print("%s is not a valid property\n"%x_prop)
+		print("%s is not a valid property for plot_setup\n"%x_prop)
 		print("Valid properties are:")
 		print(config.PROP_INFO.keys())
 		return
@@ -279,7 +279,7 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
 
 	# Setup y axis
 	if y_prop not in config.PROP_INFO.keys():
-		print("%s is not a valid property\n"%y_prop)
+		print("%s is not a valid property plot_setup\n"%y_prop)
 		print("Valid properties are:")
 		print(config.PROP_INFO.keys())
 		return

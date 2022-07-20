@@ -1,6 +1,7 @@
 import numpy as np
 from . import utils
 from . import coordinate
+import matplotlib.pyplot as plt
 
 # This is a class that manages a galaxy/halo in a given
 # snapshot, for either cosmological or isolated simulations.
@@ -433,10 +434,11 @@ class Disk(Halo):
 
 
     # Calculate the stellar scale radius
-    def calc_stellar_scale_r(self, guess=[1E3,2], bounds=(0, [1E6, 10]), radius_max=None):
-        # guess : initial guess for central density and scale length
-        # bounds : Bounds for possible central density (M_sol/pc^2) and scale length (kpc) values
+    def calc_stellar_scale_r(self, guess=[1E4,1E2,0.5,3,4], bounds=(0, [1E6,1E6,5,10,7]), radius_max=None, output_fit=False):
+        # guess : initial guess for central density of sersic profile, central density of exponential disk, sersic scale length, disk scale length, and sersic index
+        # bounds : Bounds for above values
         # radius_max : maximum disk radius for fit
+        # output_fit : creates a plot of the fit and the data
 
         if radius_max is None:
             radius_max = self.rmax
@@ -445,7 +447,7 @@ class Disk(Halo):
         stars.load()
         stars.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
         star_mass = stars.get_property('M')
-        r_bins = np.linspace(0,radius_max,int(np.floor(radius_max/0.25)))
+        r_bins = np.linspace(0,radius_max,int(np.floor(radius_max/.1)))
         r_vals = np.array([(r_bins[i+1]+r_bins[i])/2. for i in range(len(r_bins)-1)])
         rmag = np.sqrt(np.sum(np.power(stars.p[:,:2],2),axis=1))
         sigma_star = np.zeros(len(r_vals))
@@ -455,15 +457,26 @@ class Disk(Halo):
             area = np.pi*(rmax**2 - rmin**2)
             sigma_star[i] = mass/(area*1E6) # M_sol/pc^2
 
-        fit_params,_ = utils.fit_exponential(r_vals, sigma_star, guess=guess, bounds=bounds)
-        coeff = fit_params[0]; scale_r=fit_params[1];
-        print("Calculated stellar disk scale length: Scale Radius = %e kpc, \
-              Central Surface Density = %e M_solar/pc^2"%(scale_r, coeff))
-        import matplotlib.pyplot as plt
-        plt.scatter(r_vals, sigma_star)
-        x_vals = np.linspace(0,radius_max,100)
-        plt.plot(x_vals, coeff*np.exp(-x_vals/scale_r))
-        plt.yscale('log')
-        plt.savefig('stellar_scale_test.png')
 
-        return scale_r
+        # Fit a sersic/bulge+exponential/disk profile to the disk stellar surface density
+        fit_params,_ = utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds)
+        coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3]; sersic_index=fit_params[4]
+        print("Results for bulge+disk fit to disk galaxy...\n \
+              Sersic Coefficient = %e M_solar/pc^2 \n \
+               Disk Coefficient = %e M_solar/pc^2 \n \
+               Sersic scale length = %e kpc \n \
+               Disk scale length = %e kpc \n \
+               Sersic index = %e "%(coeff1, coeff2, sersic_l,disk_l, sersic_index))
+        if output_fit:
+            plt.figure()
+            plt.scatter(r_vals, sigma_star)
+            x_vals = np.linspace(0,radius_max,100)
+            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index)))
+            plt.plot(x_vals, coeff2*np.exp(-x_vals/disk_l))
+            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index))+coeff2*np.exp(-x_vals/disk_l))
+            plt.ylim([np.min(sigma_star),np.max(sigma_star)])
+            plt.yscale('log')
+            plt.savefig('disk.png')
+            plt.close()
+
+        return disk_l
