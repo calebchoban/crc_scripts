@@ -235,9 +235,8 @@ class Dust_Evo_Data(object):
 
 		self.setHalo=False
 		self.setDisk=False
-		self.halo_kwargs = {}
-		self.disk_load_kwargs = {}
-		self.disk_set_kwargs = {}
+		self.load_kwargs = {}
+		self.set_kwargs = {}
 
 		self.all_snaps_loaded=False
 
@@ -276,10 +275,11 @@ class Dust_Evo_Data(object):
 
 
 	# Set to include particles in specified halo
-	def set_halo(self, **kwargs):
+	def set_halo(self, load_kwargs={}, set_kwargs={}):
 		if not self.setHalo:
 			self.setHalo=True
-			self.halo_kwargs = kwargs
+			self.load_kwargs = load_kwargs
+			self.set_kwargs = set_kwargs
 
 		return
 
@@ -287,8 +287,8 @@ class Dust_Evo_Data(object):
 	def set_disk(self, load_kwargs={}, set_kwargs={}):
 		if not self.setDisk:
 			self.setDisk=True
-			self.disk_load_kwargs = load_kwargs
-			self.disk_set_kwargs = set_kwargs
+			self.load_kwargs = load_kwargs
+			self.set_kwargs = set_kwargs
 
 		return
 
@@ -320,11 +320,13 @@ class Dust_Evo_Data(object):
 				self.redshift[i] = sp.redshift
 			# Calculate the data fields for both all particles in the halo and all particles in the disk
 			if self.setHalo:
-				gal = sp.loadhalo(**self.halo_kwargs)
+				gal = sp.loadhalo(**self.load_kwargs)
+				gal.set_zoom(**self.set_kwargs)
 			else:
-				gal = sp.loaddisk(**self.disk_load_kwargs)
-				gal.set_disk(**self.disk_set_kwargs)
+				gal = sp.loaddisk(**self.load_kwargs)
+				gal.set_disk(**self.set_kwargs)
 
+			print('Loading gas data....')
 			G = gal.loadpart(0)
 			G_mass = G.get_property('M')
 			T = G.get_property('T'); nH = G.get_property('nH'); fnh = G.get_property('nh'); fH2 = G.get_property('fH2')
@@ -339,7 +341,7 @@ class Dust_Evo_Data(object):
 				elif name == 'neutral':
 					mask = fnh > 0.5
 				elif name =='molecular':
-					mask = fH2 > 0.5
+					mask = fH2*fnh > 0.5
 				else:
 					print("Median subsampling %s is not supported so assuming all"%name)
 					mask = np.ones(len(G_mass), dtype=bool)
@@ -364,6 +366,7 @@ class Dust_Evo_Data(object):
 
 			# Finally do star properties if there are any
 			S = gal.loadpart(4)
+			print('Loading star data....')
 			if S.npart == 0:
 				for prop in self.star_total_data.keys():
 					self.star_total_data[prop][i] = 0.

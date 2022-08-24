@@ -191,7 +191,8 @@ class Particle:
             self.u = u
             self.rho = rho
             if (sp.Flag_Cooling):
-                T = utils.gas_temperature(u, ne)
+                z_he = z[:,1]; z_tot=z[:,0]
+                T = utils.approx_gas_temperature(u,ne)
                 self.T = T
                 self.ne = ne
                 self.nh = nh
@@ -328,7 +329,7 @@ class Particle:
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
             elif property == 'M_mol' or property == 'M_H2':
-                data = self.m*self.fH2*config.UnitMass_in_Msolar
+                data = self.m*self.fH2*self.nh*config.UnitMass_in_Msolar
             elif property == 'M_metals':
                 data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_dust':
@@ -451,6 +452,11 @@ class Particle:
         elif self.ptype==4:
             if property in ['M','M_star','M_stellar']:
                 data = self.m*config.UnitMass_in_Msolar
+            elif property in ['M_star_young','M_stellar_young','M_sfr']:
+                # Assume young stars are < 10 Myr old
+                data = self.m*config.UnitMass_in_Msolar
+                age = self.age
+                data[age>0.01] = 0.
             elif property == 'Z':
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':

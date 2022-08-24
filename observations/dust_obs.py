@@ -526,16 +526,21 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 		vals = np.power(10,data['gas'])
 	elif param == 'sigma_H2':
 		vals = np.power(10,data['h2'])
+	elif param in ['sigma_stellar','sigma_star']:
+		vals = np.power(10,data['star'])
+	elif param == 'sigma_sfr':
+		vals = np.power(10,data['sfr'])
 	elif param == 'fH2':
 		vals = data['fh2']
 	elif param == 'sigma_Z':
 		vals = data['metal_z']
 	elif param in ['Z','O/H']:
 		vals = data['metal']
-		if param == 'O/H':
-			Z = data['metal']
-			# Convert from Z back to 12+log{0/H} given Eq. 9 in Chiang2021
-			vals = np.log10(Z*0.51*(1.36*config.ATOMIC_MASS[0]/config.ATOMIC_MASS[4]))+12
+		if param == 'Z':
+			O_H = data['metal']
+			# Convert from 12+log{0/H} to Z given Eq. 9 in Chiang2021
+			vals = 1./0.51*config.ATOMIC_MASS[4]/(1.36*config.ATOMIC_MASS[0])*np.power(10,O_H-12.)
+			vals /= config.SOLAR_Z
 	elif param == 'sigma_dust':
 		vals = data['dust']
 	elif param in ['r','r25','r*']:

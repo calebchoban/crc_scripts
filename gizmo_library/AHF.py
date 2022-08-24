@@ -1,5 +1,4 @@
 import numpy as np
-import os
 from . import utils
 import glob
 
@@ -85,7 +84,7 @@ class AHF:
         self.Rmax = Rmax
         self.Vmax = Vmax
         self.fMhires = fMhires
-        self.Lhat = [Lx,Ly,Lz]
+        self.Lhat = np.array([Lx,Ly,Lz])
 
         return
 

@@ -90,7 +90,7 @@ class Halo(object):
                 self.rmax = AHF.Rmax[self.id]
                 self.vmax = AHF.Vmax[self.id]
                 self.fhi = AHF.fMhires[self.id]
-                self.Lhat = AHF.Lhat[self.id]
+                self.Lhat = AHF.Lhat[:,self.id]
 
             # no catalog so just chose center of snapshot box
             else:

@@ -97,6 +97,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					'sigma_star': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 			  'sigma_young_star': [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]',			[1E0,1E2], 		True],
 				 'sigma_stellar': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
+					'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 				  'sigma_metals': [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-2,1E1], 	True],
 					'sigma_dust': [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
@@ -110,9 +111,11 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
 						  'time': ['Time [Gyr]',														[1E-2,1E1],		True],
+				 'time_lookback': ['Lookback Time [Gyr]',												[1E-1,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
-					  'redshift': [r'1+$z$',															[6,1],			True],
+					  'redshift': [r'$z$',															    [6,0],			False],
+			   'redshift_plus_1': [r'1+$z$',															[7,1],			True],
 						 'M_gas': [r'$M_{\rm gas}\;[M_{\odot}]$',										[1E8,1E11],		True],
 						'M_star': [r'$M_{\rm star}\;[M_{\odot}]$',										[1E8,1E11],		True],
 				  'M_young_star': [r'$M_{\rm star}\;[M_{\odot} (<10 Myr)]$',							[1E8,1E11],		True],
@@ -124,7 +127,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 							 'T': [r'T [K]', 															[1.1E1,0.9E5],  True],
 							 'Z': [r'Z [Z$_{\odot}$]', 													[1.1E-3,5E0], 	True],
 					 'stellar_Z': [r'Z_{\rm star} [Z$_{\odot}$]', 										[1.1E-3,5E0], 	True],
-						   'O/H': ['12+log(O/H)', 														[6.5,9.5], 	    False],
+						   'O/H': ['12+log(O/H)', 														[8,9], 	    	False],
 				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[6.5,9.5], 	    False],
 						   'D/Z': ['D/Z', 																[0,1.05],   	False],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
@@ -153,7 +156,7 @@ def get_prop_label(property):
 	return PROP_INFO[property][0]
 
 def get_prop_limits(property):
-	return PROP_INFO[property][1]
+	return np.array(PROP_INFO[property][1])
 
 def get_prop_if_log(property):
 	return PROP_INFO[property][2]

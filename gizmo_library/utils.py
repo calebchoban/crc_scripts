@@ -2,6 +2,7 @@ from . import config
 import numpy as np
 from . import shieldLengths as SL
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 
 def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ignore_invalid=True):
     """
@@ -129,6 +130,39 @@ def quick_lookback_time(a, sp=None, redshift=False):
     
     return t
 
+def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
+    # Returns interpolation from time_name_input to time_name_get
+
+    a_vals = np.logspace(np.log10(0.01),np.log10(1),100)
+    t_vals = quick_lookback_time(a_vals, sp=sp, redshift=False)
+    universe_age = quick_lookback_time(1, sp=sp, redshift=False)
+
+    if time_name_input=='time':
+        x_vals = t_vals
+    elif time_name_input=='time_lookback':
+        x_vals = universe_age - t_vals
+    elif time_name_input=='redshift':
+        x_vals = 1./a_vals-1.
+    elif time_name_input=='redshift_plus_1':
+        x_vals = (1./a_vals-1.)+1
+    else:
+        x_vals = a_vals
+
+    if time_name_get=='time':
+        y_vals = t_vals
+    elif time_name_get=='time_lookback':
+        y_vals = universe_age - t_vals
+    elif time_name_get=='redshift':
+        y_vals = 1./a_vals-1.
+    elif time_name_get=='redshift_plus_1':
+        y_vals = (1./a_vals-1.)+1
+    else:
+        y_vals = a_vals
+
+    conv_func = interp1d(x_vals,y_vals, kind='cubic',fill_value="extrapolate")
+
+    return conv_func
+
 
 # calculate stellar ages
 def get_stellar_ages(sft, sp):
@@ -174,12 +208,13 @@ def gas_mu(ne):
     
     XH = 0.76
     YHe = (1.0-XH) / (4.0*XH)
-    
+
+    #return 1. / (XH*0.5 + (1-XH)/4. + 1./(16.+12.)) # This is now used in FIRE for the temperature floor
     return (1.0+4.0*YHe) / (1.0+YHe+ne)
 
 
-# returns gas particles temperature in Kelvin
-def gas_temperature(u, ne, keV=0):
+# returns gas particles temperature in Kelvin assuming fully-atomic with no metal correction
+def approx_gas_temperature(u, ne, keV=0):
 
     g_gamma= 5.0/3.0
     g_minus_1= g_gamma-1.0
@@ -192,6 +227,49 @@ def gas_temperature(u, ne, keV=0):
         T *= config.T_to_keV;
 
     return T
+
+# Taken from Phil Hopkins' routines for more accruate temperature
+def gas_temperature(internal_egy_code, helium_mass_fraction, electron_abundance, total_metallicity, mass_density, f_neutral=np.zeros(0), f_molec=np.zeros(0), key='Temperature'):
+    ''' Return estimated gas temperature, given code-units internal energy, helium
+         mass fraction, and electron abundance (number of free electrons per H nucleus).
+         this will use a simply approximation to the iterative in-code solution for
+         molecular gas, total metallicity, etc. so does not perfectly agree
+         (but it is a few lines, as opposed to hundreds) '''
+    internal_egy_cgs=internal_egy_code*1.e10; gamma_EOS=5./3.; kB=config.BoltzMann_ergs; m_proton=config.PROTONMASS; X0=0.76;
+    total_metallicity[(total_metallicity>0.25)] = 0.25;
+    helium_mass_fraction[(helium_mass_fraction>0.35)] = 0.35;
+    y_helium = helium_mass_fraction / (4.*(1.-helium_mass_fraction));
+    X_hydrogen = 1. - (helium_mass_fraction+total_metallicity);
+    T_mol = 100. * (mass_density*4.04621);
+    T_mol[(T_mol>8000.)] = 8000.;
+    A0 = m_proton * (gamma_EOS-1.) * internal_egy_cgs / kB;
+    mu = (1. + 4.*y_helium) / (1.+y_helium+electron_abundance);
+    X=X_hydrogen; Y=helium_mass_fraction; Z=total_metallicity; nel=electron_abundance;
+
+    if(np.array(f_molec).size > 0):
+        print("fmol")
+        fmol = 1.*f_molec;
+        fH=X_hydrogen; f=fmol; xe=nel;
+        f_mono = fH*(xe + 1.-f) + (1.-fH)/4.; f_di = fH*f/2.; gamma_mono=5./3.; gamma_di=7./5.;
+        gamma_eff = 1. + (f_mono + f_di) / (f_mono/(gamma_mono-1.) + f_di/(gamma_di-1.));
+        A0 = m_proton * (gamma_eff-1.) * internal_egy_cgs / kB;
+    else:
+        print("no fmol")
+        fmol=0;
+        if(2==2):
+            for i in range(3):
+                mu = 1. / ( X*(1.-0.5*fmol) + Y/4. + nel*X0 + Z/(16.+12.*fmol));
+                T = mu * A0 / T_mol;
+                fmol = 1. / (1. + T*T);
+    mu = 1. / ( X*(1.-0.5*fmol) + Y/4. + nel*X0 + Z/(16.+12.*fmol));
+    T = mu * A0;
+    print(mu)
+
+    if('Temp' in key or 'temp' in key): return T;
+    if('Weight' in key or 'weight' in key): return mu;
+    if('Number' in key or 'number' in key): return mass_density * 404.621 / mu;
+    return T;
+
 
 
 # returns H2 mass fraction using the given option
