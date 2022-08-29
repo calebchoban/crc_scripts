@@ -416,12 +416,56 @@ class Particle:
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':
                 data = self.z
+            elif property == 'Z_O':
+                data = self.z[:,4]/config.SOLAR_MASSFRAC[4]
+            elif property == 'Z_O_gas':
+                data = (self.z[:,4]-self.dz[:,4])/config.SOLAR_MASSFRAC[4]
+            elif property == 'Z_C':
+                data = self.z[:,2]/config.SOLAR_MASSFRAC[2]
+            elif property == 'Z_C_gas':
+                data = (self.z[:,2]-self.dz[:,2])/config.SOLAR_MASSFRAC[2]
+            elif property == 'Z_Mg':
+                data = self.z[:,6]/config.SOLAR_MASSFRAC[6]
+            elif property == 'Z_Mg_gas':
+                data = (self.z[:,6]-self.dz[:,6])/config.SOLAR_MASSFRAC[6]
+            elif property == 'Z_Si':
+                data = self.z[:,7]/config.SOLAR_MASSFRAC[7]
+            elif property == 'Z_Si_gas':
+                data = (self.z[:,7]-self.dz[:,7])/config.SOLAR_MASSFRAC[7]
+            elif property == 'Z_Fe':
+                data = self.z[:,10]/config.SOLAR_MASSFRAC[10]
+            elif property == 'Z_Fe_gas':
+                data = (self.z[:,10]-self.dz[:,10])/config.SOLAR_MASSFRAC[10]
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
             elif property == 'O/H_gas':
                 O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
+            elif property == 'C/H':
+                C = self.z[:,2]/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(C/H)
+            elif property == 'C/H_gas':
+                C = (self.z[:,2]-self.dz[:,2])/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(C/H)
+            elif property == 'Mg/H':
+                Mg = self.z[:,6]/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Mg/H)
+            elif property == 'Mg/H_gas':
+                Mg = (self.z[:,6]-self.dz[:,6])/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Mg/H)
+            elif property == 'Si/H':
+                Si = self.z[:,7]/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Si/H)
+            elif property == 'Si/H_gas':
+                Si = (self.z[:,7]-self.dz[:,7])/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Si/H)
+            elif property == 'Fe/H':
+                Fe = self.z[:,10]/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Fe/H)
+            elif property == 'Fe/H_gas':
+                Fe = (self.z[:,10]-self.dz[:,10])/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Fe/H)
             elif property == 'Si/C':
                 data = self.spec[:,0]/self.spec[:,1]
             elif property == 'D/Z':
@@ -436,6 +480,12 @@ class Particle:
                 elem_indx = config.ELEMENTS.index(elem)
                 data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
                 data[data > 1] = 1.
+            elif property == 'f_cold':
+                data = np.sum(self.m[self.T<=1E3])/np.sum(self.m)
+            elif property == 'f_warm':
+                data = np.sum(self.m[(self.T<1E4) & (self.T>=1E3)])/np.sum(self.m)
+            elif property == 'f_hot':
+                data = np.sum(self.m[self.T>=1E4])/np.sum(self.m)
             else:
                 print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
                 return None

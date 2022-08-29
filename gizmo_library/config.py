@@ -71,9 +71,13 @@ OMEGA_MATTER 				= 0.272
 
 FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
+	# FIRE-2 uses Anders & Grevesse 1989 for Solar
 	SOLAR_Z					= 0.02
+	SOLAR_MASSFRAC			= np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
 else:
-	SOLAR_Z					= 0.014
+	# FIRE-3 uses Asplund+ 2009 for Solar
+	SOLAR_Z					= 0.0142
+	SOLAR_MASSFRAC 			= np.array([0.0142,0.2703,2.53e-3,7.41e-4,6.13e-3,1.34e-3,7.57e-4,7.12e-4,3.31e-4,6.87e-5,1.38e-3])
 
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
@@ -98,6 +102,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 			  'sigma_young_star': [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]',			[1E0,1E2], 		True],
 				 'sigma_stellar': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 					'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
+						  'sfr': [r'SFR [M$_{\odot}/$yr]', 												[1E-3,5E1], 	True],
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 				  'sigma_metals': [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-2,1E1], 	True],
 					'sigma_dust': [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
@@ -117,6 +122,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					  'redshift': [r'$z$',															    [6,0],			False],
 			   'redshift_plus_1': [r'1+$z$',															[7,1],			True],
 						 'M_gas': [r'$M_{\rm gas}\;[M_{\odot}]$',										[1E8,1E11],		True],
+				 'M_gas_neutral': [r'$M_{\rm gas,neutral}\;[M_{\odot}]$',								[1E8,1E11],		True],
 						'M_star': [r'$M_{\rm star}\;[M_{\odot}]$',										[1E8,1E11],		True],
 				  'M_young_star': [r'$M_{\rm star}\;[M_{\odot} (<10 Myr)]$',							[1E8,1E11],		True],
 						  'M_H2': [r'$M_{\rm H_2}\;[M_{\odot}]$',										[1E7,1E11],		True],
@@ -127,8 +133,26 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 							 'T': [r'T [K]', 															[1.1E1,0.9E5],  True],
 							 'Z': [r'Z [Z$_{\odot}$]', 													[1.1E-3,5E0], 	True],
 					 'stellar_Z': [r'Z_{\rm star} [Z$_{\odot}$]', 										[1.1E-3,5E0], 	True],
+						   'Z_O': ['[O/H]', 															[1.1E-3,5E0], 	True],
+				  	   'Z_O_gas': [r'[O/H]$_{\rm gas}$', 												[1.1E-3,5E0],	True],
+						   'Z_C': ['[C/H]', 															[1.1E-3,5E0], 	True],
+				  	   'Z_C_gas': [r'[C/H]$_{\rm gas}$', 												[1.1E-3,5E0],	True],
+						  'Z_Mg': ['[Mg/H]', 															[1.1E-3,5E0], 	True],
+				  	  'Z_Mg_gas': [r'[Mg/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
+						 ' Z_Si': ['[Si/H]', 															[1.1E-3,5E0], 	True],
+				  	  'Z_Si_gas': [r'[Si/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
+						  'Z_Fe': ['[Fe/H]', 															[1.1E-3,5E0], 	True],
+				  	  'Z_Fe_gas': [r'[Fe/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
 						   'O/H': ['12+log(O/H)', 														[8,9], 	    	False],
-				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[6.5,9.5], 	    False],
+				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[8,9],	 	    False],
+						   'C/H': ['12+log(C/H)', 														[8,9], 	    	False],
+				  	   'C/H_gas': [r'12+log(C/H)$_{\rm gas}$', 											[8,9],	 	    False],
+						  'Mg/H': ['12+log(Mg/H)', 														[6.5,8.5], 	    False],
+				  	  'Mg/H_gas': [r'12+log(Mg/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
+						  'Si/H': ['12+log(Si/H)', 														[6.5,8.5], 	    False],
+				  	  'Si/H_gas': [r'12+log(Si/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
+						  'Fe/H': ['12+log(Fe/H)', 														[6.5,8.5], 	    False],
+				  	  'Fe/H_gas': [r'12+log(Fe/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
 						   'D/Z': ['D/Z', 																[0,1.05],   	False],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 												[1E-1,1.1E0],   True],
