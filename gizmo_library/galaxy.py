@@ -30,17 +30,37 @@ class Halo(object):
         self.zoom = False
         self.calc_center = False
 
+        self.center_position = None
+        self.center_velocity = None
+        self.principal_axes_vectors = None
+        self.principal_axes_ratios = None
+
         return
 
 
     # Set zoom-in region if you don't want all data in rvir
-    def set_zoom(self, rout=1.0, kpc=False, ptype=4):
+    def set_zoom(self, rout=1.0, kpc=False):
 
         # How far out do you want to load data, default is rvir
         self.rout = rout
         self.outkpc = kpc
-        self.zoom_ptype = ptype
         self.zoom = True
+
+        return
+
+    def set_orientation(self, ptype=4, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
+        # ptype: int
+        #   particle types to use to compute disk center and axis
+        # velocity_radius_max: float
+        #   compute average velocity using particles within this radius [kpc]
+        # distance_max : float
+        #   maximum radius to select particles [kpc physical]
+        # age_limits : float
+        #   min and max limits of age to select star particles [Gyr]
+
+
+        self.assign_center(ptype, velocity_radius_max)
+        self.assign_principal_axes(ptype, radius_max, age_limits)
 
         return
 
@@ -116,6 +136,8 @@ class Halo(object):
             self.zc = sp.boxsize/2.
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
+
+        self.center_position = [self.xc,self.yc,self.zc]
     
         return
 
@@ -131,13 +153,11 @@ class Halo(object):
         part = self.part[ptype]
 
         part.load()
+        part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
         if self.zoom:
             rmax = self.rout*self.rvir if not self.outkpc else self.rout
-            self.calculate_center(self.zoom_ptype)
         else:
             rmax = self.rvir
-        xc=self.xc; yc=self.yc; zc=self.zc
-        part.orientate([xc,yc,zc])
         in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
         part.mask(in_halo)
 
@@ -183,126 +203,10 @@ class Halo(object):
         return t, sfr
 
 
-    def calculate_center(self, ptype=4, velocity_radius_max=15):
-
-        if self.calc_center: return
-        part = self.part[ptype]
-        part.load()
-
-        # calculate center position
-        center_position = coordinate.get_center_position_zoom(part.p, part.m, self.sp.boxsize,
-            center_position=np.array([self.xc,self.yc,self.zc]))
-        self.xc = center_position[0]
-        self.yc = center_position[1]
-        self.zc = center_position[2]
-
-        print('  center position [kpc] = {:.3f}, {:.3f}, {:.3f}'.format(
-            center_position[0], center_position[1], center_position[2]))
-
-        # calculate center velocity
-        center_velocity = coordinate.get_center_velocity(
-            part.v, part.m, part.p, center_position, velocity_radius_max, self.sp.boxsize)
-        self.vx = center_velocity[0]
-        self.vy = center_velocity[1]
-        self.vz = center_velocity[2]
-
-        print('  center velocity [km/s] = {:.1f}, {:.1f}, {:.1f}'.format(
-            center_velocity[0], center_velocity[1], center_velocity[2]))
-
-        self.calc_center = True
-        return
-
-
-class Disk(Halo):
-
-    def __init__(self, sp, id=0, rmax=20, height=5):
-        super(Disk, self).__init__(sp, id=id)
-        # specify the dimensions of the disk
-        self.rmax = rmax
-        self.height = height
-
-        self.center_position = None
-        self.center_velocity = None
-        self.principal_axes_vectors = None
-        self.principal_axes_ratios = None
-
-
-        return
-
-
-    # load basic info to the class
-    def load(self, mode='AHF'):
-
-        if (self.k!=0): return # already loaded
-
-        sp = self.sp
-        
-        # non-cosmological snapshots
-        if sp.cosmological==0 or mode!='AHF':
-
-            self.k = 1
-            self.time = sp.time
-            # Get center from average of gas particles
-            part = self.sp.loadpart(0)
-            self.xc = np.average(part.p[:,0],weights=part.m)
-            self.yc = np.average(part.p[:,1],weights=part.m)
-            self.zc = np.average(part.p[:,2],weights=part.m)
-            self.rvir = sp.boxsize*2.
-            self.Lhat = np.array([0,0,1.])
-        
-            return
-
-        # cosmological, use AHF
-        if (mode=='AHF'):
-            
-            AHF = sp.loadAHF()
-    
-            # catalog exists
-            if (AHF.k==1):
-                
-                self.k = 1
-                self.time = sp.time
-                self.redshift = sp.redshift
-                self.catalog = 'AHF'
-                self.id = AHF.ID[self.id]
-                self.host = AHF.hostHalo[self.id]
-                self.npart = AHF.npart[self.id]
-                self.ngas = AHF.n_gas[self.id]
-                self.nstar = AHF.n_star[self.id]
-                self.mvir = AHF.Mvir[self.id]
-                self.mgas = AHF.M_gas[self.id]
-                self.mstar = AHF.M_star[self.id]
-                self.xc = AHF.Xc[self.id]
-                self.yc = AHF.Yc[self.id]
-                self.zc = AHF.Zc[self.id]
-                self.rvir = AHF.Rvir[self.id]
-                self.vmax = AHF.Vmax[self.id]
-                self.fhi = AHF.fMhires[self.id]
-                self.Lhat = AHF.Lhat[self.id]
-    
-        return
-
-
-    # calculate the center and principle axis of disk from particles instead of just using AHF values
-    def set_disk(self, ptype=4, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
-        # ptype: int
-        #   particle types to use to compute disk center and axis
-        # velocity_radius_max: float
-        #   compute average velocity using particles within this radius [kpc]
-        # distance_max : float
-        #   maximum radius to select particles [kpc physical]
-        # age_limits : float
-        #   min and max limits of age to select star particles [Gyr]
-
-
-        self.assign_center(ptype, velocity_radius_max)
-        self.assign_principal_axes(ptype, radius_max, age_limits)
-
-        return
-
     # calculate center position and velocity
     def assign_center(self, ptype=4, velocity_radius_max=15):
 
+        if self.calc_center: return
         print('assigning center of galaxy:')
         part = self.part[ptype]
         part.load()
@@ -331,6 +235,7 @@ class Disk(Halo):
         print('  center velocity [km/s] = {:.1f}, {:.1f}, {:.1f}'.format(
             self.center_velocity[0], self.center_velocity[1], self.center_velocity[2]))
 
+        self.calc_center = True
         return
 
 
@@ -410,6 +315,93 @@ class Disk(Halo):
 
         return
 
+
+class Disk(Halo):
+
+    def __init__(self, sp, id=0, rmax=20, height=5):
+        super(Disk, self).__init__(sp, id=id)
+        # specify the dimensions of the disk
+        self.rmax = rmax
+        self.height = height
+
+        self.center_position = None
+        self.center_velocity = None
+        self.principal_axes_vectors = None
+        self.principal_axes_ratios = None
+
+
+        return
+
+
+    # load basic info to the class
+    def load(self, mode='AHF'):
+
+        if (self.k!=0): return # already loaded
+
+        sp = self.sp
+        
+        # non-cosmological snapshots
+        if sp.cosmological==0 or mode!='AHF':
+
+            self.k = 1
+            self.time = sp.time
+            # Get center from average of gas particles
+            part = self.sp.loadpart(0)
+            self.xc = np.average(part.p[:,0],weights=part.m)
+            self.yc = np.average(part.p[:,1],weights=part.m)
+            self.zc = np.average(part.p[:,2],weights=part.m)
+            self.rvir = sp.boxsize*2.
+            self.Lhat = np.array([0,0,1.])
+        
+            return
+
+        # cosmological, use AHF
+        if (mode=='AHF'):
+            
+            AHF = sp.loadAHF()
+    
+            # catalog exists
+            if (AHF.k==1):
+                
+                self.k = 1
+                self.time = sp.time
+                self.redshift = sp.redshift
+                self.catalog = 'AHF'
+                self.id = AHF.ID[self.id]
+                self.host = AHF.hostHalo[self.id]
+                self.npart = AHF.npart[self.id]
+                self.ngas = AHF.n_gas[self.id]
+                self.nstar = AHF.n_star[self.id]
+                self.mvir = AHF.Mvir[self.id]
+                self.mgas = AHF.M_gas[self.id]
+                self.mstar = AHF.M_star[self.id]
+                self.xc = AHF.Xc[self.id]
+                self.yc = AHF.Yc[self.id]
+                self.zc = AHF.Zc[self.id]
+                self.rvir = AHF.Rvir[self.id]
+                self.vmax = AHF.Vmax[self.id]
+                self.fhi = AHF.fMhires[self.id]
+                self.Lhat = AHF.Lhat[:,self.id]
+    
+        return
+
+
+    # calculate the center and principle axis of disk from particles instead of just using AHF values
+    def set_disk(self, ptype=4, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
+        # ptype: int
+        #   particle types to use to compute disk center and axis
+        # velocity_radius_max: float
+        #   compute average velocity using particles within this radius [kpc]
+        # distance_max : float
+        #   maximum radius to select particles [kpc physical]
+        # age_limits : float
+        #   min and max limits of age to select star particles [Gyr]
+
+
+        self.assign_center(ptype, velocity_radius_max)
+        self.assign_principal_axes(ptype, radius_max, age_limits)
+
+        return
 
 
     # load all particles in the galactic disk

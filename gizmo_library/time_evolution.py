@@ -224,12 +224,25 @@ class Dust_Evo(object):
 					data = self.dust_evo_data.median_data[subsample]['dz_iron']
 				elif 'spec_ORes' in data_name:
 					data = self.dust_evo_data.median_data[subsample]['dz_ORes']
+				elif 'spec_sil+' in data_name:
+					data = self.dust_evo_data.median_data[subsample]['dz_sil']+self.dust_evo_data.median_data[subsample]['dz_SiC']+\
+							self.dust_evo_data.median_data[subsample]['dz_iron']+self.dust_evo_data.median_data[subsample]['dz_ORes']
 				else:
 					print(data_name," is not in the dataset.")
 					return None
 			else:
 				print(data_name," is not in the dataset.")
 				return None
+		elif data_name in ['C/H_dust','O/H_dust','Mg/H_dust','Si/H_dust','Fe/H_dust']:
+			base_name = data_name.split('_')[0]
+			total = self.dust_evo_data.median_data[subsample][base_name]
+			gas = self.dust_evo_data.median_data[subsample][base_name+'_gas']
+			data = 12 + np.log10(np.power(10,total-12) - np.power(10,gas-12))
+		elif data_name in ['Z_C_dust','Z_O_dust','Z_Mg_dust','Z_Si_dust','Z_Fe_dust']:
+			base_name = data_name.split('_')[0] + '_' + data_name.split('_')[1]
+			total = self.dust_evo_data.median_data[subsample][base_name]
+			gas = self.dust_evo_data.median_data[subsample][base_name+'_gas']
+			data = total-gas
 		else:
 			print(data_name," is not in the dataset.")
 			return None

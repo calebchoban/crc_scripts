@@ -163,7 +163,7 @@ def setup_legend_handles(snap_nums, snap_labels=[], properties=[], style='color-
 
 
 
-def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False):
+def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False):
     """
     Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
 
@@ -196,20 +196,25 @@ def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False
     if num_plots == 1:
         fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
         axes = np.array([axes])
-    elif num_plots%2 == 0:
+        dims = np.array([1,1])
+    elif num_plots%2 == 0 and num_plots<5:
         if orientation == 'vertical':
             fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,2*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
+            dims = np.array([2,num_plots//2])
         else:
             fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
+            dims = np.array([num_plots//2,2])
     elif num_plots%3 == 0:
         if orientation == 'vertical':
             fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,3*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
+            dims = np.array([3,num_plots//3])
         else:
             fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
+            dims = np.array([num_plots//3,3])
     else:
         dim_num = 3 # default number of plots in specified orientation
         if orientation == 'vertical':
@@ -220,6 +225,7 @@ def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False
             for i in range(dim_num-num_plots%dim_num):
                 fig.delaxes(axes[dim_num-1-i, num_plots//dim_num])
                 axes[dim_num-1-i, num_plots//dim_num] = None
+            dims = np.array([dim_num,num_plots//dim_num])
         else:
             fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=(dim_num*(1)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
@@ -228,15 +234,16 @@ def setup_figure(num_plots, orientation='horizontal', sharex=False, sharey=False
                 axes[num_plots//dim_num-1,dim_num-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
                 fig.delaxes(axes[num_plots//dim_num,dim_num-1-i])
                 axes[num_plots//dim_num,dim_num-1-i] = None
+            dims = np.array([num_plots//dim_num,dim_num])
 
     # Get rid of the axes we may have deleted
     axes = list(filter(None, axes.flat))
 
-    return fig,axes
+    return fig,axes,dims
 
 
 
-def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=None, sp=None):
+def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=None):
     """
     Sets up the axis plot given x and y properties and optional limits
 
@@ -290,12 +297,12 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
     axis.set_ylim(y_lim)
 
     # Set axis labels and ticks
-    setup_labels(axis,x_prop,y_prop,sp=sp)
+    setup_labels(axis,x_prop,y_prop)
 
     return
 
 
-def setup_labels(axis, x_prop, y_prop,sp=None):
+def setup_labels(axis, x_prop, y_prop):
     """
     Sets the labels and ticks for the given axis.
 
@@ -338,17 +345,12 @@ def setup_labels(axis, x_prop, y_prop,sp=None):
         axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
         axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
 
-    if 'redshift' in x_prop or 'time' in x_prop:
-        # Add second axis for cosmological plots
-        if sp is not None and sp.cosmological:
-            make_axis_secondary_time(axis, x_prop, snapshot=sp)
-
     for axe in ['top','bottom','left','right']:
         axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
 
 
-def make_axis_secondary_time(axis, time_name, snapshot=None):
+def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
     '''
     Make secondary axis for time, look-back time, redshift, or scale-factor.
 
@@ -359,6 +361,8 @@ def make_axis_secondary_time(axis, time_name, snapshot=None):
         kind of time for existing (primary) axis: 'time', 'time.lookback', 'redshift', 'scalefactor'
     snapshot : Object
         One of the snapshots to be plotted which hold cosmological constants used for time conversion
+    tick_labels : boolean
+        Whether the seconday axis should include tick labels
     '''
 
     if time_name == 'time':
@@ -372,7 +376,7 @@ def make_axis_secondary_time(axis, time_name, snapshot=None):
         conv_func = utils.get_time_conversion_spline('time',axis_2_name,sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
-    if time_name in ['redshift','redshift_plus_1']:
+    elif time_name in ['redshift','redshift_plus_1']:
         axis_2_name = 'time_lookback'
         axis_2_tick_labels = ['0', '2', '4','6', '8', '10', '11', '12', '12.5', '13']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
@@ -384,11 +388,15 @@ def make_axis_secondary_time(axis, time_name, snapshot=None):
     axis2.set_xscale(axis.get_xaxis().get_scale())
     axis2.get_xaxis().set_major_formatter(mticker.ScalarFormatter()) # Force scalar notation for labels
     axis2.set_xticks(axis_2_tick_locations,minor=False)
-    axis2.set_xticklabels(axis_2_tick_labels)
+    if tick_labels:
+        axis2.set_xticklabels(axis_2_tick_labels)
+        axis2.set_xlabel(config.get_prop_label(axis_2_name), fontsize = config.LARGE_FONT, labelpad=9)
+    else:
+        axis2.set_xticklabels([])
     axis2.set_xlim(axis.get_xlim()) # Need to reset limits to twinned axis after making ticks
     axis2.xaxis.set_minor_locator(mticker.NullLocator()) # Turn off minor ticks which reappear when setting xlimits
     axis2.tick_params(axis='x', which='major',direction='in', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-    axis2.set_xlabel(config.get_prop_label(axis_2_name), fontsize = config.LARGE_FONT, labelpad=9)
+
 
 
 

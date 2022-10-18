@@ -36,6 +36,8 @@ BASE_FIG_SIZE  				= 10
 FIG_XRATIO 					= 1.
 FIG_YRATIO 					= 1.
 
+DEFAULT_PLOT_ORIENTATION = 'horizontal'
+
 
 
 plt.rcParams['figure.dpi'] = 200
@@ -61,6 +63,7 @@ BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 U_to_temp					=  ((PROTONMASS/BoltzMann_ergs)*(UnitVelocity_in_cm_per_s**2))
 Cm_to_pc					= 3.24078e-19
+pc_to_m						= 3.086E16
 Kpc_to_cm					= 3.086E21
 km_per_kpc					= 3.086E16
 sec_per_Gyr					= 3.16E16
@@ -68,6 +71,7 @@ Ergs_per_joule				= 1E7
 SOLAR_GAL_RADIUS			= 8 # kpc
 HUBBLE 						= 0.702
 OMEGA_MATTER 				= 0.272
+L_solar 					= 3.828E26 # Watts
 
 FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
@@ -101,8 +105,8 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					'sigma_star': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 			  'sigma_young_star': [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]',			[1E0,1E2], 		True],
 				 'sigma_stellar': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
-					'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
-						  'sfr': [r'SFR [M$_{\odot}/$yr]', 												[1E-3,5E1], 	True],
+					 'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
+						   'sfr': [r'SFR [M$_{\odot}/$yr]', 											[1E-3,5E1], 	True],
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 				  'sigma_metals': [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-2,1E1], 	True],
 					'sigma_dust': [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
@@ -139,20 +143,27 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 				  	   'Z_C_gas': [r'[C/H]$_{\rm gas}$', 												[1.1E-3,5E0],	True],
 						  'Z_Mg': ['[Mg/H]', 															[1.1E-3,5E0], 	True],
 				  	  'Z_Mg_gas': [r'[Mg/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
-						 ' Z_Si': ['[Si/H]', 															[1.1E-3,5E0], 	True],
+						  'Z_Si': ['[Si/H]', 															[1.1E-3,5E0], 	True],
 				  	  'Z_Si_gas': [r'[Si/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
 						  'Z_Fe': ['[Fe/H]', 															[1.1E-3,5E0], 	True],
 				  	  'Z_Fe_gas': [r'[Fe/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
-						   'O/H': ['12+log(O/H)', 														[8,9], 	    	False],
+**dict.fromkeys(['O/H', 'O/H_all'], ['12+log(O/H)', 													[8,9], 	    	False]),
 				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[8,9],	 	    False],
-						   'C/H': ['12+log(C/H)', 														[8,9], 	    	False],
+				  	  'O/H_dust': [r'12+log(O/H)$_{\rm dust}$', 										[8,9],	 	    False],
+				   'O/H_ionized': [r'12+log(O/H)$_{\rm ionized}$', 										[8,9],	 	    False],
+			   'O/H_gas_ionized': [r'12+log(O/H)$_{\rm ionized,gas}$', 									[8,9],	 	    False],
+**dict.fromkeys(['C/H', 'C/H_all'], ['12+log(C/H)', 													[8,9], 	    	False]),
 				  	   'C/H_gas': [r'12+log(C/H)$_{\rm gas}$', 											[8,9],	 	    False],
-						  'Mg/H': ['12+log(Mg/H)', 														[6.5,8.5], 	    False],
+				  	  'C/H_dust': [r'12+log(C/H)$_{\rm dust}$', 										[8,9],	 	    False],
+**dict.fromkeys(['Mg/H', 'Mg/H_all'], ['12+log(Mg/H)', 													[6.5,8.5], 	    False]),
 				  	  'Mg/H_gas': [r'12+log(Mg/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
-						  'Si/H': ['12+log(Si/H)', 														[6.5,8.5], 	    False],
+					 'Mg/H_dust': [r'12+log(Mg/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
+**dict.fromkeys(['Si/H', 'Si/H_all'], ['12+log(Si/H)', 													[6.5,8.5], 	    False]),
 				  	  'Si/H_gas': [r'12+log(Si/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
-						  'Fe/H': ['12+log(Fe/H)', 														[6.5,8.5], 	    False],
+					 'Si/H_dust': [r'12+log(Si/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
+**dict.fromkeys(['Fe/H', 'Fe/H_all'], ['12+log(Fe/H)', 													[6.5,8.5], 	    False]),
 				  	  'Fe/H_gas': [r'12+log(Fe/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
+					 'Fe/H_dust': [r'12+log(Fe/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
 						   'D/Z': ['D/Z', 																[0,1.05],   	False],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 												[1E-1,1.1E0],   True],
@@ -172,7 +183,9 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					 'wind_rate': [r'Cont. Mass-Loss $\dot{M}_{\rm W}/M_{\star}$ [Gyr$^{-1}$]',			[3E-4,2E2],		True],
 					  'wind_vel': [r'Mass-Loss Velocity $v_{\rm w,inj}$ [km s$^{-1}$]',					[2E1,5E3],		True],
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
-					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True]
+					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
+**dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
+			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True]
 							}
 
 

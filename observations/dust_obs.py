@@ -534,7 +534,7 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 		vals = data['fh2']
 	elif param == 'sigma_Z':
 		vals = data['metal_z']
-	elif param in ['Z','O/H']:
+	elif param in ['Z','O/H','O/H_gas']:
 		vals = data['metal']
 		if param == 'Z':
 			O_H = data['metal']
