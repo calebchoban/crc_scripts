@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from astropy.io import ascii
 from gizmo_library import config
+import os
 
-OBS_DIR = './observations/data/'
-
+OBS_DIR = os.path.join(os.path.dirname(__file__), 'data/')
 
 def galaxy_integrated_DZ(paper):
 	"""
@@ -61,11 +61,7 @@ def galaxy_integrated_DZ(paper):
 		df_d19['metal_z'] = 10**(df_d19['metal'] - 12.0) * \
 			16.0 / 1.008 / 0.51 / 1.36
 		df_d19['dtm'] = df_d19['Mdust__Msol'] / (df_d19['metal_z'] * df_d19['gas'])
-		# df_d19
-		# used XCO (no 1.36) / a constant XCO is used
-		# Need to check merging data frames with missing rows
-		# https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.merge.html
-		#
+
 		return df_d19
 
 	elif paper == 'PH20':
@@ -87,9 +83,9 @@ def Dwek_2014_M31_dust_dens_vs_radius():
 	Gives the dust surface density (M_sun pc^-2) vs radius (kpc) from galactic center for M31 (Andromeda) determined by Dwek et al. (2014)
 	"""
 	radius = np.array([3.2487e-1,1.0161e+0,1.7033e+0,2.3469e+0,3.0348e+0,3.6811e+0,4.3691e+0,5.0136e+0,5.7446e+0,6.3579e+0,7.0488e+0, \
-		     7.7346e+0,8.4225e+0,9.1109e+0,9.7594e+0,1.0408e+1,1.1098e+1,1.1791e+1,1.2446e+1,1.3140e+1,1.3832e+1,1.4484e+1,1.5176e+1, \
-		     1.5873e+1,1.6527e+1,1.7222e+1,1.7873e+1,1.8568e+1,1.9262e+1,1.9917e+1,2.0610e+1,2.1304e+1,2.1959e+1,2.2656e+1,2.3349e+1, \
-		     2.4003e+1,2.4697e+1])
+			 7.7346e+0,8.4225e+0,9.1109e+0,9.7594e+0,1.0408e+1,1.1098e+1,1.1791e+1,1.2446e+1,1.3140e+1,1.3832e+1,1.4484e+1,1.5176e+1, \
+			 1.5873e+1,1.6527e+1,1.7222e+1,1.7873e+1,1.8568e+1,1.9262e+1,1.9917e+1,2.0610e+1,2.1304e+1,2.1959e+1,2.2656e+1,2.3349e+1, \
+			 2.4003e+1,2.4697e+1])
 
 	surface_dens = np.array([9.1852e+3,9.1114e+3,1.1216e+4,1.6233e+4,1.9227e+4,2.4036e+4,2.8250e+4,3.9040e+4,4.0559e+4,3.3438e+4,3.3685e+4, \
 				   4.4789e+4,5.3049e+4,6.1396e+4,6.7845e+4,7.6727e+4,7.7891e+4,7.2086e+4,5.5874e+4,4.8244e+4,4.4648e+4,4.1964e+4,3.8538e+4, \
@@ -111,7 +107,7 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 	Parameters
 	----------
 	sigma_dust_scale : double
-	  	Dust surface density value to scale relation to 
+		Dust surface density value to scale relation to
 	r_scale : double
 		Radius value for given sigma_dust
 
@@ -191,7 +187,7 @@ def Jenkins_2009_Elem_Depl(elem,density='NH'):
 	Parameters
 	----------
 	elem : string
-	  	Which element to get depletions for
+		Which element to get depletions for
 	phy_dens : boolean
 		If True use physical nH conversion from Zhukovska+16. If False use average sight line nH.
 	density : string
@@ -313,7 +309,7 @@ def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 	Parameters
 	----------
 	solar_abund : string
-	  	What to use as the assumed abundace of C 'max'=maximum of data set, 'solar'=Lodders03, 'young_star'=young star abundance from Sofia & Meyer (2001)
+		What to use as the assumed abundace of C 'max'=maximum of data set, 'solar'=Lodders03, 'young_star'=young star abundance from Sofia & Meyer (2001)
 
 	Returns
 	------
@@ -429,96 +425,8 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 
 
 
-def Chiang_2020_dust_vs_radius(bin_data = True, DZ=True, phys_r=True, CO_opt='B13'):
-	"""
-	Gives the D/Z or dust surface density values vs radius for nearby galaxies from Chiang+(2020). Given max radius it will returned the
-	binned data
-	"""
-
-	file_name = OBS_DIR+'Chiang+20_dat_v0.1.'+CO_opt+'.csv'
-
-	bin_nums = 40
-
-	gal_names = ['IC342','M31','M33','M101','NGC628']
-	gal_distance = np.array([2.29,0.79,0.92,6.96,9.77])*1E3 # kpc distance to galaxy
-
-	data = np.genfromtxt(OBS_DIR+file_name,names=True,delimiter=',',dtype=None,encoding=None)
-	ID = data['gal']
-	if DZ:
-		vals = np.power(10,data['dtm'])
-	else:
-		vals = data['dust']
-	if phys_r:
-		arcsec_to_rad = 4.848E-6
-		radius = data['radius_arcsec']*arcsec_to_rad
-	else: 
-		radius = data['radius_r25']
-
-	data = dict()
-	for i,name in enumerate(gal_names):
-		if phys_r:
-			r_data = radius[ID==name]*gal_distance[i]
-		else:
-			r_data = radius[ID==name]
-		r_max = np.max(r_data)
-		dust_data = vals[ID==name]
-		# If given a max radius, bin the data for each galaxy
-		if bin_data:
-			mean_vals = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_vals = np.zeros([bin_nums - 1,2])
-			r_bins = np.linspace(0, r_max, num=bin_nums)
-			r_vals = (r_bins[1:] + r_bins[:-1]) / 2.
-
-			for j in range(bin_nums-1):
-				# find all coordinates within shell
-				r_min = r_bins[j]; r_max = r_bins[j+1];
-				in_annulus = np.logical_and(r_data <= r_max, r_data > r_min)
-				values = dust_data[in_annulus]
-				if len(values) > 0:
-					mean_vals[j] = np.mean(values)
-					std_vals[j] = np.percentile(values, [16,84])
-				else:
-					mean_vals[j] = np.nan
-					std_vals[j,0] = np.nan; std_vals[j,1] = np.nan;
-			mask = np.logical_not(np.isnan(mean_vals))
-			data[name] = [r_vals[mask], mean_vals[mask], std_vals[mask]]
-		# Else just give the raw data for each galaxy	
-		else:
-			data[name] = [r_data,dust_data]
-
-	return data
-
-
-
-def Chiang_2020_dust_surf_dens_vs_param(param):
-	data = np.genfromtxt(OBS_DIR+"Chiang+20_dat.csv",names=True,delimiter=',',dtype=None,encoding=None)
-	if param == 'gas':
-		vals = np.power(10,data['gas'])
-	elif param == 'H2':
-		vals = np.power(10,data['h2'])
-	elif param == 'Z':
-		vals = data['metal']
-	elif param == 'DZ':
-		vals = np.power(10,data['dtm'])
-	else:
-		print("%s is not a valid param for Chiang_2020_dust_surf_dens_vs_param"%param)
-		return
-
-	gal = data['gal']
-	IDs = np.unique(data['gal'])
-	dust = data['dust']
-
-	data = dict()
-	for id in IDs:
-		data[id] = [vals[gal==id],dust[id==gal]]
-
-	return data
-
-
-
-
-def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=True, goodSNR=True):
+# Data from Chiang+2021. Includes D/Z vs various spatially-resolved gas properties. Note this data main observes H2 dominated regions
+def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=True, goodSNR=True,aggregate_data=False):
 	file_name = OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
@@ -534,7 +442,7 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 		vals = data['fh2']
 	elif param == 'sigma_Z':
 		vals = data['metal_z']
-	elif param in ['Z','O/H','O/H_gas']:
+	elif 'O/H' in param or param == 'Z':
 		vals = data['metal']
 		if param == 'Z':
 			O_H = data['metal']
@@ -559,8 +467,6 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 
 	gal = data['gal']
 	IDs = np.unique(data['gal'])
-	# Remove IC342 since it's a bit odd
-	#IDs = IDs[IDs!='IC342']
 
 
 	SNR = data['GOODSNR']
@@ -573,34 +479,127 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 		vals = vals[mask]
 
 	data = dict()
-	for gal_name in IDs:
-		gal_vals = vals[gal==gal_name]
-		if param == 'r':
-			gal_vals *= gal_distance[gal_name]
-		DZ_vals = DZ[gal==gal_name]
-		if bin_data:
-			mean_DZ = np.zeros(bin_nums - 1)
-			# 16th and 84th percentiles
-			std_DZ = np.zeros([bin_nums - 1,2])
-			if log:
-				val_bins = np.logspace(np.log10(np.min(gal_vals)), np.log10(np.max(gal_vals)), num=bin_nums)
-			else:
-				val_bins = np.linspace(np.min(gal_vals), np.max(gal_vals), num=bin_nums)
-			param_vals = (val_bins[1:] + val_bins[:-1]) / 2.
-			digitized = np.digitize(gal_vals,val_bins)
-			for j in range(1,len(val_bins)):
-				if len(gal_vals[digitized==j])==0:
-					mean_DZ[j-1] = np.nan
-					std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
-					continue
+	if aggregate_data: data['all'] = [vals,DZ]
+	else:
+		for gal_name in IDs:
+			gal_vals = vals[gal==gal_name]
+			if param == 'r':
+				gal_vals *= gal_distance[gal_name]
+			DZ_vals = DZ[gal==gal_name]
+			if bin_data:
+				mean_DZ = np.zeros(bin_nums - 1)
+				# 16th and 84th percentiles
+				std_DZ = np.zeros([bin_nums - 1,2])
+				if log:
+					val_bins = np.logspace(np.log10(np.min(gal_vals)), np.log10(np.max(gal_vals)), num=bin_nums)
 				else:
-					values = DZ_vals[digitized == j]
-					mean_DZ[j-1] = np.mean(values)
-					std_DZ[j-1] = np.percentile(values, [16,84])
-			mask = np.logical_not(np.isnan(mean_DZ))
-			data[gal_name] = [param_vals[mask], mean_DZ[mask], std_DZ[mask]]
+					val_bins = np.linspace(np.min(gal_vals), np.max(gal_vals), num=bin_nums)
+				param_vals = (val_bins[1:] + val_bins[:-1]) / 2.
+				digitized = np.digitize(gal_vals,val_bins)
+				for j in range(1,len(val_bins)):
+					if len(gal_vals[digitized==j])==0:
+						mean_DZ[j-1] = np.nan
+						std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+						continue
+					else:
+						values = DZ_vals[digitized == j]
+						mean_DZ[j-1] = np.mean(values)
+						std_DZ[j-1] = np.percentile(values, [16,84])
+				mask = np.logical_not(np.isnan(mean_DZ))
+				data[gal_name] = [param_vals[mask], mean_DZ[mask], std_DZ[mask]]
 
-		else:
-			data[gal_name] = [gal_vals,DZ_vals]
+			else:
+				data[gal_name] = [gal_vals,DZ_vals]
+
+	return data
+
+
+# Similar to data from Chiang+21 but expanded to more galaxies and with varying spatial resolution. Currently unplublished.
+def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True,aggregate_data=False):
+	# Use just 2kpc resolution data set since this includes almost all galaxies in the sample with only a handful at
+	# the other resolutions
+	file_name = OBS_DIR+'Chiang22_unpub/DataAssembly_2kpc.csv'
+	data = pd.read_csv(file_name)
+
+	gal_names = data['objname']
+	# We will stick to the B13 values which use Bolatto+13 alpha_CO factor to determine H2 amounts
+	DZ = data['D/M (B13)']
+	if param == 'sigma_gas' or param == 'sigma_gas_neutral':
+		vals = data['SigmaGas (B13)']
+	elif param == 'sigma_H2':
+		vals = data['SigmaH2 (B13)']
+	elif param in ['sigma_stellar','sigma_star']:
+		vals = data['SigmaMstar']
+	elif param == 'sigma_sfr':
+		vals = data['SigmaSFR']
+	elif param == 'fH2':
+		vals = data['SigmaH2 (B13)']/data['SigmaGas (B13)']
+	elif param == 'sigma_Z':
+		vals = data['z']*data['SigmaGas (B13)']
+	elif param == 'Z':
+		vals = data['z']/config.SOLAR_Z
+	elif 'O/H' in param:
+		vals = data['12+log(O/H) (All)']
+	elif param == 'sigma_dust':
+		vals = data['dust']
+	elif param == 'r':
+		vals = data['Rg']
+	elif param == 'r25':
+		vals = data['Rg/R25']
+	else:
+		print("%s is not a valid param for Chiang_20_DZ_vs_param"%param)
+		return
+
+	# There is a dust mask for 1 sigma and 3 sigma values. Lets just use the 3 sigma values
+	SNR = data['dust_mask_3sigma']
+	#SNR = data['dust_mask_1sigma']
+
+	# Check whether to use all data or only that with good SNR
+	mask = np.ones(len(vals), dtype=bool)
+	if goodSNR:
+		mask = (mask) & (SNR == 1)
+	# Not all galaxies have directly measured O/H, some are inferred with a mass-metallicity relation and a painted on radial distribution
+	# If you only want directly measured O/H then the PG16S O/H measurements are the ones you want
+	if only_PG16S:
+		PG16S = data['12+log(O/H) (PG16S)']
+		mask = (mask) & (~np.isnan(PG16S))
+
+	DZ = DZ[mask]
+	gal_names = gal_names[mask]
+	vals = vals[mask]
+
+	# After masking get unique galaxies in final data set
+	IDs = np.unique(gal_names)
+
+	data = dict()
+	if aggregate_data: data['all'] = [vals,DZ]
+	else:
+		for gal_name in IDs:
+			gal_vals = vals[gal_names==gal_name]
+			DZ_vals = DZ[gal_names==gal_name]
+			if bin_data:
+				mean_DZ = np.zeros(bin_nums - 1)
+				# 16th and 84th percentiles
+				std_DZ = np.zeros([bin_nums - 1,2])
+				if log:
+					val_bins = np.logspace(np.log10(np.min(gal_vals+config.EPSILON)), np.log10(np.max(gal_vals)), num=bin_nums)
+				else:
+					val_bins = np.linspace(np.min(gal_vals), np.max(gal_vals), num=bin_nums)
+				param_vals = (val_bins[1:] + val_bins[:-1]) / 2.
+				digitized = np.digitize(gal_vals,val_bins)
+				for j in range(1,len(val_bins)):
+					if len(gal_vals[digitized==j])==0:
+						mean_DZ[j-1] = np.nan
+						std_DZ[j-1,0] = np.nan; std_DZ[j-1,1] = np.nan;
+						continue
+					else:
+						values = DZ_vals[digitized == j]
+						mean_DZ[j-1] = np.mean(values)
+						std_DZ[j-1] = np.percentile(values, [16,84])
+				mask = np.logical_not(np.isnan(mean_DZ))
+				data[gal_name] = [param_vals[mask], mean_DZ[mask], std_DZ[mask]]
+
+			else:
+				data[gal_name] = [gal_vals,DZ_vals]
 
 	return data

@@ -17,9 +17,12 @@ BASE_MARKERSIZE = 10
 
 # Set personal color, linewidths, and styles cycle
 LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:teal","xkcd:sienna","xkcd:magenta","xkcd:orange","xkcd:gold"]
-MARKER_COLORS = ["xkcd:orange","xkcd:teal","xkcd:sienna","xkcd:gold","xkcd:magenta","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid"]
+MARKER_COLORS = ["xkcd:orange","xkcd:teal","xkcd:sienna","xkcd:gold","xkcd:magenta","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
+				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
+				 "xkcd:peach","xkcd:olive green"]
 LINE_STYLES = ['-','--',':','-.',(0, (3, 5, 1, 5, 1, 5)),'-','--',':','-.',(0, (3, 5, 1, 5, 1, 5))]
-MARKER_STYLES = ['o','^','X','s','v']
+MARKER_STYLES = ['o','^','X','s','v','P','>','v','d','1','2','*','<',
+                 'o','^','X','s','v','P','>','v','d','1','2','*','<']
 LINE_WIDTHS = np.array([0.25,0.5,0.75,1.0,1.25,1.5])*BASE_LINEWIDTH
 AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
@@ -100,7 +103,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
-						   'r25': [r'Radius [R$_{25}$]', 												[0.,1], 		False],
+						   'r25': [r'Radius [R$_{25}$]', 												[0.,1.1], 		False],
 					 'sigma_gas': [r'$\Sigma_{\rm gas}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 					'sigma_star': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 			  'sigma_young_star': [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]',			[1E0,1E2], 		True],
@@ -116,7 +119,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					'sigma_iron': [r'$\Sigma_{\rm iron}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
 					'sigma_ORes': [r'$\Sigma_{\rm O\;Res}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-3,1E0], 	True],
 					'sigma_sil+': [r'$\Sigma_{\rm sil+}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
-					  'sigma_H2': [r'$\Sigma_{H_2}$ [M$_{\odot}$ pc$^{-2}$]', 							[1E-1,1E2], 	True],
+					  'sigma_H2': [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-1,1E2], 	True],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
 						  'time': ['Time [Gyr]',														[1E-2,1E1],		True],
@@ -147,7 +150,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 				  	  'Z_Si_gas': [r'[Si/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
 						  'Z_Fe': ['[Fe/H]', 															[1.1E-3,5E0], 	True],
 				  	  'Z_Fe_gas': [r'[Fe/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
-**dict.fromkeys(['O/H', 'O/H_all'], ['12+log(O/H)', 													[8,9], 	    	False]),
+**dict.fromkeys(['O/H', 'O/H_all','O/H_offset','O/H_gas_ionized_offset'], ['12+log(O/H)', 				[8,9], 	    	False]),
 				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[8,9],	 	    False],
 				  	  'O/H_dust': [r'12+log(O/H)$_{\rm dust}$', 										[8,9],	 	    False],
 				   'O/H_ionized': [r'12+log(O/H)$_{\rm ionized}$', 										[8,9],	 	    False],

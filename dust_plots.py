@@ -47,7 +47,7 @@ def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048
 
 	"""
 
-	# TODO: Edit Phil's visualization routine to read in dust data from snapshots instead of using preset dust to metals ratio
+	# TODO: Incorporate Alex Gurvich's FIRE studio here
 
 	# First check if Phil's routine is installed
 	if not vis_installed:
@@ -64,18 +64,22 @@ def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048
 
 
 
-def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
+def plot_extragalactic_dust_obs(axis, property1, property2, goodSNR=True, aggregate_data=False, show_raw_data=True):
 	"""
-	Plots spatially-resolved observational D/Z data vs the given property.
+	Plots extragalactic observational data vs the given property.
 
 	Parameters
 	----------
 	axis : Matplotlib axis
 		Axis on which to plot the data
-	property: string
-		Parameters to plot D/Z against (fH2, nH, Z, r, sigma_dust)
+	property1: string
+		Dust property
+	property2:
+		Galaxy property
 	good_SNR : boolean
 		Restrict data to only that with good signal-to-noise if applicable
+	aggregate_data : boolean
+		Aggregate all the resolved data and make a histogram. Only applicable for resolved extragalactic D/Z data
 
 	Returns
 	-------
@@ -83,17 +87,50 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 
 	"""
 
-	# First check if axis scale is log or not. If so all zeros are converted to small numbers.
+	data_to_use = ''
+
 	log=False
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
 
 	if property1 == 'D/Z':
-		# Plot extragalactic D/Z data from Chiang+21
 		if property2 in ['fH2','r','r25','sigma_gas','sigma_H2','sigma_stellar','sigma_star','sigma_dust','sigma_sfr',
-						 'sigma_gas_neutral','sigma_Z','Z','O/H','O/H_gas']:
-			# Plot binned values with 16/84-percentile errors
-			data = obs.Chiang21_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True)
+						 'sigma_gas_neutral','sigma_Z','Z'] or 'O/H' in property2:
+			data_to_use = 'Chiang22'
+			#data_to_use = 'Chiang21'
+	elif property1 == 'sigma_dust':
+		if property2 == 'r':
+			data_to_use = 'Menard10'
+	else:
+		print("%s vs %s extragalactic observational data is not available."%(property1,property2))
+		return None
+
+	if data_to_use in ['Chiang21','Chiang22']:
+		if aggregate_data:
+			# Plot 2D hist of all pixel data across the sample of galaxies using new data set from I-Da Chiang
+			if data_to_use == 'Chiang22':
+				data = obs.Chiang22_DZ_vs_param(property2, bin_data=False, log=log, goodSNR=True, only_PG16S=True, aggregate_data=aggregate_data)
+			else:
+				data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=log, goodSNR=True, aggregate_data=aggregate_data)
+
+			prop_vals = data['all'][0]; DZ_vals = data['all'][1];
+			bin_nums=50
+
+			xlog = axis.get_xaxis().get_scale()=='log'; xlims = config.get_prop_limits(property2)
+			ylog = axis.get_yaxis().get_scale()=='log'; ylims = config.get_prop_limits(property1)
+			x_bins = np.logspace(np.log10(xlims[0]),np.log10(xlims[1]),bin_nums) if xlog else np.linspace(xlims[0],xlims[1],bin_nums)
+			y_bins = np.logspace(np.log10(ylims[0]),np.log10(ylims[1]),bin_nums) if ylog else np.linspace(ylims[0],ylims[1],bin_nums)
+
+			lognorm = mpl.colors.LogNorm(clip=True)
+			# Need minimum value to not plot null bins
+			counts, xedges, yedges, img = axis.hist2d(prop_vals,DZ_vals,cmap=config.BASE_CMAP,norm=lognorm, bins=[x_bins,y_bins],cmin=config.EPSILON)
+
+		else:
+			# First plot binned values with 16/84-percentile errors
+			if data_to_use == 'Chiang22':
+				data = obs.Chiang22_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True)
+			else:
+				data = obs.Chiang21_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True)
 			for i, gal_name in enumerate(data.keys()):
 				prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 				if log:
@@ -102,91 +139,137 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 							  c=config.MARKER_COLORS[i], mec=config.MARKER_COLORS[i], ecolor='xkcd:dark grey',
 							   mew=0.75*config.BASE_ELINEWIDTH, fmt=config.MARKER_STYLES[i], mfc='xkcd:white',
 							  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
-			# Plot raw pixel data in the background
-			data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True)
-			for i, gal_name in enumerate(data.keys()):
-				prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
-				axis.errorbar(prop_vals, mean_DZ, fmt=config.MARKER_STYLES[i], c=config.MARKER_COLORS[i],
-							ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH, mfc=config.MARKER_COLORS[i],
-							mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
+			if show_raw_data:
+				# Second plot raw pixel data in the background
+				if data_to_use == 'Chiang22':
+					data = obs.Chiang22_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True, only_PG16S=True)
+				else:
+					data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True)
+				for i, gal_name in enumerate(data.keys()):
+					prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
+					axis.errorbar(prop_vals, mean_DZ, fmt=config.MARKER_STYLES[i], c=config.MARKER_COLORS[i],
+								ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH, mfc=config.MARKER_COLORS[i],
+								mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
+	elif data_to_use == 'Menard10':
+		r_vals, sigma_dust = obs.Menard_2010_dust_dens_vs_radius(1E-3, 0)
+		axis.plot(r_vals,sigma_dust,label=r'Ménard+10', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
 
+
+	return
+
+
+
+
+def plot_MW_dust_obs(axis, property1, property2):
+	"""
+	Plots Milky Way observational data vs the given property.
+
+	Parameters
+	----------
+	axis : Matplotlib axis
+		Axis on which to plot the data
+	property1: string
+		Dust property
+	property2:
+		Gas property
+
+	Returns
+	-------
+	None
+
+	"""
+
+	data_to_use = ''
+
+	log=False
+	if axis.get_yaxis().get_scale()=='log':
+		log=True
+
+	if property1 == 'D/Z':
 		# Plot MW D/Z sight line data derived from depeltion measurements in Jenkins09
-		elif property2 == 'nH' or property2 == 'nH_neutral':
-			# Plot J09 with Zhukovska+16/18 conversion to physical density
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
-			axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
-			# range of C depeletions since they are not observed for this regime
-			nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z')
-			axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D',  elinewidth=config.BASE_ELINEWIDTH*1.5, ms=config.BASE_MARKERSIZE*1.5 ,zorder=2)
-			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])),
-					  c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-			# Plot J09 relation to use as upper bound
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
-			axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-
-		else:
-			print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-			return None
-
+		if property2 == 'nH' or property2 == 'nH_neutral':
+			data_to_use = 'Jenkins09_DZ'
 	elif 'depletion' in property1:
 		elem = property1.split('_')[0]
 		if elem not in config.ELEMENTS:
-			print("%s is not a valid element depletion."%property1)
+			print("%s is not a valid element depletion for MW observational data."%property1)
 			return None
-
 		if 'nH' in property2:
-			if elem == 'C':
-				# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
-				C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='<nH>')
-				axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:black', zorder=2)
-				# Add in data from Parvathi which sampled twice as many sightlines
-				C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='<nH>')
-				axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
-							  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
-				# Add in shaded region for 20-40% of C in CO bars
-				axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black", lw=0,
-								  label='CO', zorder=2, alpha=0.99)
-
-			else:
-				dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-				axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-				dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
-				axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-				# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-				nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
-				axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=(config.BASE_MARKERSIZE*1.5)**2)
-				axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-
+			data_to_use = 'Jenkins09_depl_nH'
 		elif 'NH' in property2:
-			depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
-			lower_lim = np.isinf(depl_err[1,:])
-			depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
-			upper_lim = np.isinf(depl_err[0,:])
-			depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
-			no_lim = ~upper_lim & ~lower_lim
-			# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
-			axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
-						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
-				  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-				  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
-						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			if elem=='C':
-				C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
-				NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
-				axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
-							  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:medium grey', mec='xkcd:medium grey' , zorder=2, alpha=1)
-				# Add in shaded region for 20-40% of C in CO bars
-				axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black",
-								  lw=0, label='CO', zorder=2, alpha=0.99)
+			data_to_use = 'Jenkins09_depl_NH'
+	else:
+		print("%s vs %s Milky Way observational data is not available."%(property1,property2))
+		return None
+
+	if data_to_use == 'Jenkins09_DZ':
+		# Plot J09 with Zhukovska+16/18 conversion to physical density
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
+		# range of C depeletions since they are not observed for this regime
+		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z')
+		axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D',  elinewidth=config.BASE_ELINEWIDTH*1.5, ms=config.BASE_MARKERSIZE*1.5 ,zorder=2)
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])),
+				  c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+		# Plot J09 relation to use as upper bound
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+
+	elif data_to_use == 'Jenkins09_depl_nH':
+		elem = property1.split('_')[0]
+		if elem == 'C':
+			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
+			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='<nH>')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:black', zorder=2)
+			# Add in data from Parvathi which sampled twice as many sightlines
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='<nH>')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
+						  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black", lw=0,
+							  label='CO', zorder=2, alpha=0.99)
+
+		else:
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
+			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=(config.BASE_MARKERSIZE*1.5)**2)
+			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+
+	elif data_to_use == 'Jenkins09_depl_NH':
+		elem = property1.split('_')[0]
+
+		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
+		lower_lim = np.isinf(depl_err[1,:])
+		depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
+		upper_lim = np.isinf(depl_err[0,:])
+		depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
+		no_lim = ~upper_lim & ~lower_lim
+		# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
+		axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
+			  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		if elem=='C':
+			C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
+			NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
+			axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
+						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:medium grey', mec='xkcd:medium grey' , zorder=2, alpha=1)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black",
+							  lw=0, label='CO', zorder=2, alpha=0.99)
 
 			# Now bin the data
-
 			bin_lims = [np.min(NH_vals),np.max(NH_vals)]
 			# Don't want to plot below this anyways
 			if bin_lims[0]<1E18: bin_lims[0] = 1E18
@@ -200,24 +283,8 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 			axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X-std_depl_X.T), label='Binned Obs.', fmt='s', c='xkcd:black',
 				  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
 				  mfc='xkcd:white', mec='xkcd:black', zorder=3, alpha=1)
-		else:
-			print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-			return None
-
-	elif property1 == 'sigma_dust':
-		if property2 == 'r':
-			r_vals, sigma_dust = obs.Menard_2010_dust_dens_vs_radius(1E-3, 0)
-			axis.plot(r_vals,sigma_dust,label=r'Ménard+10', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-		else:
-			print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-			return None
-
-	else:
-		print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-		return None
 
 	return
-
 
 
 def plot_galaxy_int_observational_data(axis, property):
@@ -241,7 +308,6 @@ def plot_galaxy_int_observational_data(axis, property):
 	log=False
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
-
 
 	if property == 'Z' or property=='O/H':
 		if property == 'Z':
@@ -407,7 +473,7 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs and y_prop=='D/Z': plot_resolved_observational_data(axis, y_prop, x_prop, goodSNR=True);
+		if include_obs and y_prop=='D/Z': plot_MW_dust_obs(axis, y_prop, x_prop);
 
 		for j,snap in enumerate(snaps):
 			x_vals,y_mean,y_std = calc.calc_binned_property_vs_property(y_prop, x_prop, snap, bin_nums=bin_nums)
@@ -490,8 +556,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 			if std_bars:
 				axis.fill_between(prop_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		if include_obs:
-			plot_resolved_observational_data(axis, elem+'_depletion', prop)
+		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
@@ -710,8 +775,7 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 		axis = axes[i]
 		plt_set.setup_axis(axis, prop, elem+'_depletion')
 
-		if include_obs:
-			plot_resolved_observational_data(axis, elem+'_depletion', prop)
+		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
 
 		for j,data_file in enumerate(sightline_data_files):
 
@@ -765,7 +829,8 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, labels=None, foutname='obs_DZ_vs_param.png', \
-						 std_bars=True, style='color-linestyle', include_obs=True):
+						 std_bars=True, style='color-linestyle', include_obs=True, aggregate_obs=False, mask_prop=None,
+						 show_raw_data=True):
 	"""
 	Plots mock observations of one property versus another for multiple snapshots
 
@@ -793,6 +858,8 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		'size' - make all lines solid black but with varying line thickness
 	include_obs : boolean, optional
 		Overplot observed data if available
+	mask_prop : string
+		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
 
 	Returns
 	-------
@@ -810,7 +877,7 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		sharey= True
 	fig,axes,dims = plt_set.setup_figure(len(xprops), sharey=sharey)
 
-	labels_handles = {}
+	labels_handles = {}; rollover_handles = {};
 	for i, x_prop in enumerate(xprops):
 		# Set up for each plot
 		axis = axes[i]
@@ -818,34 +885,64 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs: plot_resolved_observational_data(axis, y_prop, x_prop, goodSNR=True);
+		if include_obs:
+			plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True, aggregate_data=aggregate_obs, show_raw_data=show_raw_data);
+			# Keep track of labels and handles created from observational data so we can make a separate legend
+			hands, labs = axis.get_legend_handles_labels()
+			new_obs_lh = dict(zip(labs, hands))
+		else: new_obs_lh = {}
 
 		for j,snap in enumerate(snaps):
-			label = labels[j] if labels!=None else None
+			# Only need to label the separate simulations in the first plot
+			label = labels[j] if (labels!=None and i==0) else None
 			try:
 				r_max = snap.get_rmax()
 			except:
 				r_max = 20
-			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums, pixel_res=pixel_res)
+			if  isinstance(mask_prop, list):
+					mask = mask_prop[j]
+			else:
+					mask = mask_prop
 
-			# Only need to label the separate simulations in the first plot
+			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums,
+																			pixel_res=pixel_res,mask_prop=mask)
+
 			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		# Add filler objects to make nice legend
-		if len(snaps) < 5:
-			for j in range(5-len(snaps)):
-				axis.plot(np.zeros(1), np.zeros([1,3]), color='w', alpha=0, label=' ')
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
 		hands, labs = axis.get_legend_handles_labels()
 		new_lh = dict(zip(labs, hands))
-		for key in labels_handles.keys(): new_lh.pop(key,0);
-		if len(new_lh)>0:
-			ncol = 2 if len(new_lh) > 4 else 1
-			axis.legend(new_lh.values(), new_lh.keys(), loc='best', fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
-		labels_handles = dict(zip(labs, hands))
+		# First separate data and observation legend labels so we can make separate legends for each
+		if i==0:
+			data_lh = new_lh.copy()
+			for key in new_obs_lh.keys(): data_lh.pop(key,0)
+			axis.legend(data_lh.values(), data_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=len(data_lh.keys())//4+1)
+			rollover_handles = new_obs_lh.copy()
+		# Now add legends for observations labels and let them rollover if there are too many for one plot
+		else:
+			for key in labels_handles.keys():
+				if key not in rollover_handles.keys():
+					new_lh.pop(key,0)
+			if len(new_lh)>0:
+				ncol = 2 if len(new_lh) > 3 else 1
+				# If over 4 legend elements put extra into rollover for next plot
+				# Also reserve first plot legend for just simulation labels
+				cap = 6
+				if len(new_lh) > cap:
+					rollover_handles = dict(zip(list(new_lh.keys())[cap:], list(new_lh.values())[cap:]))
+					axis.legend(list(new_lh.values())[:cap], list(new_lh.keys())[:cap], loc='upper left',
+								fontsize=config.SMALL_FONT, frameon=False,ncol=ncol)
+				else:
+					rollover_handles = {}
+					axis.legend(new_lh.values(), new_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+							ncol=ncol)
+
+			labels_handles = dict(zip(labs, hands))
 
 	plt.tight_layout()	
 	plt.savefig(foutname)
@@ -906,7 +1003,7 @@ def plot_radial_proj_prop(props, snaps, rmax=20, rmin=0.1, bin_nums=50, log_bins
 		plt_set.setup_axis(axis, x_prop, y_prop, x_lim=[rmin,rmax], x_log=log_bins)
 
 		# First plot observational data if applicable
-		if include_obs: plot_resolved_observational_data(axis, y_prop, x_prop, goodSNR=True);
+		if include_obs: plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True);
 
 		for j,snap in enumerate(snaps):
 			label = labels[j] if labels!=None else None

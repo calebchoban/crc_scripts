@@ -112,7 +112,8 @@ def calc_phase_hist_data(property, snap, bin_nums=100):
 
 
 
-def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=50, prop_lims=None):
+def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=50, prop_lims=None,
+										 mask_prop=None):
 	"""
 	First calculates mock observations of property1 and property2 for the given pixel resolution. Then
 	calculates median and 16/84th-percentiles of property1 in relation to binned property2.
@@ -133,6 +134,8 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		Number of bins for property2
 	prop_lims : ndarray, optional
 		Limits for property2 binning
+	mask_prop : string
+		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
 
 	Returns
 	-------
@@ -215,6 +218,11 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
+		elif property == 'O/H_offset':
+			bin_data = P.get_property('O/H_offset')
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
+			OH_pixel = ret.flatten()
+			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas':
 			bin_data = P.get_property('O/H_gas')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
@@ -230,6 +238,14 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas_ionized':
 			bin_data = P.get_property('O/H_gas')
+			nH = P.get_property('nH')
+			T = P.get_property('T')
+			mask = (nH>=0.5) & (T>=7000) & (T<=15000)
+			ret = binned_statistic_2d(x[mask], y[mask], bin_data[mask], statistic=np.mean, bins=[x_bins,y_bins]).statistic
+			OH_pixel = ret.flatten()
+			pixel_data[i] = OH_pixel
+		elif property == 'O/H_gas_ionized_offset':
+			bin_data = P.get_property('O/H_gas_offset')
 			nH = P.get_property('nH')
 			T = P.get_property('T')
 			mask = (nH>=0.5) & (T>=7000) & (T<=15000)
@@ -264,7 +280,21 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			return None,None,None
 
 
-	bin_vals, mean_vals, std_vals = utils.bin_values(pixel_data[1], pixel_data[0], prop_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)
+	if mask_prop == 'fH2':
+		P = snap.loadpart(0)
+		x = P.p[:,0]; y = P.p[:,1];
+		mask_data = [P.get_property('M_H2'),P.get_property('M_gas')]
+		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		# Need to be a bit careful to not divide by zero here
+		fH2_pixel= np.zeros(len(ret[0].flatten()))
+		H2_pixel=ret[0].flatten(); gas_pixel = ret[1].flatten()
+		fH2_pixel= np.zeros(len(gas_pixel))
+		fH2_pixel[gas_pixel>0] =H2_pixel[gas_pixel>0]/gas_pixel[gas_pixel>0]
+		mask = fH2_pixel>0.1
+	else:
+		mask = np.ones(len(pixel_data[0]), dtype=bool)
+
+	bin_vals, mean_vals, std_vals = utils.bin_values(pixel_data[1][mask], pixel_data[0][mask], prop_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)
 
 	return bin_vals, mean_vals, std_vals
 

@@ -439,6 +439,14 @@ class Particle:
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
+            elif property == 'O/H_offset':
+                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)-offset
+            elif property == 'O/H_gas_offset':
+                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)-offset
             elif property == 'O/H_gas':
                 O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
