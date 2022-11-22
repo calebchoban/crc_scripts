@@ -149,7 +149,7 @@ class Particle:
                         fH2[nL:nR] = grp['MolecularMassFraction'][...]
                     # Deal with the in between case when molecular data was all in one place
                     # Can probably delete this soon since only a few sims have this specific output
-                    else:
+                    elif len(grp['DustMolecular'][:])>=3:
                         print("Loading old dust molecular...")
                         fH2[nL:nR] = grp['DustMolecular'][:,0]
                         fdense[nL:nR] = grp['DustMolecular'][:,1]
