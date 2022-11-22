@@ -1,4 +1,5 @@
 import numpy as np
+import gizmo_library.config as config
 
 # Theoretical metal dust yields for all sources of stellar creation
 
@@ -37,7 +38,7 @@ def solarMetallicity(elem, FIRE_ver=2):
 
 
 # Rate of stellar winds
-def stellarRates(star_age, Z, time_step, FIRE_ver=2):
+def stellarRates(star_age, Z, time_step, FIRE_ver=2, AGB_change='base'):
 	p=0;
 	# This is far smaller than usually used to get better fits to AGB returns needed for AGB dust returns
 	D_RETURN_FRAC = 1E-7; #fraction of particle mass to return on a recycling step 
@@ -50,8 +51,19 @@ def stellarRates(star_age, Z, time_step, FIRE_ver=2):
 		else:
 			if star_age<=0.0035:
 				p=4.76317*Z*np.power(10.,1.838*(0.79+np.log10(Z))*(np.log10(star_age)-(-3.00)))
-			else: # This has been changed from usual FIRE-2 values to better match AGB mass returns needed for dust
+			elif AGB_change == 'base':
+				if star_age<=0.1:
+					p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+				else:
+					p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+			elif AGB_change == 'SB99fix': # This has been changed from usual FIRE-2 values to better match AGB mass returns needed for dust
 				p= 29.4 * np.power(star_age / 0.0035,-1.3)
+			elif AGB_change == 'AGBshift':
+				if star_age<=0.03753:
+					p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+				else:
+					p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+
 	# updated fit. separates the more robust line-driven winds [massive-star-dominated] component, and -very- uncertain AGB. extremely good fits to updated STARBURST99 result for a 3-part Kroupa IMF (0.3,1.3,2.3 slope, 0.01-0.08-0.5-100 Msun, 8-120 SNe/BH cutoff, wind model evolution, Geneva v40 [rotating, Geneva 2013 updated tracks, at all metallicities available, ~0.1-1 solar], sampling times 1e4-2e10 yr at high resolution 
 	elif FIRE_ver > 2:
 		f1=3.*np.power(Z,0.87)
@@ -71,10 +83,7 @@ def stellarRates(star_age, Z, time_step, FIRE_ver=2):
 		f_agb=0.01; t_agb=1.
 		p += f_agb/((1. + np.power(t/t_agb,1.1)) * (1. + 0.01/(t/t_agb)))
 
-
-
-
-	p *= time_step; # fraction of particle mass expected to return in the timestep 
+	p *= time_step # fraction of particle mass expected to return in the timestep
 
 	n_wind_0 = np.floor(p/D_RETURN_FRAC)
 	p -= n_wind_0*D_RETURN_FRAC # if p >> return frac, should have > 1 event, so we inject the correct wind mass
@@ -83,6 +92,118 @@ def stellarRates(star_age, Z, time_step, FIRE_ver=2):
 		mass_return += D_RETURN_FRAC # add the 'remainder' stochastically
 
 	return mass_return
+
+
+# Rate of stellar winds
+def new_stellarRates(star_age, Z, time_step, FIRE_ver=2, AGB_change='base'):
+	p=0;
+	# This is far smaller than usually used to get better fits to AGB returns needed for AGB dust returns
+	D_RETURN_FRAC = 0.01 #fraction of particle mass to return on a recycling step
+	if star_age > 0.03753: D_RETURN_FRAC = 1E-3; #fraction of particle mass to return on a recycling step
+
+	if(Z>3): Z=3;
+	if(Z<0.01): Z=0.01;
+	# normalized  to give expected return fraction from stellar winds alone (~17%)
+	if FIRE_ver <= 2:
+		if star_age<=0.001:
+			p=4.76317*Z
+		else:
+			if star_age<=0.0035:
+				p=4.76317*Z*np.power(10.,1.838*(0.79+np.log10(Z))*(np.log10(star_age)-(-3.00)))
+			elif AGB_change == 'base':
+				if star_age<=0.1:
+					p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+				else:
+					p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+			elif AGB_change == 'SB99fix': # This has been changed from usual FIRE-2 values to better match AGB mass returns needed for dust
+				p= 29.4 * np.power(star_age / 0.0035,-1.3)
+			elif AGB_change == 'AGBshift':
+				if star_age<=0.03753:
+					p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+				else:
+					p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+
+	# updated fit. separates the more robust line-driven winds [massive-star-dominated] component, and -very- uncertain AGB. extremely good fits to updated STARBURST99 result for a 3-part Kroupa IMF (0.3,1.3,2.3 slope, 0.01-0.08-0.5-100 Msun, 8-120 SNe/BH cutoff, wind model evolution, Geneva v40 [rotating, Geneva 2013 updated tracks, at all metallicities available, ~0.1-1 solar], sampling times 1e4-2e10 yr at high resolution
+	elif FIRE_ver > 2:
+		f1=3.*np.power(Z,0.87)
+		f2=20.*np.power(Z,0.45)
+		f3=0.6*Z
+		t1=0.0017; t2=0.004; t3=0.02; t=star_age; # fit parameters for 'massive star' mass-loss */
+		# piecewise continuous function linking constant early and rapid late decay
+		if t<=t1:
+			p=f1
+		elif t<=t2:
+			p=f1*np.power(t/t1,np.log(f2/f1)/np.log(t2/t1))
+		elif t<=t3:
+			p=f2*np.power(t/t2,np.log(f3/f2)/np.log(t3/t2))
+		else:
+			p=f3*np.power(t/t3,-3.1)
+		# add AGB component. note that essentially no models [any of the SB99 geneva or padova tracks, or NuGrid, or recent other MESA models] predict a significant dependence on metallicity (that shifts slightly when the 'bump' occurs, but not the overall loss rate), so this term is effectively metallicity-independent */
+		#f_agb=0.01; t_agb=1.
+		# p += f_agb/((1. + np.power(t/t_agb,1.1)) * (1. + 0.01/(t/t_agb)))
+		# Updated to refir AGB wind rates since previous FIRE-3 AGB rates were too low to better match for stars 1.5-4 Msol sub-Chandrasekhar WDs and the correct initial-final mass relation.
+		f_agb=0.1; t_agb=0.8;
+		x_agb=t_agb/np.max([t,1E-4]);
+		x_agb*=x_agb;
+		p = f_agb * pow(x_agb,0.8) * (np.exp(-np.min([50.,x_agb*x_agb*x_agb])) + 1./(100. + x_agb))
+
+	p *= time_step # fraction of particle mass expected to return in the timestep
+
+	n_wind_0 = np.floor(p/D_RETURN_FRAC)
+	p -= n_wind_0*D_RETURN_FRAC # if p >> return frac, should have > 1 event, so we inject the correct wind mass
+	mass_return = n_wind_0*D_RETURN_FRAC; # add this in, then determine if there is a 'remainder' to be added as well
+	if np.random.random() < p/D_RETURN_FRAC:
+		mass_return += D_RETURN_FRAC # add the 'remainder' stochastically
+
+	return mass_return
+
+
+def wind_velocity(star_age, Z, FIRE_ver=2, AGB_change='base'):
+	if FIRE_ver == 2:
+		E_wind_tscaling = 0.0013
+		if AGB_change == 'base':
+			AGB_age = 0.1
+		else:
+			AGB_age = 0.03753
+		if star_age <= AGB_age:
+			# stellar population age dependence of specific wind energy, in units of an effective internal energy/temperature
+			E_wind_tscaling = 0.0013 + 16.0/(1+np.power((star_age)/0.0025,1.4)+np.power(star_age/0.01,5.0))
+		# get the actual wind velocity (multiply specific energy by units, user-set normalization, and convert)
+		v_ejecta = np.sqrt(2.0 * (E_wind_tscaling * (3.0E7/((5./3.-1.)*config.U_to_temp))))
+	elif FIRE_ver > 2:
+		# setup: updated fit here uses the same stellar evolution models/tracks as used to compute mass-loss rates. see those for references here.
+		f0=np.power(Z,0.12)
+		#interpolates smoothly from OB winds through AGB, also versus Z
+		v_ejecta = f0 * (3000./(1.+np.power(star_age/0.003,2.5)) + 600./(1.+np.power(np.sqrt(Z)*star_age/0.05,6.) +
+					np.power(Z/0.2,1.5)) + 30.) / (config.UnitVelocity_in_cm_per_s/1E5)
+
+
+	return v_ejecta
+
+
+def stellar_winds(min_time, max_time, N, Z, FIRE_ver=2, AGB_change='base'):
+
+	time = np.logspace(np.log10(min_time),np.log10(max_time),N)
+	windRate = np.zeros(len(time))
+	windVel = np.zeros(len(time))
+	windE = np.zeros(len(time))
+	cum_windE = np.zeros(len(time))
+	for i,age in enumerate(time):
+		if i == 0:
+			time_step = time[i]
+		else:
+			time_step = time[i]-time[i-1]
+		windRate[i] = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver,AGB_change=AGB_change)/time_step
+		windVel[i] = wind_velocity(age, Z, FIRE_ver=FIRE_ver,AGB_change=AGB_change)
+		windE[i] = 0.5 * (windRate[i]/config.sec_per_Gyr) * (windVel[i]*1E3)**2 * config.Ergs_per_joule
+		if i == 0:
+			cum_windE[i] = windE[i]*time_step*config.sec_per_Gyr
+		else:
+			cum_windE[i] = cum_windE[i-1]+windE[i]*time_step*config.sec_per_Gyr
+
+
+	return time, windRate, windVel, windE, cum_windE
+
 
 
 
@@ -126,13 +247,13 @@ def SNeRates(star_age, Z, time_step, FIRE_ver=2):
 
 
 # Total metal and dust yields for stellar winds
-def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine='species_nano', trim_excess=True):
+def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine='species_nano', trim_excess=True, AGB_change='base'):
 	yields = np.zeros(11)
 	dust_yields = np.zeros(11)
 	species_yields = np.zeros(4)
 	atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
 	if 'species' in routine:
-		M_wind = stellarRates(star_age,Z,time_step,FIRE_ver=FIRE_ver)
+		M_wind = stellarRates(star_age,Z,time_step,FIRE_ver=FIRE_ver, AGB_change=AGB_change)
 		sil_num_atoms = [3.631,1.06,1.,0.571] # O, Mg, Si, Fe
 		sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe 
 		sil_formula_mass = 0
@@ -292,10 +413,204 @@ def stellarYields(star_age, Z, time_step, FIRE_ver=2, routine='species_nano', tr
 				for k in range(2,11): dust_yields[0]+=dust_yields[k];
 				species_yields[0] = dust_yields[4]+dust_yields[6]+dust_yields[7]+dust_yields[10]
 
-
 	return yields, dust_yields, species_yields
 
 
+# Total metal and dust yields for stellar winds
+def new_stellarYields(star_age, Z, time_step, FIRE_ver=2, routine='species_nano', trim_excess=True, AGB_change = 'base'):
+	yields = np.zeros(11)
+	dust_yields = np.zeros(11)
+	species_yields = np.zeros(4)
+	atomic_mass = [1.01, 2.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845]
+	if 'species' in routine:
+		M_wind = new_stellarRates(star_age,Z,time_step,FIRE_ver=FIRE_ver)
+		sil_num_atoms = [3.631,1.06,1.,0.571] # O, Mg, Si, Fe
+		sil_elems_index = [4,6,7,10] # O,Mg,Si,Fe
+		sil_formula_mass = 0
+		for k in range(4):
+			sil_formula_mass += sil_num_atoms[k] * atomic_mass[sil_elems_index[k]]
+	else:
+		condens_eff = 0.8
+
+	for k in range(11):
+		yields[k]=Z*solarMetallicity(k,FIRE_ver=FIRE_ver) # return surface abundances, to leading order
+
+	# All, then He,C,N,O,Ne,Mg,Si,S,Ca,Fe follow AGB/O star yields in more detail for the light elements
+	if FIRE_ver > 2:
+		# everything except He and CNO and S-process is well-approximated by surface abundances. and CNO is conserved to high accuracy in sum for secondary production
+		# define initial H, He, CNO fraction
+		f_H_0=1.-(yields[0]+yields[1])
+		f_He_0=yields[1]
+		f_C_0=yields[2]
+		f_N_0=yields[3]
+		f_O_0=yields[4]
+		f_CNO_0=f_C_0+f_N_0+f_O_0
+		t = star_age
+		z_sol = f_CNO_0 / (solarMetallicity(2,FIRE_ver=FIRE_ver)+solarMetallicity(3,FIRE_ver=FIRE_ver)+solarMetallicity(4,FIRE_ver=FIRE_ver)) # stellar population age in Gyr, and solar-scaled CNO abundance
+		# model He production : this scales off of the fraction of H in IC: y here represents the yield of He produced by burning H, scales off availability
+		t1=0.0028; t2=0.01; t3=2.3; t4=3.0; y1=0.4*min(np.power(z_sol+1.E-3,0.6),2.); y2=0.08; y3=0.07; y4=0.042
+		if t<t1: y=y1*np.power(t/t1,3)
+		elif t<t2: y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
+		elif t<t3: y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
+		elif t<t4: y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3))
+		else: y=y4
+		yields[1] = f_He_0 + y * f_H_0 # y above
+		# model secondary N production in CNO cycle: scales off of initial fraction of CNO: y here represents fraction of CO mass converted to -additional- N
+		t1=0.001; t2=0.0028; t3=0.05; t4=1.9; t5=14.0; y1=0.2*max(1.E-4,min(z_sol*z_sol,0.9)); y2=0.68*min(np.power(z_sol+1.E-3,0.1),0.9); y3=0.4; y4=0.23; y5=0.065
+		if t<t1: y=y1*np.power(t/t1,3.5)
+		elif t<t2: y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1))
+		elif t<t3: y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
+		elif t<t4: y=y3*np.power(t/t3,np.log(y4/y3)/np.log(t4/t3))
+		elif t<t5: y=y4*np.power(t/t4,np.log(y5/y4)/np.log(t5/t4))
+		else: y=y5
+		y=max(0.,min(1.,y)); frac_loss_from_C = 0.5; floss_CO = y * (f_C_0 + f_O_0); floss_C = min(frac_loss_from_C * floss_CO, 0.99*f_C_0); floss_O = floss_CO - floss_C;
+		yields[3] = f_N_0 + floss_CO; yields[2] = f_C_0 - floss_C; yields[4] = f_O_0 - floss_O; # convert mass from CO to N, conserving exactly total CNO mass
+		# model primary C production: scales off initial H+He, generally small compared to loss fraction above in SB99, large in some other models, very small for early OB winds
+		t1=0.005; t2=0.04; t3=10.; y1=1.e-6; y2=0.001; y3=0.005
+		if t<t1: y=y1*np.power(t/t1,3)
+		elif t<t2: y=y1*np.power(t/t1,np.log(y2/y1)/np.log(t2/t1));
+		elif t<t3: y=y2*np.power(t/t2,np.log(y3/y2)/np.log(t3/t2))
+		else: y=y3
+		y_H_to_C = (1.-(yields[0]+yields[1])) * y; y_He_to_C = f_He_0 * y # simply multiple initial He by this factor to get final production
+		yields[1] -= y_He_to_C; yields[2] += y_H_to_C + y_He_to_C # transfer this mass fraction from H+He to C; gives stable results if 0 < f_He_0_to_C < 1
+		# model S-process production: currently no S-process tracers -explicitly- followed, so we skip this step
+		yields[0]=0.0
+		for k in range(2,11):
+			yields[0]+=yields[k] #finally, add up metals [not He!] to get actual metal yield
+
+	elif FIRE_ver <= 2:
+		# the interesting species are He & CNO: below is based on a compilation of van den Hoek & Groenewegen 1997, Marigo 2001, Izzard 2004 */
+		yields[1]=0.36; # He
+		yields[2]=0.016; # C
+		yields[3]=0.0041; # N
+		yields[4]=0.0118; # O
+		if solarMetallicity(0,FIRE_ver=FIRE_ver)*Z<0.033:
+			yields[4] *= Z
+		else:
+			yields[4] *= 1.65 # metal-dependent yields: O scaling is strongly dependent on initial metallicity of the star //
+		yields[0]=0.0
+		for k in range(2,11):
+			yields[0]+=yields[k]
+
+	AGB_age = 0.03753 if FIRE_ver<=2 else 0.044
+	# Now create the dust
+	if 'species' in routine:
+		# Now check whether the yields are from AGB or O/B since dust only forms for AGB
+		if star_age+time_step >= AGB_age:
+			dust_rates = (CumAGBDustYields(star_age+time_step,Z)-CumAGBDustYields(star_age,Z))/time_step
+			# Now recalculate wind rate
+			if FIRE_ver <= 2:
+				if star_age<=0.001:
+					p=4.76317*Z
+				else:
+					if star_age<=0.0035:
+						p=4.76317*Z*np.power(10.,1.838*(0.79+np.log10(Z))*(np.log10(star_age)-(-3.00)))
+					elif AGB_change == 'base':
+						if star_age<=0.1:
+							p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+						else:
+							p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+					elif AGB_change == 'SB99fix': # This has been changed from usual FIRE-2 values to better match AGB mass returns needed for dust
+						p= 29.4 * np.power(star_age / 0.0035,-1.3)
+					elif AGB_change == 'AGBshift':
+						if star_age<=0.03753:
+							p=29.4*np.power(star_age/0.0035,-3.25)+0.0041987
+						else:
+							p=0.41987*np.power(star_age,-1.1)/(12.9-np.log(star_age)) # normalized  to give expected return fraction from stellar winds alone (~17%)
+			# updated fit. separates the more robust line-driven winds [massive-star-dominated] component, and -very- uncertain AGB. extremely good fits to updated STARBURST99 result for a 3-part Kroupa IMF (0.3,1.3,2.3 slope, 0.01-0.08-0.5-100 Msun, 8-120 SNe/BH cutoff, wind model evolution, Geneva v40 [rotating, Geneva 2013 updated tracks, at all metallicities available, ~0.1-1 solar], sampling times 1e4-2e10 yr at high resolution
+			elif FIRE_ver > 2:
+				f1=3.*np.power(Z,0.87)
+				f2=20.*np.power(Z,0.45)
+				f3=0.6*Z
+				t1=0.0017; t2=0.004; t3=0.02; t=star_age; # fit parameters for 'massive star' mass-loss */
+				# piecewise continuous function linking constant early and rapid late decay
+				if t<=t1:
+					p=f1
+				elif t<=t2:
+					p=f1*np.power(t/t1,np.log(f2/f1)/np.log(t2/t1))
+				elif t<=t3:
+					p=f2*np.power(t/t2,np.log(f3/f2)/np.log(t3/t2))
+				else:
+					p=f3*np.power(t/t3,-3.1)
+				# Only need AGB component
+				f_agb=0.1; t_agb=0.8;
+				x_agb=t_agb/np.max([t,1E-4]);
+				x_agb*=x_agb;
+				p = f_agb * np.pow(x_agb,0.8) * (np.exp(-np.min([50.,x_agb*x_agb*x_agb])) + 1./(100. + x_agb))
+
+			wind_rate = p
+			species_yields = dust_rates/wind_rate
+
+			species_yields[species_yields<0] = 0
+
+
+			if trim_excess:
+				# Check to make sure we don't produce too much dust compared to metal yields
+				# Renorm dust species if too much is produced
+				# Check C
+				elem_yield = species_yields[1] + species_yields[2] * atomic_mass[2] / (atomic_mass[2] + atomic_mass[7])
+				if elem_yield > yields[2]:
+					species_yields[1] *= yields[2]/elem_yield
+					species_yields[2] *= yields[2]/elem_yield
+				# Check O
+				elem_yield = species_yields[0] * atomic_mass[4] * sil_num_atoms[0] / sil_formula_mass
+				if elem_yield > yields[4]:
+					species_yields[0] *= yields[4]/elem_yield
+				# Check Mg
+				elem_yield = species_yields[0] * atomic_mass[6] * sil_num_atoms[1] / sil_formula_mass
+				if elem_yield > yields[6]:
+					species_yields[0] *= yields[6]/elem_yield
+				# Check Si
+				elem_yield = species_yields[0] * atomic_mass[7] * sil_num_atoms[2] / sil_formula_mass + species_yields[2] * atomic_mass[7] / (atomic_mass[2] + atomic_mass[7])
+				if elem_yield > yields[7]:
+					species_yields[0] *= yields[7]/elem_yield
+					species_yields[2] *= yields[7]/elem_yield
+				# Check Fe
+				if 'nano' in routine:
+					# Fe is only in free-flying iron, assume no iron inclusions in stellar dust
+					if species_yields[3] > yields[10]:
+						species_yields[3] = yields[10]
+				else:
+					# Fe is in free-flying iron and silicates
+					elem_yield = species_yields[0] * atomic_mass[10] * sil_num_atoms[3] / sil_formula_mass + species_yields[3];
+					if elem_yield > yields[10]:
+						species_yields[0] *= yields[10]/elem_yield;
+						species_yields[3] *= yields[10]/elem_yield;
+
+			# Convert species to elemental yields
+			# Silicates
+			for k in range(4):
+				dust_yields[sil_elems_index[k]] += species_yields[0] * sil_num_atoms[k] * atomic_mass[sil_elems_index[k]] / sil_formula_mass
+			# Carbon
+			dust_yields[2] += species_yields[1]
+			# Silicon Carbide
+			dust_formula_mass = atomic_mass[2] + atomic_mass[7]
+			dust_yields[2] += species_yields[2] * atomic_mass[2] / dust_formula_mass
+			dust_yields[7] += species_yields[2] * atomic_mass[7] / dust_formula_mass
+			# Iron
+			dust_yields[10] += species_yields[3]
+
+			for k in range(1,11):
+				dust_yields[0] += dust_yields[k]
+
+	else:
+		if star_age >= AGB_age:
+			# AGB stars with C/O number density > 1
+			if (yields[4] <= 0. or (yields[2]/atomic_mass[2])/(yields[4]/atomic_mass[4]) > 1.0):
+				dust_yields[2] = yields[2] - 0.75*yields[4]; # C
+				dust_yields[0] = dust_yields[2];
+				species_yields[1] = dust_yields[2];
+			# AGB stars with C/O < 1
+			else:
+				dust_yields[6] = condens_eff * yields[6] # Mg
+				dust_yields[7] = condens_eff * yields[7] # Si
+				dust_yields[10] = condens_eff * yields[10] # Fe
+				dust_yields[4] = 16 * (dust_yields[6]/atomic_mass[6] + dust_yields[7]/atomic_mass[7] + dust_yields[10]/atomic_mass[10]); # O
+				for k in range(2,11): dust_yields[0]+=dust_yields[k];
+				species_yields[0] = dust_yields[4]+dust_yields[6]+dust_yields[7]+dust_yields[10]
+
+
+	return yields, dust_yields, species_yields
 
 
 
@@ -495,6 +810,176 @@ def SNeYields(star_age, Z, FIRE_ver=2, routine='species'):
 	return yields, dust_yields, species_yields
 
 
+def FittedCumAGBDustYields(time, z):
+	returns = np.zeros(4)
+	logt = np.log10(time)
+	# Silicates
+	###############################################################################
+	if z == 2.:
+		if time < 284:
+			returns[0] = 1.77E-4*logt - 2.87E-4
+		elif time < 1244:
+			returns[0] = 3.03E-5*(logt - 2.45) + 1.47E-4
+		else:
+			returns[0] = 5.93E-4*(logt - 3.09) + 1.67E-4
+	elif z == 1.:
+		if time < 295:
+			returns[0] = 4.18E-5  * logt - 6.78E-5
+		elif time < 1808:
+			returns[0] = 1.72E-6*(logt - 2.47) + 3.55E-5
+		else:
+			returns[0] = 1.05E-4*(logt - 3.26) + 3.68E-5
+	elif z == 0.4:
+		if time < 286:
+			returns[0] = 5.00E-6*logt - 8.01E-6
+		elif time < 3948:
+			returns[0] = 1.85E-9*(logt - 2.46) + 4.25E-6
+		else:
+			returns[0] = 3.35E-7*(logt - 3.60) + 4.26E-6
+	elif z == 0.2:
+		if time < 269:
+			returns[0] = 1.04E-8*logt - 1.64E-08
+		elif time < 1560:
+			returns[0] = 2.69E-10*(logt - 2.43) + 8.82E-9
+		else:
+			returns[0] = 3.05E-19*(logt - 3.19) + 9.03E-9
+	elif z == 0.05:
+		if time < 147:
+			returns[0] = 5.80E-11*logt - 9.10E-11
+		elif time < 252:
+			returns[0] = 4.10E-11*(logt - 2.17) + 3.47E-11
+		else:
+			returns[0] = 6.05E-14*(logt - 2.40) + 4.43E-11
+	# Carbon
+	###############################################################################
+	if z == 2.:
+		if time < 262:
+			returns[1] = 8.10E-7*logt - 1.54E-6
+		elif time < 840:
+			returns[1] = 4.00E-4*(logt - 2.42) + 4.23E-7
+		else:
+			returns[1] = 7.37E-6*(logt - 2.92) + 2.02E-4
+	elif z == 1.:
+		if time < 305:
+			returns[1] = 3.66E-6*logt - 6.75E-6
+		elif time < 1250:
+			returns[1] = 3.71E-4*(logt - 2.48) +  2.34E-6
+		else:
+			returns[1] = 8.67E-6*(logt - 3.10) + 2.29E-4
+	elif z == 0.4:
+		if time < 367:
+			returns[1] = 1.27E-5*logt - 2.34E-5
+		elif time < 2329:
+			returns[1] = 4.24E-4*(logt - 2.56) + 9.27E-6
+		else:
+			returns[1] = 7.55E-5*(logt - 3.37) + 3.49E-4
+	elif z == 0.2:
+		if time < 344:
+			returns[1] = 1.40E-5*logt - 2.53E-5
+		elif time < 3105:
+			returns[1] = 4.44E-4*(logt - 2.54) + 1.03e-5
+		else:
+			returns[1] = 9.59e-5*(logt - 3.49) + 4.35E-4
+	elif z == 0.05:
+		if time < 280:
+			returns[1] = 8.48E-6*logt - 1.43E-5
+		elif time < 4504:
+			returns[1] = 3.10E-4*(logt - 2.45) + 6.47E-6
+		else:
+			returns[1] = 5.73E-5*(logt - 3.65) + 3.80E-4
+	# SiC
+	###############################################################################
+	if z == 2.:
+		if time < 272:
+			returns[2] = 3.55E-7*logt - 6.64E-7
+		elif time < 890:
+			returns[2] = 1.03E-4*(logt - 2.43) + 2.00E-7
+		else:
+			returns[2] = 8.64E-7*(logt - 2.95) + 5.31E-5
+	elif z == 1.:
+		if time < 272:
+			returns[2] = 3.73E-7*logt - 6.33E-7
+		elif time < 1544:
+			returns[2] = 2.93E-5*(logt - 2.43) +  2.75E-7
+		else:
+			returns[2] = 5.82E-7*(logt - 3.19) + 2.24E-5
+	elif z == 0.4:
+		if time < 235:
+			returns[2] = 1.06E-7*logt - 1.74E-7
+		elif time < 4812:
+			returns[2] = 1.04E-6*(logt - 2.37) + 7.84E-8
+		else:
+			returns[2] = 2.47E-7*(logt - 3.68) + 1.44E-6
+	elif z == 0.2:
+		if time < 202:
+			returns[2] = 6.38E-9*logt - 1.02E-8
+		elif time < 3394:
+			returns[2] = 2.48E-8*(logt - 2.31) + 4.52E-9
+		else:
+			returns[2] = 9.51E-9*(logt - 3.53) + 3.48E-8
+	elif z == 0.05:
+		if time < 245:
+			returns[2] = 2.97E-11*logt - 4.81E-11
+		elif time < 2392:
+			returns[2] = 1.11E-10*(logt - 2.39) + 2.28E-11
+		else:
+			returns[2] = 3.73E-13*(logt - 3.38) + 1.33E-10
+	# Iron
+	###############################################################################
+	if z == 2.:
+		if time < 525:
+			returns[3] = 5.98E-6*logt - 9.97E-6
+		elif time < 1108:
+			returns[3] = 1.02E-4*(logt - 2.72) + 6.30E-6
+		else:
+			returns[3] = 5.98E-5*(logt - 3.04) + 3.94E-5
+	elif z == 1.:
+		if time < 339:
+			returns[3] = 2.16E-6*logt - 3.60E-6
+		elif time < 1074:
+			returns[3] = 4.09E-7*(logt - 2.53) + 1.87E-6
+		else:
+			returns[3] = 1.50E-5*(logt - 3.03) + 2.08E-6
+	elif z == 0.4:
+		if time < 307:
+			returns[3] = 9.86E-7*logt - 1.62E-6
+		elif time < 4120:
+			returns[3] = 1.13e-9*(logt - 2.49) + 8.34E-7
+		else:
+			returns[3] = 2.23E-7*(logt - 3.61) + 8.36E-07
+	elif z == 0.2:
+		if time < 253:
+			returns[3] = 5.53E-9*logt - 8.71E-9
+		elif time < 297:
+			returns[3] = 2.50E-9*(logt - 2.40) +  4.57E-9
+		else:
+			returns[3] = 9.50E-12 *(logt - 2.47) + 4.75E-9
+	elif z == 0.05:
+		if time < 128:
+			returns[3] = 3.18E-11*logt - 5.00E-11
+		elif time < 269:
+			returns[3] = 2.69E-11*(logt - 2.11) + 1.70E-11
+		else:
+			returns[3] = 2.14E-14*(logt - 2.43) + 2.57E-11
+
+	returns[returns<0] = 0.
+	return returns
+
+
+def CumAGBDustYields(time,z):
+	time *= 1E3 # Convert to Myr
+
+	if z <= 0.05:  returns = FittedCumAGBDustYields(time,0.05)
+	elif z <= 0.2: returns = FittedCumAGBDustYields(time,0.05) + (z-0.05)/(0.2-0.05)*(FittedCumAGBDustYields(time,0.2) - FittedCumAGBDustYields(time,0.05))
+	elif z <= 0.4: returns = FittedCumAGBDustYields(time,0.2) + (z-0.2)/(0.4-0.2)*(FittedCumAGBDustYields(time,0.4) - FittedCumAGBDustYields(time,0.2))
+	elif z <= 1.:  returns = FittedCumAGBDustYields(time,0.4) + (z-0.4)/(1.-0.4)*(FittedCumAGBDustYields(time,1.) - FittedCumAGBDustYields(time,0.4))
+	elif z <= 2.:  returns = FittedCumAGBDustYields(time,1.) + (z-1.)/(2.-1.)*(FittedCumAGBDustYields(time,2.) - FittedCumAGBDustYields(time,1.))
+	else: returns = FittedCumAGBDustYields(time,2.)
+
+	return returns
+
+
+
 
 # Fitted AGB dust yields from Zhukovska et al. (2008)
 def AGBDustYields(m, z):
@@ -653,15 +1138,15 @@ def totalStellarYields(max_time, N, Z, FIRE_ver=2, routine='species'):
 
 
 
-def onlyAGBYields(max_time, N, Z, FIRE_ver=2, routine='species'):
+def onlyAGBYields(max_time, N, Z, FIRE_ver=2, routine='species', AGB_change='base'):
 	time_step = max_time/N
 	time = np.arange(0,max_time,time_step)
 	cum_yields = np.zeros((len(time),11))
 	cum_dust_yields = np.zeros((len(time),11))
 	cum_species_yields = np.zeros((len(time),4))
 	for i,age in enumerate(time):
-		p = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver)
-		stellar_yields, stellar_dust_yields, stellar_species_yields = stellarYields(age,Z,time_step,FIRE_ver=FIRE_ver,routine=routine)
+		p = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver, AGB_change=AGB_change)
+		stellar_yields, stellar_dust_yields, stellar_species_yields = stellarYields(age,Z,time_step,FIRE_ver=FIRE_ver,routine=routine, AGB_change=AGB_change)
 		stellar_yields *= p
 		stellar_dust_yields *= p
 		stellar_species_yields *= p
@@ -670,8 +1155,47 @@ def onlyAGBYields(max_time, N, Z, FIRE_ver=2, routine='species'):
 		cum_dust_yields[i] = cum_dust_yields[i-1] + stellar_dust_yields
 		cum_species_yields[i] = cum_species_yields[i-1] + stellar_species_yields
 
-	return cum_yields, cum_dust_yields, cum_species_yields
+	return time, cum_yields, cum_dust_yields, cum_species_yields
 
+
+def new_onlyAGBYields(max_time, N, Z, FIRE_ver=2, routine='species', trim_excess=True,AGB_change='base'):
+	time_step = max_time/N
+	time = np.arange(0,max_time,time_step)
+	time = np.array([2E-4])
+	star_mass = 7000
+	while time[-1] < 10:
+		dt_stellar_evol = np.max([2.0e-4, time[-1]/250.]) # restrict to small steps for young stars //
+		mcorr = 1.e-5 * star_mass
+		if mcorr < 1 and mcorr > 0: dt_stellar_evol /= mcorr
+		time = np.append(time, time[-1]+dt_stellar_evol)
+
+
+	cum_yields = np.zeros((len(time),11))
+	cum_dust_yields = np.zeros((len(time),11))
+	cum_species_yields = np.zeros((len(time),4))
+	p_total = 0
+	ps = np.zeros(len(time))
+	for i,age in enumerate(time):
+		time_step = time[i]-time[i-1]
+		if i == 0: time_step = time[i]
+		p = new_stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver, AGB_change = AGB_change)
+		ps[i] = p
+		p_total+=p
+		stellar_yields, stellar_dust_yields, stellar_species_yields = new_stellarYields(age,Z,time_step,FIRE_ver=FIRE_ver,routine=routine, trim_excess=trim_excess,AGB_change = AGB_change)
+		stellar_yields *= p
+		stellar_dust_yields *= p
+		stellar_species_yields *= p
+
+		cum_yields[i] = cum_yields[i-1] + stellar_yields
+		cum_dust_yields[i] = cum_dust_yields[i-1] + stellar_dust_yields
+		cum_species_yields[i] = cum_species_yields[i-1] + stellar_species_yields
+
+	print(time,ps)
+	print(p_total)
+	print(len(time))
+	print(time[ps>0],ps[ps>0])
+
+	return time, cum_yields, cum_dust_yields, cum_species_yields
 
 
 def onlySNeYields(max_time, N, Z, FIRE_ver=2, routine = 'species'):

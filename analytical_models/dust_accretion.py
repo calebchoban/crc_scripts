@@ -42,12 +42,12 @@ def solarMetallicity(elem, FIRE_v=2):
 def elementalGrowthTime(temp, dens):
 	ref_dens = H_MASS # g cm^-3
 	T_ref = 20. # K
-	time_ref = 0.2 # Gyr
+	time_ref = 2 # Gyr
 	return time_ref * (ref_dens / dens) * np.power((T_ref / temp),0.5)
 
 
 # The "Species"	implementation dust accretion growth timescale assuming growth species is gas form of key element and solar metallicities
-def speciesGrowthTime(temp, dens, metallicity, species, fMC=0.3, nanoFe=True):
+def speciesGrowthTime(temp, dens, metallicity, species, fdense=0.3, nanoFe=True):
 	# Check if detailed gas metallicity has been given or just total Z
 	if hasattr(metallicity, "__len__"):
 		assumed_Z = False
@@ -79,14 +79,14 @@ def speciesGrowthTime(temp, dens, metallicity, species, fMC=0.3, nanoFe=True):
 
 	t_ref_CNM = 0.   # Gyr
 	t_ref_MC = 0.     # Gyr
-	t_ref = (t_ref_CNM * t_ref_MC) / (fMC * t_ref_CNM + (1.-fMC) * t_ref_MC);
+	t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC);
 
 	if species == 'silicates':
 		for k in range(4): dust_formula_mass += config.SIL_NUM_ATOMS[k] * config.ATOMIC_MASS[config.SIL_ELEM_INDEX[k]];
 		t_ref_CNM = 0.252E-3   # Gyr
 		t_ref_MC = 1.38E-3     # Gyr
 		# Calculate effective timescale assuming produced dust is redistributed throughout the gas
-		t_ref = (t_ref_CNM * t_ref_MC) / (fMC * t_ref_CNM + (1.-fMC) * t_ref_MC)
+		t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC)
 		if assumed_Z:
 
 			# Since we assume solar metallicities we can just say Si is the key element
@@ -116,7 +116,7 @@ def speciesGrowthTime(temp, dens, metallicity, species, fMC=0.3, nanoFe=True):
 
 	elif species == 'carbon':
 		t_ref_CNM = 1.54E-3 # Gyr
-		t_ref = t_ref_CNM / (1.-fMC)
+		t_ref = t_ref_CNM / (1.-fdense)
 		if not assumed_Z:
 			key_elem = np.full(np.shape(metallicity[:,0]),2)
 		else:
@@ -138,7 +138,7 @@ def speciesGrowthTime(temp, dens, metallicity, species, fMC=0.3, nanoFe=True):
 			t_ref_CNM = 0.252E-3   # Gyr
 			t_ref_MC = 1.38E-3     # Gyr
 		# Calculate effective timescale assuming produced dust is redistributed throughout the gas
-		t_ref = (t_ref_CNM * t_ref_MC) / (fMC * t_ref_CNM + (1.-fMC) * t_ref_MC)
+		t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC)
 
 		if not assumed_Z:
 			key_elem = np.full(np.shape(metallicity[:,0]),10)
@@ -210,7 +210,7 @@ def calc_spec_key_elem(G, nano_iron=False):
 
 
 # Calculates the Species gas-dust accretion timescale in years for all gas particles in the given snapshot gas particle structure
-def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
+def calc_spec_acc_timescale(G, nano_iron=False,set_fdense=None):
 
 	T_ref = 300 		# K
 	nM_ref = 1E-2   	# reference number density for metals in 1 H cm^-3
@@ -218,10 +218,10 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
 	T_cut = 300 		# K cutoff temperature for step func. sticking efficiency
 
 	T = G.T
-	if set_fMC != None:
-		fMC = np.full(len(T),set_fMC)
+	if set_fdense != None:
+		fdense = np.full(len(T),set_fdense)
 	else:
-		fMC = G.fMC
+		fdense = G.get_property('fdense')
 
 	timescales = dict.fromkeys(['Silicates', 'Carbon', 'Iron'], None) 
 
@@ -230,7 +230,7 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
     ###############
 	t_ref_CNM = 4.4E6 # years
 	t_ref_MC = 23.9E6 # years
-	t_ref = (t_ref_CNM * t_ref_MC) / (fMC * t_ref_CNM + (1.-fMC) * t_ref_MC)
+	t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC)
 
 	dust_formula_mass = 0.0
 	elem_num_dens = np.multiply(G.z[:,:len(config.ATOMIC_MASS)], G.rho[:, np.newaxis]*config.UnitDensity_in_cgs) / (config.ATOMIC_MASS*config.H_MASS)
@@ -251,7 +251,7 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
     ## CARBONACEOUS
     ###############
 	t_ref_CNM = 26.7E6 # years
-	t_ref = t_ref_CNM / (1.-fMC)
+	t_ref = t_ref_CNM / (1.-fdense)
 
 	key_elem = 2
 	key_in_dust = 1
@@ -272,7 +272,7 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
 	else:
 		t_ref_CNM = 4.4E6 # years
 		t_ref_MC = 23.9E6 # years
-	t_ref = (t_ref_CNM * t_ref_MC) / (fMC * t_ref_CNM + (1.-fMC) * t_ref_MC)
+	t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC)
 
 	key_elem = 10
 	key_in_dust = 1
@@ -289,17 +289,17 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fMC=None):
 
 
 # Calculates the instantaneous dust production from accertion for the given snapshot gas particle structure
-def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set_fMC=None):
+def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set_fdense=None):
 
 
 	iron_incl = 0.7
 
 	M = G.m*1E10
 	fH2 = G.fH2
-	if set_fMC == None:
-		fMC = G.fMC
+	if set_fdense == None:
+		fdense = G.get_property('fdense')
 	else:
-		fMC = np.fill(set_fMC, len(G.m))
+		fdense = np.fill(set_fdense, len(G.m))
 
 	C_in_CO = G.CinCO
 	O_in_CO = C_in_CO * G.z[:,2] * config.ATOMIC_MASS[4] / config.ATOMIC_MASS[2] / G.z[:,4]

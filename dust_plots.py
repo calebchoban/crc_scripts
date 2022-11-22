@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
-from matplotlib.colorbar import Colorbar
 from scipy.stats import binned_statistic_2d
 import pickle
 import os
@@ -15,21 +14,32 @@ import gizmo_library.config as config
 import gizmo_library.utils as utils
 import calculate as calc
 
+# Check if Phil's visualization module is installed
+import importlib
+vis_installed = importlib.util.find_spec("visualization") is not None
+if vis_installed:
+	from visualization.image_maker import image_maker, edgeon_faceon_projection
 
 
-
-def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
+def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048, **kwargs):
 	"""
-	Plots spatially-resolved observational D/Z data vs the given property.
+	Wrapper for Phil's mock Hubble visualization routine. Documentation can be found here:
+	https://bitbucket.org/phopkins/pfh_python/src/master/ and check the docstring of
+	=visualization.image_maker.image_maker for more details and options.
 
 	Parameters
 	----------
-	axis : Matplotlib axis
-		Axis on which to plot the data
-	property: string
-		Parameters to plot D/Z against (fH2, nH, Z, r, sigma_dust)
-	good_SNR : boolean
+	snapdir: string
+		Directory of snapshot
+	snapnum: int
+		Number of snapshot
+	image_key : boolean
 		Restrict data to only that with good signal-to-noise if applicable
+	fov: float
+		Sets physical size of image in kpc
+	pixels: int
+		Number of pixels for image, sets resolution
+
 
 	Returns
 	-------
@@ -37,17 +47,90 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 
 	"""
 
-	# First check if axis scale is log or not. If so all zeros are converted to small numbers.
+	# TODO: Incorporate Alex Gurvich's FIRE studio here
+
+	# First check if Phil's routine is installed
+	if not vis_installed:
+		print("The visualization routine is not installed! Go to https://bitbucket.org/phopkins/pfh_python/src/master/ \
+			  and follow the instructions to install the routine.")
+		return
+
+	edgeon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov,image_key=image_key,
+										pixels=pixels, edgeon=True, load_dust=True, **kwargs)
+	faceon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov, image_key=image_key,
+											pixels=pixels, faceon=True, load_dust=True, **kwargs)
+
+	return
+
+
+
+def plot_extragalactic_dust_obs(axis, property1, property2, goodSNR=True, aggregate_data=False, show_raw_data=True):
+	"""
+	Plots extragalactic observational data vs the given property.
+
+	Parameters
+	----------
+	axis : Matplotlib axis
+		Axis on which to plot the data
+	property1: string
+		Dust property
+	property2:
+		Galaxy property
+	good_SNR : boolean
+		Restrict data to only that with good signal-to-noise if applicable
+	aggregate_data : boolean
+		Aggregate all the resolved data and make a histogram. Only applicable for resolved extragalactic D/Z data
+
+	Returns
+	-------
+	None
+
+	"""
+
+	data_to_use = ''
+
 	log=False
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
 
 	if property1 == 'D/Z':
-		# Plot extragalactic D/Z data from Chiang+21
-		if property2 in ['fH2','r','r25','sigma_gas','sigma_H2','sigma_stellar','sigma_dust','sigma_gas_neutral',
-						 'sigma_Z','Z','O/H']:
-			# Plot binned values with 16/84-percentile errors
-			data = obs.Chiang21_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True)
+		if property2 in ['fH2','r','r25','sigma_gas','sigma_H2','sigma_stellar','sigma_star','sigma_dust','sigma_sfr',
+						 'sigma_gas_neutral','sigma_Z','Z'] or 'O/H' in property2:
+			data_to_use = 'Chiang22'
+			#data_to_use = 'Chiang21'
+	elif property1 == 'sigma_dust':
+		if property2 == 'r':
+			data_to_use = 'Menard10'
+	else:
+		print("%s vs %s extragalactic observational data is not available."%(property1,property2))
+		return None
+
+	if data_to_use in ['Chiang21','Chiang22']:
+		if aggregate_data:
+			# Plot 2D hist of all pixel data across the sample of galaxies using new data set from I-Da Chiang
+			if data_to_use == 'Chiang22':
+				data = obs.Chiang22_DZ_vs_param(property2, bin_data=False, log=log, goodSNR=True, only_PG16S=True, aggregate_data=aggregate_data)
+			else:
+				data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=log, goodSNR=True, aggregate_data=aggregate_data)
+
+			prop_vals = data['all'][0]; DZ_vals = data['all'][1];
+			bin_nums=50
+
+			xlog = axis.get_xaxis().get_scale()=='log'; xlims = config.get_prop_limits(property2)
+			ylog = axis.get_yaxis().get_scale()=='log'; ylims = config.get_prop_limits(property1)
+			x_bins = np.logspace(np.log10(xlims[0]),np.log10(xlims[1]),bin_nums) if xlog else np.linspace(xlims[0],xlims[1],bin_nums)
+			y_bins = np.logspace(np.log10(ylims[0]),np.log10(ylims[1]),bin_nums) if ylog else np.linspace(ylims[0],ylims[1],bin_nums)
+
+			lognorm = mpl.colors.LogNorm(clip=True)
+			# Need minimum value to not plot null bins
+			counts, xedges, yedges, img = axis.hist2d(prop_vals,DZ_vals,cmap=config.BASE_CMAP,norm=lognorm, bins=[x_bins,y_bins],cmin=config.EPSILON)
+
+		else:
+			# First plot binned values with 16/84-percentile errors
+			if data_to_use == 'Chiang22':
+				data = obs.Chiang22_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True)
+			else:
+				data = obs.Chiang21_DZ_vs_param(property2, bin_data=True, bin_nums=10, log=True, goodSNR=True)
 			for i, gal_name in enumerate(data.keys()):
 				prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1]; std_DZ = data[gal_name][2]
 				if log:
@@ -56,91 +139,143 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 							  c=config.MARKER_COLORS[i], mec=config.MARKER_COLORS[i], ecolor='xkcd:dark grey',
 							   mew=0.75*config.BASE_ELINEWIDTH, fmt=config.MARKER_STYLES[i], mfc='xkcd:white',
 							  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, zorder=2)
-			# Plot raw pixel data in the background
-			data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True)
-			for i, gal_name in enumerate(data.keys()):
-				prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
-				axis.errorbar(prop_vals, mean_DZ, fmt=config.MARKER_STYLES[i], c=config.MARKER_COLORS[i],
-							ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH, mfc=config.MARKER_COLORS[i],
-							mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
+			if show_raw_data:
+				# Second plot raw pixel data in the background
+				if data_to_use == 'Chiang22':
+					data = obs.Chiang22_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True, only_PG16S=True)
+				else:
+					data = obs.Chiang21_DZ_vs_param(property2, bin_data=False, log=True, goodSNR=True)
+				for i, gal_name in enumerate(data.keys()):
+					prop_vals = data[gal_name][0]; mean_DZ = data[gal_name][1];
+					axis.errorbar(prop_vals, mean_DZ, fmt=config.MARKER_STYLES[i], c=config.MARKER_COLORS[i],
+								ms=0.3*config.BASE_MARKERSIZE, mew=0.3*config.BASE_ELINEWIDTH, mfc=config.MARKER_COLORS[i],
+								mec=config.MARKER_COLORS[i], zorder=0, alpha=0.25)
+	elif data_to_use == 'Menard10':
+		r_vals, sigma_dust = obs.Menard_2010_dust_dens_vs_radius(1E-3, 0)
+		axis.plot(r_vals,sigma_dust,label=r'Ménard+10', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
 
+
+	return
+
+
+
+
+def plot_MW_dust_obs(axis, property1, property2):
+	"""
+	Plots Milky Way observational data vs the given property.
+
+	Parameters
+	----------
+	axis : Matplotlib axis
+		Axis on which to plot the data
+	property1: string
+		Dust property
+	property2:
+		Gas property
+
+	Returns
+	-------
+	None
+
+	"""
+
+	data_to_use = ''
+
+	log=False
+	if axis.get_yaxis().get_scale()=='log':
+		log=True
+
+	if property1 == 'D/Z':
 		# Plot MW D/Z sight line data derived from depeltion measurements in Jenkins09
-		elif property2 == 'nH' or property2 == 'nH_neutral':
-			# Plot J09 with Zhukovska+16/18 conversion to physical density
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
-			axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
-			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
-			# range of C depeletions since they are not observed for this regime
-			nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z')
-			axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D',  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE ,zorder=2)
-			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])),
-					  c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH, zorder=2)
-			# Plot J09 relation to use as upper bound
-			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
-			axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
+		if property2 == 'nH' or property2 == 'nH_neutral':
+			data_to_use = 'Jenkins09_DZ'
+	elif 'depletion' in property1:
+		elem = property1.split('_')[0]
+		if elem not in config.ELEMENTS:
+			print("%s is not a valid element depletion for MW observational data."%property1)
+			return None
+		if 'nH' in property2:
+			data_to_use = 'Jenkins09_depl_nH'
+		elif 'NH' in property2:
+			data_to_use = 'Jenkins09_depl_NH'
+	else:
+		print("%s vs %s Milky Way observational data is not available."%(property1,property2))
+		return None
+
+	if data_to_use == 'Jenkins09_DZ':
+		# Plot J09 with Zhukovska+16/18 conversion to physical density
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+		# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996) with error bars accounting for possible
+		# range of C depeletions since they are not observed for this regime
+		nH_val, WNM_depl, WNM_error = obs.Jenkins_Savage_2009_WNM_Depl('Z')
+		axis.errorbar(nH_val, 1.-WNM_depl, yerr=WNM_error, label='WNM', c='xkcd:black', fmt='D',  elinewidth=config.BASE_ELINEWIDTH*1.5, ms=config.BASE_MARKERSIZE*1.5 ,zorder=2)
+		axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(1.-WNM_depl), np.log10(DZ_vals[0])),
+				  c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+		# Plot J09 relation to use as upper bound
+		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
+		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+
+	elif data_to_use == 'Jenkins09_depl_nH':
+		elem = property1.split('_')[0]
+		if elem == 'C':
+			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
+			C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='<nH>')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:black', zorder=2)
+			# Add in data from Parvathi which sampled twice as many sightlines
+			C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='<nH>')
+			axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
+						  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black", lw=0,
+							  label='CO', zorder=2, alpha=0.99)
 
 		else:
-			print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-			return None
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+			dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
+			axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
+			# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
+			nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
+			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=(config.BASE_MARKERSIZE*1.5)**2)
+			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
 
-	elif 'depletion' in property1:
-		elem = property1[0]
-		if elem not in config.ELEMENTS:
-			print("%s is not a valid element depletion."%property1)
-			return None
+	elif data_to_use == 'Jenkins09_depl_NH':
+		elem = property1.split('_')[0]
 
-		if 'nH' in property2:
-			if elem == 'C':
-				# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
-				C_depl, C_error, nH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='<nH>')
-				axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Jenkins09', fmt='o', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:black', zorder=2)
-				# Add in data from Parvathi which sampled twice as many sightlines
-				C_depl, C_error, nH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='<nH>')
-				axis.errorbar(nH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:black', elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE,
-							  mew=config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:black' , zorder=2)
-				# Add in shaded region for 20-40% of C in CO bars
-				axis.fill_between([5E2,1E4],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
-
-			else:
-				dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=False, C_corr=False)
-				axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH, zorder=2)
-				dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(elem=elem, phys_dens=True, C_corr=False)
-				axis.plot(dens_vals, 1.-DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH, zorder=2)
-				# Add data point for WNM depletion from Jenkins (2009) comparison to Savage and Sembach (1996)
-				nH_val, WNM_depl,_ = obs.Jenkins_Savage_2009_WNM_Depl(elem)
-				axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=config.BASE_MARKERSIZE**2)
-				axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH, zorder=2)
-
-		elif 'NH' in property2:
-			depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
-			lower_lim = np.isinf(depl_err[1,:])
-			depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
-			upper_lim = np.isinf(depl_err[0,:])
-			depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
-			no_lim = ~upper_lim & ~lower_lim
-			# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
-			axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
-						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
-				  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-				  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
-						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-						  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
-			if elem=='C':
-				C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
-				NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
-				axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
-							  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:white', mec='xkcd:medium grey' , zorder=2, alpha=1)
-				# Add in shaded region for 20-40% of C in CO bars
-				axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="X", edgecolor="xkcd:black", lw=0, label='CO', zorder=2)
+		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
+		lower_lim = np.isinf(depl_err[1,:])
+		depl_err[1,lower_lim]=depl[lower_lim]*(1-10**-0.1)
+		upper_lim = np.isinf(depl_err[0,:])
+		depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
+		no_lim = ~upper_lim & ~lower_lim
+		# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
+		axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
+			  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
+					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+		if elem=='C':
+			C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
+			NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
+			axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
+						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:medium grey', mec='xkcd:medium grey' , zorder=2, alpha=1)
+			# Add in shaded region for 20-40% of C in CO bars
+			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black",
+							  lw=0, label='CO', zorder=2, alpha=0.99)
 
 			# Now bin the data
 			bin_lims = [np.min(NH_vals),np.max(NH_vals)]
+			# Don't want to plot below this anyways
+			if bin_lims[0]<1E18: bin_lims[0] = 1E18
+			if bin_lims[1]>1E22: bin_lims[0] = 1E22
 			# Set bins to be ~0.2 dex in size since range of data varies for each element
-			bin_nums = int((np.log10(np.max(NH_vals))-np.log10(np.min(NH_vals)))/0.33)
+			bin_nums = int((np.log10(bin_lims[1])-np.log10(bin_lims[0]))/0.33)
 			NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums, weight_vals=None, log=True)
 			# Get rid of any bins with too few points to even get error bars for
 			bad_mask = ~np.isnan(std_depl_X[:,0]) & ~np.isnan(std_depl_X[:,1]) & (std_depl_X[:,0]!=mean_depl_X) & (std_depl_X[:,1]!=mean_depl_X)
@@ -148,16 +283,8 @@ def plot_resolved_observational_data(axis, property1, property2, goodSNR=True):
 			axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X-std_depl_X.T), label='Binned Obs.', fmt='s', c='xkcd:black',
 				  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
 				  mfc='xkcd:white', mec='xkcd:black', zorder=3, alpha=1)
-		else:
-			print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-			return None
-
-	else:
-		print("%s vs %s spatially-resolved observational data is not available."%(property1,property2))
-		return None
 
 	return
-
 
 
 def plot_galaxy_int_observational_data(axis, property):
@@ -181,7 +308,6 @@ def plot_galaxy_int_observational_data(axis, property):
 	log=False
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
-
 
 	if property == 'Z' or property=='O/H':
 		if property == 'Z':
@@ -261,7 +387,7 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(properties))
+	fig,axes,dims = plt_set.setup_figure(len(properties))
 
 	labels_handles = {}
 	for i, x_prop in enumerate(properties):
@@ -336,7 +462,7 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(xprops), sharey=True)
+	fig,axes,dims = plt_set.setup_figure(len(xprops), sharey=True)
 
 	labels_handles = {}
 
@@ -347,7 +473,7 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs and y_prop=='D/Z': plot_resolved_observational_data(axis, y_prop, x_prop, goodSNR=True);
+		if include_obs and y_prop=='D/Z': plot_MW_dust_obs(axis, y_prop, x_prop);
 
 		for j,snap in enumerate(snaps):
 			x_vals,y_mean,y_std = calc.calc_binned_property_vs_property(y_prop, x_prop, snap, bin_nums=bin_nums)
@@ -413,15 +539,13 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(elems))
+	fig,axes,dims = plt_set.setup_figure(len(elems))
 
 	labels_handles = {}
+	rollover_handles = {}
 	for i,elem in enumerate(elems):
 		axis = axes[i]
 		plt_set.setup_axis(axis, prop, elem+'_depletion')
-
-		if include_obs:
-			plot_resolved_observational_data(axis, elem+'_depletion', prop)
 
 		for j,snap in enumerate(snaps):
 			prop_vals,mean_DZ,std_DZ = calc.calc_binned_property_vs_property(elem+'_depletion', prop, snap, bin_nums=bin_nums)
@@ -432,15 +556,36 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 			if std_bars:
 				axis.fill_between(prop_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
+		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
+
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
 		hands, labs = axis.get_legend_handles_labels()
 		new_lh = dict(zip(labs, hands))
-		for key in labels_handles.keys(): new_lh.pop(key,0);
+		for key in labels_handles.keys():
+			if key not in rollover_handles.keys():
+				new_lh.pop(key,0)
 		if len(new_lh)>0:
-			ncol = 2 if len(new_lh) > 4 else 1
-			loc = 'best' if elem!='C' else 'upper right'
-			axis.legend(new_lh.values(), new_lh.keys(), loc=loc, fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
-		labels_handles = dict(zip(labs, hands))
+			ncol = 2 if len(new_lh) > 3 else 1
+			loc = 'lower left' if elem!='C' else 'upper right'
+			# If over 4 legend elements put extra into rollover for next plot
+			# Also reserve first plot legend for just simulation labels
+			if i == 0:
+				cap = len(snaps)
+				if cap < 4:
+					ncol = 1
+			else:
+				cap = 4
+			if len(new_lh) > cap:
+				rollover_handles = dict(zip(list(new_lh.keys())[cap:], list(new_lh.values())[cap:]))
+				axis.legend(list(new_lh.values())[:cap], list(new_lh.keys())[:cap], loc=loc, fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol)
+			else:
+				rollover_handles = {}
+				axis.legend(new_lh.values(), new_lh.keys(), loc=loc, fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol)
+
+			labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
 		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
@@ -478,7 +623,7 @@ def binned_phase_plot(prop, snaps, bin_nums=200, labels=None, color_map=config.B
 
 	"""
 
-	fig,axes = plt_set.setup_figure(len(snaps), sharey='row')
+	fig,axes,dims = plt_set.setup_figure(len(snaps), sharey='row')
 
 	for i, snap in enumerate(snaps):
 		# Set up for each plot
@@ -512,6 +657,73 @@ def binned_phase_plot(prop, snaps, bin_nums=200, labels=None, color_map=config.B
 	plt.close()
 
 	return
+
+
+
+def comparison_binned_phase_plot(prop, main_snap, snaps, bin_nums=200, labels=None, color_map=config.BASE_DIVERGING_CMAP,
+								 foutname='difference_phase_plot.png'):
+	"""
+	Plots the a 2D histogram for nH vs T of the first snap using the specified parameter as weights, and then
+	plots the differences between the succeeding snaps  and the first snap.
+
+	Parameters
+	----------
+	prop : string
+		The property for the x axis, y axis, and weights respectively
+	snaps : list
+	     List of Snapshot/Halo/Disk objects
+	bin_nums: int, optional
+		Number of bins to use
+	labels: list, optional
+		List of labels for each snap
+	color_map : string, optional
+		Color mapping for plot
+	founame : string, optional
+		File name for saved figure
+
+	Returns
+	-------
+	None
+
+	"""
+
+	fig,axes,dims = plt_set.setup_figure(len(snaps), sharey='row', sharex='col')
+
+	primary_ret = calc.calc_phase_hist_data(prop, main_snap, bin_nums=bin_nums)
+	for i, snap in enumerate(snaps):
+		# Set up for each plot
+		axis = axes[i]
+		plt_set.setup_axis(axis, 'nH', 'T')
+		axis.set_facecolor('xkcd:light grey')
+
+		ret = calc.calc_phase_hist_data(prop, snap, bin_nums=bin_nums)
+		prop_lims = config.PROP_INFO[prop][1]
+		prop_lims[0] = -prop_lims[1]
+		log_param = config.PROP_INFO[prop][2]
+		if log_param:
+			norm = mpl.colors.SymLogNorm(1.0, vmin=prop_lims[0], vmax=prop_lims[1], clip=True,base=10)
+		else:
+			norm = mpl.colors.Normalize(vmin=prop_lims[0], vmax=prop_lims[1], clip=True)
+
+		X, Y = np.meshgrid(ret.x_edge, ret.y_edge)
+		img = axis.pcolormesh(X, Y, ret.statistic.T-primary_ret.statistic.T, cmap=plt.get_cmap(color_map), norm=norm)
+		axis.autoscale('tight')
+
+		# Print label in corner of plot if applicable
+		if labels!=None:
+			label = labels[i]
+			axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=4)
+
+	# Add color bar to last axis
+	bar_label =  "Difference " + config.PROP_INFO[prop][0]
+	plt_set.setup_colorbar(img, axes[-1], bar_label)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
 
 
 
@@ -555,15 +767,15 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(sightline_data_files), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(elems))
+	fig,axes,dims = plt_set.setup_figure(len(elems), orientation='vertical')
 
 	labels_handles = {}
+	rollover_handles = {}
 	for i,elem in enumerate(elems):
 		axis = axes[i]
 		plt_set.setup_axis(axis, prop, elem+'_depletion')
 
-		if include_obs:
-			plot_resolved_observational_data(axis, elem+'_depletion', prop)
+		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
 
 		for j,data_file in enumerate(sightline_data_files):
 
@@ -584,13 +796,24 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
 		hands, labs = axis.get_legend_handles_labels()
 		new_lh = dict(zip(labs, hands))
-		for key in labels_handles.keys(): new_lh.pop(key,0);
+		for key in labels_handles.keys():
+			if key not in rollover_handles.keys():
+				new_lh.pop(key,0)
 		if len(new_lh)>0:
-			ncol = 2 if len(new_lh) > 4 else 1
-			axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False,
+			ncol = 2 if len(new_lh) > 2 else 1
+			# If over 4 legend elements put extra into rollover for next plot
+			if len(new_lh) > 4:
+				rollover_handles = dict(zip(list(new_lh.keys())[4:], list(new_lh.values())[4:]))
+				axis.legend(list(new_lh.values())[:4], list(new_lh.keys())[:4], loc='lower left', fontsize=config.SMALL_FONT, frameon=False,
 						ncol=ncol, markerscale=2.)
+			else:
+				rollover_handles = {}
+				axis.legend(new_lh.values(), new_lh.keys(), loc='lower left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol, markerscale=2.)
+
 			labels_handles = dict(zip(labs, hands))
 
 		# Add label for each element
@@ -606,7 +829,8 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, labels=None, foutname='obs_DZ_vs_param.png', \
-						 std_bars=True, style='color-linestyle', include_obs=True):
+						 std_bars=True, style='color-linestyle', include_obs=True, aggregate_obs=False, mask_prop=None,
+						 show_raw_data=True):
 	"""
 	Plots mock observations of one property versus another for multiple snapshots
 
@@ -634,6 +858,8 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		'size' - make all lines solid black but with varying line thickness
 	include_obs : boolean, optional
 		Overplot observed data if available
+	mask_prop : string
+		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
 
 	Returns
 	-------
@@ -645,9 +871,13 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(xprops), sharey=True)
+	if any(yprop != yprops[0] for yprop in yprops):
+		sharey = False
+	else:
+		sharey= True
+	fig,axes,dims = plt_set.setup_figure(len(xprops), sharey=sharey)
 
-	labels_handles = {}
+	labels_handles = {}; rollover_handles = {};
 	for i, x_prop in enumerate(xprops):
 		# Set up for each plot
 		axis = axes[i]
@@ -655,27 +885,133 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs: plot_resolved_observational_data(axis, y_prop, x_prop, goodSNR=True);
+		if include_obs:
+			plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True, aggregate_data=aggregate_obs, show_raw_data=show_raw_data);
+			# Keep track of labels and handles created from observational data so we can make a separate legend
+			hands, labs = axis.get_legend_handles_labels()
+			new_obs_lh = dict(zip(labs, hands))
+		else: new_obs_lh = {}
 
 		for j,snap in enumerate(snaps):
-			label = labels[j] if labels!=None else None
+			# Only need to label the separate simulations in the first plot
+			label = labels[j] if (labels!=None and i==0) else None
 			try:
 				r_max = snap.get_rmax()
 			except:
 				r_max = 20
-			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums, pixel_res=pixel_res)
+			if  isinstance(mask_prop, list):
+					mask = mask_prop[j]
+			else:
+					mask = mask_prop
 
-			# Only need to label the separate simulations in the first plot
-			print(y_prop,x_prop)
-			print(x_vals,y_mean)
+			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums,
+																			pixel_res=pixel_res,mask_prop=mask)
+
 			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		# Add filler objects to make nice legend
-		if len(snaps) < 5:
-			for j in range(5-len(snaps)):
-				axis.plot(np.zeros(1), np.zeros([1,3]), color='w', alpha=0, label=' ')
+
+		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
+		hands, labs = axis.get_legend_handles_labels()
+		new_lh = dict(zip(labs, hands))
+		# First separate data and observation legend labels so we can make separate legends for each
+		if i==0:
+			data_lh = new_lh.copy()
+			for key in new_obs_lh.keys(): data_lh.pop(key,0)
+			axis.legend(data_lh.values(), data_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=len(data_lh.keys())//4+1)
+			rollover_handles = new_obs_lh.copy()
+		# Now add legends for observations labels and let them rollover if there are too many for one plot
+		else:
+			for key in labels_handles.keys():
+				if key not in rollover_handles.keys():
+					new_lh.pop(key,0)
+			if len(new_lh)>0:
+				ncol = 2 if len(new_lh) > 3 else 1
+				# If over 4 legend elements put extra into rollover for next plot
+				# Also reserve first plot legend for just simulation labels
+				cap = 6
+				if len(new_lh) > cap:
+					rollover_handles = dict(zip(list(new_lh.keys())[cap:], list(new_lh.values())[cap:]))
+					axis.legend(list(new_lh.values())[:cap], list(new_lh.keys())[:cap], loc='upper left',
+								fontsize=config.SMALL_FONT, frameon=False,ncol=ncol)
+				else:
+					rollover_handles = {}
+					axis.legend(new_lh.values(), new_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+							ncol=ncol)
+
+			labels_handles = dict(zip(labs, hands))
+
+	plt.tight_layout()	
+	plt.savefig(foutname)
+	plt.close()	
+
+	return
+
+
+
+
+def plot_radial_proj_prop(props, snaps, rmax=20, rmin=0.1, bin_nums=50, log_bins=False, labels=None, foutname='radial_proj_prop.png', \
+						   style='color-linestyle', include_obs=True):
+	"""
+	Plots radial projections of properties for multiple snapshots
+
+	Parameters
+	----------
+	props: list
+		List of properties to plot radial projections for
+	snaps : list
+	    List of snapshots to plot
+	rmax : double
+		Maximum radius of projection
+	rmin : double
+		Minimum radius of projection
+	bin_nums : int, optional
+		Number of bins to use
+	log_bins : boolean, optional
+		Use logarithmic radial bins
+	labels : list, optional
+		Array of labels for each data set
+	foutname: string, optional
+		Name of file to be saved
+	style : string, optional
+		Plotting style when plotting multiple data sets
+		'color' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	include_obs : boolean, optional
+		Overplot observed data if available
+
+	Returns
+	-------
+	None
+
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(len(props))
+
+	labels_handles = {}
+	for i, y_prop in enumerate(props):
+		# Set up for each plot
+		axis = axes[i]
+		x_prop = 'r'
+		plt_set.setup_axis(axis, x_prop, y_prop, x_lim=[rmin,rmax], x_log=log_bins)
+
+		# First plot observational data if applicable
+		if include_obs: plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True);
+
+		for j,snap in enumerate(snaps):
+			label = labels[j] if labels!=None else None
+			x_vals,y_vals= calc.calc_radial_dens_projection(y_prop, snap, rmax, rmin = rmin, bin_nums=bin_nums,
+															proj='xy',log_bins=log_bins)
+
+			# Only need to label the separate simulations in the first plot
+			axis.plot(x_vals, y_vals, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		hands, labs = axis.get_legend_handles_labels()
@@ -686,9 +1022,9 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 			axis.legend(new_lh.values(), new_lh.keys(), loc='best', fontsize=config.SMALL_FONT, frameon=False, ncol=ncol)
 		labels_handles = dict(zip(labs, hands))
 
-	plt.tight_layout()	
+	plt.tight_layout()
 	plt.savefig(foutname)
-	plt.close()	
+	plt.close()
 
 	return
 
@@ -730,7 +1066,7 @@ def dmol_vs_props(mol_params, properties, snaps, labels=None, bin_nums=50, std_b
 	# Get plot stylization
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), properties=mol_params, style='color-linestyle')
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(properties), sharey=True)
+	fig,axes,dims = plt_set.setup_figure(len(properties), sharey=True)
 
 	for i, x_prop in enumerate(properties):
 		# Set up axes and label legends for each plot
@@ -773,7 +1109,7 @@ def dmol_vs_props(mol_params, properties, snaps, labels=None, bin_nums=50, std_b
 
 
 
-def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels=None, style='color', time=True):
+def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutname='dust_data_vs_time.png', labels=None, style='color-linestyle', redshift=False):
 	"""
 	Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
@@ -783,6 +1119,10 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 		List of parameters to plot over time
 	data_objs : list
 		List of Dust_Evo objects with data to plot
+	stat : string
+		Statistic for given param if available (median or total)
+	subsample : string or list
+		Subsampling for parameter (all, cold, hot, neutral, molecular)
 	foutname: str, optional
 		Name of file to be saved
 
@@ -795,56 +1135,105 @@ def dust_data_vs_time(params, data_objs, foutname='dust_data_vs_time.png',labels
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(data_objs), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(params), orientation='vertical', sharex=True)
+	fig,axes,dims = plt_set.setup_figure(len(params), orientation='vertical', sharex=True)
 
 	for i, y_param in enumerate(params):
 		# Set up for each plot
-		axis = axes[i]		
-		if time:
-			x_param = 'time'
+		axis = axes[i]
+
+		# Check if data is from cosmological sims to determine time units
+		if data_objs[0].cosmological and redshift:
+			x_param = 'redshift_plus_1'
 		else:
-			x_param = 'redshift'
+			x_param = 'time'
 		plt_set.setup_axis(axis, x_param, y_param)
 
-		param_labels=None
+		# Since we are plotting with time, also want to make twinned axis for redshift to time or vice versa
+		tick_labels = False
+		if i<dims[1]:
+			tick_labels = True
+		plt_set.make_axis_secondary_time(axis, x_param, snapshot=data_objs[0], tick_labels = tick_labels)
+
+		param_labels=[]
+		sub_y_params = []
+		renorm = True
 		if y_param == 'D/Z':
 			loc = 'upper left'
 		elif y_param == 'source_frac':
-			param_labels = config.DUST_SOURCES
-			loc = 'center right'
+			param_labels = np.array(config.DUST_SOURCES)
+			sub_y_params = np.array(['source_acc','source_SNeIa', 'source_SNeII', 'source_AGB'])
+			loc = 'upper right'
 		elif y_param=='spec_frac':
-			param_labels = config.DUST_SPECIES
-			loc = 'upper left'
+			param_labels = np.array(config.DUST_SPECIES)
+			sub_y_params = np.array(['spec_sil','spec_carb','spec_SiC','spec_iron','spec_ORes','spec_ironIncl'])
+			loc =  'upper right'
+			# Check which of these dust species are in the simulations given
+			in_sim = np.zeros(len(sub_y_params))
+			for j,data in enumerate(data_objs):
+				if  isinstance(subsample, list):
+					sample = subsample[j]
+				else:
+					sample = subsample
+				for k, sub_param in enumerate(sub_y_params):
+					data_vals  = data.get_data(sub_param, subsample=sample, statistic=stat)
+					if data_vals is not None and not np.all((data_vals==0) | (np.isnan(data_vals))):
+						in_sim[k] += 1
+			param_labels = param_labels[in_sim>0]
+			sub_y_params = sub_y_params[in_sim>0]
+			print("These species in sims given:",param_labels)
+		elif y_param=='spec_sil_carb':
+			param_labels = np.array(config.DUST_SPECIES)
+			sub_y_params = np.array(['spec_sil+','spec_carb'])
+			loc =  'upper right'
+		elif '/H_all' in y_param and y_param.split('/')[0] in config.ELEMENTS:
+			param_labels = np.array(['total','dust'])
+			elem = y_param.split('/')[0]
+			sub_y_params =  np.array([elem+'/H',elem+'/H_dust'])
+			loc = 'lower right'
+			renorm = False
 		elif y_param == 'Si/C':
 			loc = 'upper right'
 		else:
-			print("%s is not a valid parameter for dust_data_vs_time()\n"%y_param)
-			return()
+			loc = 'upper left'
 
 		for j,data in enumerate(data_objs):
-			
-			if time:
-				time_data = data.get_data('time')
+			if  isinstance(subsample, list):
+				sample = subsample[j]
 			else:
-				time_data = data.get_data('redshift')
-
+				sample = subsample
+			label = labels[j] if labels!=None else None
+			# Chose to plot vs cosmic time or redshift
+			if x_param == 'time' and data_objs[0].cosmological and not redshift:
+				time_data = utils.quick_lookback_time(data.get_data(x_param))
+			else:
+				time_data = data.get_data(x_param)
+				if data_objs[0].cosmological and redshift:
+					time_data += 1.
 
 			# Check if parameter has subparameters
-			data_vals = data.get_data(y_param)
-			if param_labels is None:
-				axis.plot(time_data, data_vals, color=config.BASE_COLOR, linestyle=config.LINE_STYLES[j], label=labels[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
+			if len(param_labels) == 0:
+				data_vals = data.get_data(y_param, subsample=sample, statistic=stat)
+				axis.plot(time_data, data_vals, color=colors[j], linestyle=linestyles[j], label=label, linewidth=config.BASE_LINEWIDTH, zorder=3)
 			else:
+				data_vals = []
+				for sub_param in sub_y_params:
+					data_vals += [data.get_data(sub_param, subsample=sample, statistic=stat)]
+
+				data_vals = np.array(data_vals)
 				# Renormalize just in case since some of the older snapshots aren't normalized
-				data_vals = data_vals/np.sum(data_vals,axis=1)[:,np.newaxis]
-				for k in range(np.shape(data_vals)[1]):
-					axis.plot(time_data, data_vals[:,k], color=config.LINE_COLORS[k], linestyle=config.LINE_STYLES[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
-			axis.set_xlim([0.8E-2,time_data[-1]])
+				if renorm:
+					data_vals = data_vals/np.sum(data_vals,axis=0)[np.newaxis,:]
+					data_vals[np.isnan(data_vals)] = 0.
+				for k in range(np.shape(data_vals)[0]):
+					# Ignore properties that are zero for the entire simulation and don't plot them
+					if not np.all(data_vals[k,:]==0):
+						axis.plot(time_data, data_vals[k,:], color=config.LINE_COLORS[k], linestyle=linestyles[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
 		# Only need to label the separate simulations in the first plot
 		if i==0 and len(data_objs)>1:
-			axis.legend(loc='upper left', frameon=False, fontsize=config.SMALL_FONT)
+			axis.legend(loc='best', frameon=False, fontsize=config.SMALL_FONT)
 		# If there are subparameters need to make their own legend
-		if param_labels is not None:
-			param_labels = param_labels[:np.shape(data_vals)[1]]
+		if len(param_labels) > 0:
+			#param_labels = param_labels[:np.shape(data_vals)[1]]
 			param_lines = []
 			for j, label in enumerate(param_labels):
 				param_lines += [mlines.Line2D([], [], color=config.LINE_COLORS[j], label=label, linewidth=config.BASE_LINEWIDTH,)]
@@ -920,7 +1309,7 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 
 	# Compare routine carbon yields between routines
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(dust_species), sharey=True)
+	fig,axes,dims = plt_set.setup_figure(len(dust_species), sharey=True)
 	x_param = 'star_age'; y_param = 'cum_dust_prod'
 	x_lim = [time_step,max_t]
 	x_lim=None
@@ -987,6 +1376,54 @@ def compare_dust_creation(Z_list, dust_species, data_dirc, FIRE_ver=2, style='co
 
 
 
+def compare_FIRE_winds(Z_list, style='color-linestyle', foutname='wind_routine_compare.png'):
+
+
+	N = 1000 # number of steps
+	max_t = 10. # max age of stellar population to compute yields
+	min_t = 1E-4
+
+
+	FIRE_ver = 2
+	names = ['base', 'SB99fix', 'AGBshift']
+	labels = ['Base FIRE-2', 'SB99 Fix', 'AGB Shift']
+
+
+	# Compare routine carbon yields between routines
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(4, orientation='vertical', sharex=True)
+	x_param = 'star_age'; y_params = ['wind_rate','wind_vel','wind_E','cum_wind_E']
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(y_params), style=style)
+
+	# Make lines for legend
+	lines = []
+	for i in range(len(Z_list)):
+		lines += [mlines.Line2D([], [], color=config.BASE_COLOR, label=r'Z = %.2g $Z_{\odot}$' % Z_list[i], linewidth= linewidths[i])]
+	for i in range(len(names)):
+		lines += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], label=labels[i], linewidth=config.BASE_LINEWIDTH)]
+
+	for i, name in enumerate(names):
+		for j, Z in enumerate(Z_list):
+			time, wind_rate, wind_vel, wind_E, cum_windE = st_yields.stellar_winds(min_t, max_t,N,Z,FIRE_ver=FIRE_ver,AGB_change=name)
+			data = [wind_rate, wind_vel, wind_E, cum_windE]
+			for k, y_param in enumerate(y_params):
+				axis = axes[k]
+				if i == 0:
+					plt_set.setup_axis(axis, x_param, y_param)
+					if k==0:
+						legend = axis.legend(handles=lines, frameon=True, ncol=2, loc='center left', bbox_to_anchor=(0.025,1.0), framealpha=1, fontsize=config.SMALL_FONT*0.9, edgecolor=config.BASE_COLOR)
+						legend.get_frame().set_lw(config.AXIS_BORDER_WIDTH)
+
+				axis.loglog(time, data[k], color = colors[i], linestyle = linestyles[i], nonpositive = 'clip', linewidth = linewidths[j])
+
+
+	plt.tight_layout()
+	plt.savefig(foutname, transparent=False, bbox_inches='tight')
+	plt.close()
+
+
 def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
 	
 
@@ -1001,7 +1438,7 @@ def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
 
 	# Compare routine carbon yields between routines
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(1)
+	fig,axes,dims = plt_set.setup_figure(1)
 	x_param = 'star_age'; y_param = 'cum_metal_yield'
 
 	axis = axes[0]
@@ -1113,6 +1550,16 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 		cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
 		cbar.outline.set_linewidth(config.AXIS_BORDER_WIDTH)
 
+		for key, value in kwargs.items():
+			if key == 'show_rvir' and value == True:
+				# Plot cirlce for r_vir
+				circle1 = plt.Circle((0,0),snap.rvir,linestyle='dashed',edgecolor='xkcd:red',facecolor='none',zorder=10,
+									 linewidth=config.LINE_WIDTHS[1])
+				circle2 = plt.Circle((0,0),snap.rvir,linestyle='dashed',edgecolor='xkcd:red',facecolor='none',zorder=10,
+									 linewidth=config.LINE_WIDTHS[1])
+				ax1.add_patch(circle1)
+				ax2.add_patch(circle2)
+
 	plt.savefig(foutname)
 	plt.close()
 
@@ -1145,7 +1592,7 @@ def dust_acc_diag(params, snaps, bin_nums=100, labels=None, foutname='dust_acc_d
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), properties=config.DUST_SPECIES, style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes = plt_set.setup_figure(len(params))
+	fig,axes,dims = plt_set.setup_figure(len(params))
 
 	for i,param in enumerate(params):
 		axis = axes[i]

@@ -35,7 +35,9 @@ class Snapshot:
         if cosmological:
             self.scale_factor = self.time
             self.omega = f['Header'].attrs.get('Omega_Matter',0)
-            if self.omega==0: f['Header'].attrs.get('Omega0',0)
+            if self.omega==0: self.omega = f['Header'].attrs.get('Omega0',0)
+        else:
+            self.scale_factor = 1.
         self.hubble = f['Header'].attrs['HubbleParam']
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']

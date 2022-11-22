@@ -70,6 +70,7 @@ class Particle:
 
         ptype = self.ptype
         npart = sp.npart[ptype]
+        self.npart = npart
 
         # no particle in this ptype
         if (npart==0): return
@@ -101,7 +102,7 @@ class Particle:
                 dz = np.zeros((npart,sp.Flag_DustMetals-4), dtype='float')
                 dzs = np.zeros((npart,4), dtype='float')
                 fH2 = np.zeros(npart, dtype='float')
-                fMC = np.zeros(npart, dtype='float')
+                fdense = np.zeros(npart, dtype='float')
                 CinCO = np.zeros(npart, dtype='float')
             if (sp.Flag_DustSpecies):
                 spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
@@ -120,6 +121,7 @@ class Particle:
             snapfile = sp.get_snap_file_name(i)
             f = h5py.File(snapfile, 'r')
             npart_this = f['Header'].attrs['NumPart_ThisFile'][ptype]
+            if npart_this <=0: continue  # if there are no particles of this type in the snap no reason to continue
             nR = nL + npart_this
 
             grp = f['PartType%d'%ptype]
@@ -141,15 +143,16 @@ class Particle:
                     dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
                     dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
                 if 'DustMolecular' in grp:
-                    fMC[nL:nR] = grp['DustMolecular'][:,0]
+                    fdense[nL:nR] = grp['DustMolecular'][:,0]
                     CinCO[nL:nR] = grp['DustMolecular'][:,1]
                     if 'MolecularMassFraction' in grp:
                         fH2[nL:nR] = grp['MolecularMassFraction'][...]
                     # Deal with the in between case when molecular data was all in one place
                     # Can probably delete this soon since only a few sims have this specific output
-                    else: 
+                    elif len(grp['DustMolecular'][:])>=3:
+                        print("Loading old dust molecular...")
                         fH2[nL:nR] = grp['DustMolecular'][:,0]
-                        fMC[nL:nR] = grp['DustMolecular'][:,1]
+                        fdense[nL:nR] = grp['DustMolecular'][:,1]
                         CinCO[nL:nR] = grp['DustMolecular'][:,2]
                 if (sp.Flag_DustSpecies>2):
                     spec[nL:nR] = grp['DustSpecies'][...]
@@ -188,7 +191,8 @@ class Particle:
             self.u = u
             self.rho = rho
             if (sp.Flag_Cooling):
-                T = utils.gas_temperature(u, ne)
+                z_he = z[:,1]; z_tot=z[:,0]
+                T = utils.approx_gas_temperature(u,ne)
                 self.T = T
                 self.ne = ne
                 self.nh = nh
@@ -200,7 +204,7 @@ class Particle:
                     if (sp.Flag_DustSpecies):
                         self.spec = spec
                     self.fH2 = fH2
-                    self.fMC = fMC
+                    self.fdense = fdense
                     self.CinCO = CinCO
             if (sp.Flag_Sfr):
                 self.sfr = sfr
@@ -240,16 +244,15 @@ class Particle:
                 if (self.sp.Flag_DustSpecies):
                     self.spec = self.spec[mask]
                 self.fH2 = self.fH2[mask]
-                self.fMC = self.fMC[mask]
+                self.fdense = self.fdense[mask]
                 self.CinCO = self.CinCO[mask]
             if (self.sp.Flag_Sfr):
                 self.sfr = self.sfr[mask]
     
         if (self.ptype==4):
             if (self.sp.Flag_StellarAge):
-                if (self.sp.cosmological==0):
-                    self.sft = self.sft[mask]
-                    self.age = self.age[mask]
+                self.sft = self.sft[mask]
+                self.age = self.age[mask]
             if (self.sp.Flag_Metals):
                 self.z = self.z[mask]
 
@@ -321,8 +324,12 @@ class Particle:
         if self.ptype==0:
             if property=='M' or property=='M_gas' or property=='m':
                 data = self.m*config.UnitMass_in_Msolar
+            elif property=='h':
+                data = self.h
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
+            elif property == 'M_mol' or property == 'M_H2':
+                data = self.m*self.fH2*self.nh*config.UnitMass_in_Msolar
             elif property == 'M_metals':
                 data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_dust':
@@ -332,26 +339,73 @@ class Particle:
             elif property == 'M_carb':
                 data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_SiC':
-                data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_iron':
-                if self.sp.Flag_DustSpecies>4:
-                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                if self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
                 else:
+                    data = np.zeros(len(self.m))
+            elif property == 'M_iron':
+                if self.sp.Flag_DustSpecies>5:
+                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                elif self.sp.Flag_DustSpecies>2:
                     data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'M_ORes':
-                data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+                if self.sp.Flag_DustSpecies>=5:
+                    data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+                else:
+                    data = np.zeros(len(self.m))
             elif property == 'M_sil+':
                 data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
+            elif property == 'dz_sil':
+                data = self.spec[:,0]/self.dz[:,0]
+            elif property == 'dz_carb':
+                data = self.spec[:,1]/self.dz[:,0]
+            elif property == 'dz_SiC':
+                if self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,2]/self.dz[:,0]
+                else:
+                    data = np.zeros(len(self.m))
+            elif property == 'dz_iron':
+                if self.sp.Flag_DustSpecies>5:
+                    data = (self.spec[:,3]+self.spec[:,5])/self.dz[:,0]
+                elif self.sp.Flag_DustSpecies>2:
+                    data = self.spec[:,3]/self.dz[:,0]
+                else:
+                    data = np.zeros(len(self.m))
+            elif property == 'dz_ORes':
+                if self.sp.Flag_DustSpecies>=5:
+                    data = self.spec[:,4]/self.dz[:,0]
+                else:
+                    data = np.zeros(len(self.m))
+            elif property == 'M_acc_dust':
+                data = self.dzs[:,0]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_SNeIa_dust':
+                data = self.dzs[:,1]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_SNeII_dust':
+                data = self.dzs[:,2]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'M_AGB_dust':
+                data = self.dzs[:,3]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+            elif property == 'dz_acc':
+                data = self.dzs[:,0]
+            elif property == 'dz_SNeIa':
+                data = self.dzs[:,1]
+            elif property == 'dz_SNeII':
+                data = self.dzs[:,2]
+            elif property == 'dz_AGB':
+                data = self.dzs[:,3]
             elif property == 'fH2':
                 data = self.fH2
                 data[data>1] = 1
-            elif property == 'fMC':
-                data = self.fMC
+            elif property == 'fdense':
+                data = self.fdense
                 data[data>1] = 1
             elif property == 'CinCO':
                 data = self.CinCO/self.z[:,2]
             elif property == 'nH':
                 data = self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS
+            elif property == 'nh':
+                data = self.nh
             elif property == 'nH_neutral':
                 data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
             elif property == 'T':
@@ -362,9 +416,64 @@ class Particle:
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':
                 data = self.z
+            elif property == 'Z_O':
+                data = self.z[:,4]/config.SOLAR_MASSFRAC[4]
+            elif property == 'Z_O_gas':
+                data = (self.z[:,4]-self.dz[:,4])/config.SOLAR_MASSFRAC[4]
+            elif property == 'Z_C':
+                data = self.z[:,2]/config.SOLAR_MASSFRAC[2]
+            elif property == 'Z_C_gas':
+                data = (self.z[:,2]-self.dz[:,2])/config.SOLAR_MASSFRAC[2]
+            elif property == 'Z_Mg':
+                data = self.z[:,6]/config.SOLAR_MASSFRAC[6]
+            elif property == 'Z_Mg_gas':
+                data = (self.z[:,6]-self.dz[:,6])/config.SOLAR_MASSFRAC[6]
+            elif property == 'Z_Si':
+                data = self.z[:,7]/config.SOLAR_MASSFRAC[7]
+            elif property == 'Z_Si_gas':
+                data = (self.z[:,7]-self.dz[:,7])/config.SOLAR_MASSFRAC[7]
+            elif property == 'Z_Fe':
+                data = self.z[:,10]/config.SOLAR_MASSFRAC[10]
+            elif property == 'Z_Fe_gas':
+                data = (self.z[:,10]-self.dz[:,10])/config.SOLAR_MASSFRAC[10]
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
+            elif property == 'O/H_offset':
+                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)-offset
+            elif property == 'O/H_gas_offset':
+                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)-offset
+            elif property == 'O/H_gas':
+                O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(O/H)
+            elif property == 'C/H':
+                C = self.z[:,2]/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(C/H)
+            elif property == 'C/H_gas':
+                C = (self.z[:,2]-self.dz[:,2])/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(C/H)
+            elif property == 'Mg/H':
+                Mg = self.z[:,6]/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Mg/H)
+            elif property == 'Mg/H_gas':
+                Mg = (self.z[:,6]-self.dz[:,6])/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Mg/H)
+            elif property == 'Si/H':
+                Si = self.z[:,7]/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Si/H)
+            elif property == 'Si/H_gas':
+                Si = (self.z[:,7]-self.dz[:,7])/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Si/H)
+            elif property == 'Fe/H':
+                Fe = self.z[:,10]/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Fe/H)
+            elif property == 'Fe/H_gas':
+                Fe = (self.z[:,10]-self.dz[:,10])/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                data = 12+np.log10(Fe/H)
             elif property == 'Si/C':
                 data = self.spec[:,0]/self.spec[:,1]
             elif property == 'D/Z':
@@ -379,10 +488,33 @@ class Particle:
                 elem_indx = config.ELEMENTS.index(elem)
                 data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
                 data[data > 1] = 1.
+            elif property == 'f_cold':
+                data = np.sum(self.m[self.T<=1E3])/np.sum(self.m)
+            elif property == 'f_warm':
+                data = np.sum(self.m[(self.T<1E4) & (self.T>=1E3)])/np.sum(self.m)
+            elif property == 'f_hot':
+                data = np.sum(self.m[self.T>=1E4])/np.sum(self.m)
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
+
+        elif self.ptype in [1,2,3]:
+            if property=='M' or property=='M_dm' or property=='m':
+                data = self.m*config.UnitMass_in_Msolar
+            elif property=='h':
+                data = self.h
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
 
         elif self.ptype==4:
             if property in ['M','M_star','M_stellar']:
                 data = self.m*config.UnitMass_in_Msolar
+            elif property in ['M_star_young','M_stellar_young','M_sfr']:
+                # Assume young stars are < 10 Myr old
+                data = self.m*config.UnitMass_in_Msolar
+                age = self.age
+                data[age>0.01] = 0.
             elif property == 'Z':
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':
@@ -390,9 +522,15 @@ class Particle:
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
+            elif property == 'age':
+                data = self.age
+            else:
+                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
+                return None
 
         else:
             print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
             return None
 
-        return data
+        # Make sure to return a copy of the data
+        return data.copy()

@@ -1,5 +1,7 @@
 dust_evo_data/
 analytic_dust_yields/
+snap_check_plots/
+paper_plots/
 observations/data/**
 __pycache__/
 NH_test.py
