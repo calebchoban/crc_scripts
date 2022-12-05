@@ -307,7 +307,7 @@ class Dust_Evo_Data(object):
 			prepend_snaps = self.snap_lims[0]-snap_lims[0]
 			self.snap_lims[0] = snap_lims[0]
 		if snap_lims[1]>self.snap_lims[1]:
-			append_snaps = snap_lims[1]-self.snap_lims[0]
+			append_snaps = snap_lims[1]-self.snap_lims[1]
 			self.snap_lims[1] = snap_lims[1]
 		self.num_snaps = (snap_lims[1]+1)-snap_lims[0]
 
