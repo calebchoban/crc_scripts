@@ -282,6 +282,8 @@ class Dust_Evo_Data(object):
 		self.setDisk=False
 		self.load_kwargs = {}
 		self.set_kwargs = {}
+		# Used when dominate halo changes during sim
+		self.haloIDs = -1
 
 		self.all_snaps_loaded=False
 
@@ -365,8 +367,14 @@ class Dust_Evo_Data(object):
 
 
 	# Set to include particles in specified halo
-	def set_halo(self, load_kwargs={}, set_kwargs={}):
+	# Give array of halo IDs equal to number of snapshots if the halo ID for the final main halo changes during the sim
+	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None):
 		if not self.setHalo:
+			if ids is not None and len(ids)!=self.num_snaps:
+				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These needs to match.")
+				return
+			elif ids is not None:
+				self.haloIDs = ids
 			self.setHalo=True
 			self.load_kwargs = load_kwargs
 			self.set_kwargs = set_kwargs
@@ -412,6 +420,8 @@ class Dust_Evo_Data(object):
 				self.redshift[i] = sp.redshift
 			# Calculate the data fields for both all particles in the halo and all particles in the disk
 			if self.setHalo:
+				if self.haloIDs != -1:
+					self.load_kwargs['id'] = self.haloIDs[i]
 				gal = sp.loadhalo(**self.load_kwargs)
 				gal.set_zoom(**self.set_kwargs)
 			else:
