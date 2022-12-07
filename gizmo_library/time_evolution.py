@@ -93,6 +93,9 @@ class Dust_Evo(object):
 
 		if self.k: return
 
+		if increment < 1:
+			increment = 1
+
 		# Check if previously saved, if so load that and then check if it covers all the snapshots given
 		if os.path.isfile(self.dirc+self.name+'.pickle'):
 			with open(self.dirc+self.name+'.pickle', 'rb') as handle:
@@ -122,7 +125,10 @@ class Dust_Evo(object):
 				print("Some properties are missing from the previously saved data structure. Adding them now...")
 
 		while not self.dust_evo_data.all_snaps_loaded:
-			self.dust_evo_data.load(increment=increment)
+			ok = self.dust_evo_data.load(increment=increment)
+			if not ok:
+				print("Ran into error when attempting to load data....")
+				return
 			self.save()
 
 		self.hubble=self.dust_evo_data.hubble
@@ -283,7 +289,7 @@ class Dust_Evo_Data(object):
 		self.load_kwargs = {}
 		self.set_kwargs = {}
 		# Used when dominate halo changes during sim
-		self.haloIDs = -1
+		self.haloIDs = None
 
 		self.all_snaps_loaded=False
 
@@ -371,7 +377,7 @@ class Dust_Evo_Data(object):
 	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None):
 		if not self.setHalo:
 			if ids is not None and len(ids)!=self.num_snaps:
-				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These needs to match.")
+				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These need to match.")
 				return
 			elif ids is not None:
 				self.haloIDs = ids
@@ -397,7 +403,7 @@ class Dust_Evo_Data(object):
 
 		if not self.setHalo and not self.setDisk:
 			print("Need to call set_halo() or set_disk() to specify halo/disk to load time evolution data.")
-			return
+			return 0
 
 
 		snaps_loaded=0
@@ -406,7 +412,7 @@ class Dust_Evo_Data(object):
 
 			# Stop loading if already loaded set increment so it can be saved
 			if snaps_loaded >= increment:
-				return
+				return 1
 			# Skip already loaded snaps
 			if self.snap_loaded[i]:
 				continue
@@ -420,8 +426,9 @@ class Dust_Evo_Data(object):
 				self.redshift[i] = sp.redshift
 			# Calculate the data fields for both all particles in the halo and all particles in the disk
 			if self.setHalo:
-				if self.haloIDs != -1:
+				if self.haloIDs is not None:
 					self.load_kwargs['id'] = self.haloIDs[i]
+					print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
 				gal = sp.loadhalo(**self.load_kwargs)
 				gal.set_zoom(**self.set_kwargs)
 			else:
@@ -497,4 +504,4 @@ class Dust_Evo_Data(object):
 		self.subsamples_loaded = np.ones(len(self.subsamples_loaded))
 		self.median_loaded = np.ones(len(self.median_loaded))
 
-		return
+		return 1
