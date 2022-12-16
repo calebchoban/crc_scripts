@@ -321,10 +321,18 @@ class Particle:
     # Gets derived properties from particle data
     def get_property(self, property):
 
-        if self.ptype==0:
-            if property=='M' or property=='M_gas' or property=='m':
-                data = self.m*config.UnitMass_in_Msolar
-            elif property=='h':
+        if property == 'M' or property == 'Mass':
+            data = self.m * config.UnitMass_in_Msolar
+        elif property == 'coords':
+            data = self.p
+        elif property == 'r_spherical':
+            data = np.sum(self.p ** 2, axis=1) ** 0.5
+        elif property == 'r_cylindrical' or property == 'r':
+            data = np.sum(self.p[:, :2] ** 2, axis=1) ** 0.5
+        elif self.ptype == 0:
+            if property == 'M' or property == 'M_gas' or property == 'm':
+                data = self.m * config.UnitMass_in_Msolar
+            elif property == 'h':
                 data = self.h
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
@@ -410,8 +418,6 @@ class Particle:
                 data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
             elif property == 'T':
                 data = self.T
-            elif property == 'r':
-                data = np.sqrt(np.power(self.p[:,0],2) + np.power(self.p[:,1],2))
             elif property == 'Z':
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':

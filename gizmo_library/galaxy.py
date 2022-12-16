@@ -147,6 +147,46 @@ class Halo(object):
         return self.rvir
 
 
+    # Returns the half mass radius for a give particle type
+    def get_half_mass_radius(self, within_radius=None, geometry='spherical', ptype=4, rvir_frac=1.0):
+
+        within_radius = self.rvir*rvir_frac if within_radius is None else within_radius
+
+        part = self.loadpart(ptype)
+        coords = part.get_property('coords')
+        masses = part.get_property('M')
+
+        edges = np.linspace(0, within_radius, 5000, endpoint=True)
+
+        if geometry in ['cylindrical', 'scale_height']:
+            radii = np.sum(coords[:, :2] ** 2, axis=1) ** 0.5
+        elif geometry == 'spherical':
+            radii = np.sum(coords ** 2, axis=1) ** 0.5
+
+        within_mask = radii <= within_radius
+
+        ## let's co-opt this method to calculate a scale height as well
+        if geometry == 'scale_height':
+            ## take the z-component
+            radii = np.abs(coords[:, -1])
+            edges = np.linspace(0, 10 * within_radius, 5000, endpoint=True)
+
+        h, edges = np.histogram(
+            radii[within_mask],
+            bins=edges,
+            weights=masses[within_mask])
+        edges = edges[1:]
+        h /= 1.0 * np.sum(h)
+        cdf = np.cumsum(h)
+
+        # Find closest edge to the middle of the cdf
+        argmin = np.argmin((cdf - 0.5) ** 2)
+        half_mass_radius = edges[argmin]
+        print("Ptype %i half mass radius: %e kpc"%(ptype, half_mass_radius))
+
+        return half_mass_radius
+
+
     # load all particles in the halo/galaxy centered on halo center
     def loadpart(self, ptype):
 

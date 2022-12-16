@@ -288,6 +288,7 @@ class Dust_Evo_Data(object):
 		self.setDisk=False
 		self.load_kwargs = {}
 		self.set_kwargs = {}
+		self.use_halfmass_radius = False
 		# Used when dominate halo changes during sim
 		self.haloIDs = None
 
@@ -374,7 +375,7 @@ class Dust_Evo_Data(object):
 
 	# Set to include particles in specified halo
 	# Give array of halo IDs equal to number of snapshots if the halo ID for the final main halo changes during the sim
-	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None):
+	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None, use_halfmass_radius=False):
 		if not self.setHalo:
 			if ids is not None and len(ids)!=self.num_snaps:
 				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These need to match.")
@@ -384,6 +385,7 @@ class Dust_Evo_Data(object):
 			self.setHalo=True
 			self.load_kwargs = load_kwargs
 			self.set_kwargs = set_kwargs
+			self.use_halfmass_radius = use_halfmass_radius
 
 		return
 
@@ -430,7 +432,11 @@ class Dust_Evo_Data(object):
 					self.load_kwargs['id'] = self.haloIDs[i]
 					print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
 				gal = sp.loadhalo(**self.load_kwargs)
-				gal.set_zoom(**self.set_kwargs)
+				if self.use_halfmass_radius:
+					half_mass_radius = gal.get_half_mass_radius(rvir_frac=0.5)
+					gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
+				else:
+					gal.set_zoom(**self.set_kwargs)
 			else:
 				gal = sp.loaddisk(**self.load_kwargs)
 				gal.set_disk(**self.set_kwargs)
