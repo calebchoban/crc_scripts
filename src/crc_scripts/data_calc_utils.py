@@ -1,7 +1,9 @@
 import numpy as np
-import gizmo_library.config as config
-import gizmo_library.utils as utils
 from scipy.stats import binned_statistic_2d
+
+from . import config
+from . import math_utils
+
 
 
 
@@ -55,7 +57,7 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		if prop_lims[1] > 30*prop_lims[0]: 	log_bins=True
 		else:								log_bins=False
 
-	bin_vals, mean_DZ, std_DZ = utils.bin_values(data[1], data[0], prop_lims, bin_nums=bin_nums, weight_vals=weights,
+	bin_vals, mean_DZ, std_DZ = math_utils.bin_values(data[1], data[0], prop_lims, bin_nums=bin_nums, weight_vals=weights,
 												 log=log_bins)
 
 	return bin_vals, mean_DZ, std_DZ
@@ -112,7 +114,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100):
 
 
 
-def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=50, prop_lims=None,
+def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=10, prop_lims=None,
 										 mask_prop=None):
 	"""
 	First calculates mock observations of property1 and property2 for the given pixel resolution. Then
@@ -218,8 +220,8 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
-		elif property == 'O/H_offset':
-			bin_data = P.get_property('O/H_offset')
+		elif property == 'O/H_gas_offset':
+			bin_data = P.get_property('O/H_gas_offset')
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
@@ -268,8 +270,6 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			# Get the average r coordinate for each pixel in kpc
 			pixel_r_vals = np.array([np.sqrt(np.power(np.abs(y_vals),2) + np.power(np.abs(x_vals[k]),2))*r_conversion for k in range(len(x_vals))]).flatten()
 			pixel_data[i] = pixel_r_vals
-			# Makes more sense to force the number of bins for this
-			bin_nums = pixel_bins//2
 		elif property == 'D/Z':
 			bin_data = [P.get_property('M_dust'),P.get_property('M_metals')]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
@@ -294,7 +294,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 	else:
 		mask = np.ones(len(pixel_data[0]), dtype=bool)
 
-	bin_vals, mean_vals, std_vals = utils.bin_values(pixel_data[1][mask], pixel_data[0][mask], prop_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)
+	bin_vals, mean_vals, std_vals = math_utils.bin_values(pixel_data[1][mask], pixel_data[0][mask], prop_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)\
 
 	return bin_vals, mean_vals, std_vals
 
@@ -332,9 +332,10 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 
 	P = snap.loadpart(ptype)
+	mask = np.ones(P.npart, dtype=bool)
 	weights = P.get_property('M')
 	prop_vals = P.get_property(property)
-	mask = np.ones(len(prop_vals), dtype=int)
+
 	if ptype==0:
 		if 'cold' in criteria:
 			T = P.get_property('T')
@@ -342,9 +343,23 @@ def calc_gal_int_params(property, snap, criteria='all'):
 		elif 'hot' in criteria:
 			T = P.get_property('T')
 			mask = T > 1E4
+		elif 'warm' in criteria:
+			T = P.get_property('T')
+			mask = (T<1E4) & (T>=1E3)
 		elif 'molecular' in criteria:
 			fH2 = P.get_property('fH2')
 			mask = fH2 > 0.5
+		elif 'neutral' in criteria:
+			fHn = P.get_property('nh')
+			mask = fHn > 0.5
+		elif 'neutral_atomic' in criteria:
+			fHn = P.get_property('nh')
+			fH2 = P.get_property('fH2')
+			mask = (fHn > 0.5) & (fH2 < 0.5)
+		elif 'ionized' in criteria:
+			nH = P.get_property('nH')
+			T = P.get_property('T')
+			mask = (nH >= 0.5) & (T >= 7000) & (T <= 15000)
 		else:
 			if criteria!='all':
 				print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
@@ -362,7 +377,7 @@ def calc_gal_int_params(property, snap, criteria='all'):
 	weights=weights[mask]
 	prop_vals=prop_vals[mask]
 
-	val = utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
+	val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
 
 	return val
 

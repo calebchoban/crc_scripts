@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from astropy.io import ascii
-from gizmo_library import config
 import os
+
+from .. import config
 
 OBS_DIR = os.path.join(os.path.dirname(__file__), 'data/')
 
@@ -24,14 +25,13 @@ def galaxy_integrated_DZ(paper):
 		# load Remy-Ruyer+14
 		df_r14 = pd.read_csv(OBS_DIR+"remyruyer/Remy-Ruyer_2014.csv")
 		df_r14['metal'] = df_r14['12+log(O/H)']
+		# Convert from O/H to solar using Eq 9 from Chiang+21 which uses Loddars+03 solar abundances
 		df_r14['metal_z'] = 10**(df_r14['metal'] - 12.0) * \
 			16.0 / 1.008 / 0.51 / 1.36
-		df_r14['gas'] = df_r14['MU_GAL'] * \
-			(df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
-		df_r14['fh2'] = df_r14['MH2_Z_MSUN'] / \
-			(df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
-		df_r14['dtm'] = df_r14['MDUST_MSUN'] / df_r14['metal_z'] / \
-			df_r14['gas']
+		df_r14['metal_z_solar'] = df_r14['metal_z'] / config.A09_SOLAR_Z
+		df_r14['gas'] = df_r14['MU_GAL'] * (df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+		df_r14['fh2'] = df_r14['MH2_Z_MSUN'] / (df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+		df_r14['dtm'] = df_r14['MDUST_MSUN'] / df_r14['metal_z'] / df_r14['gas']
 		return df_r14
 
 	elif paper == 'DV19':
@@ -61,6 +61,7 @@ def galaxy_integrated_DZ(paper):
 		df_d19['metal_z'] = 10**(df_d19['metal'] - 12.0) * \
 			16.0 / 1.008 / 0.51 / 1.36
 		df_d19['dtm'] = df_d19['Mdust__Msol'] / (df_d19['metal_z'] * df_d19['gas'])
+		df_d19['metal_z_solar'] = df_d19['metal_z'] / config.A09_SOLAR_Z
 
 		return df_d19
 
@@ -71,6 +72,7 @@ def galaxy_integrated_DZ(paper):
 		df_p20['metal'] = 8.69 + df_p20['[M/H]']
 		df_p20['metal_z'] = 10**(df_p20['metal'] - 12.0) * \
 			16.0 / 1.008 / 0.51 / 1.36
+		df_p20['metal_z_solar'] = df_p20['metal_z'] / config.A09_SOLAR_Z
 		df_p20['dtm'] = 10**df_p20['log_DTM']
 		df_p20['limit'] = df_p20['log_DTM'] <= -1.469
 		return df_p20
@@ -302,6 +304,65 @@ def Jenkins_2009_Elem_Depl(elem,density='NH'):
 
 
 
+def RomanDuval_2021_LMC_Elem_Depl(elem):
+
+	if elem not in config.ELEMENTS:
+		print("Element %s is not supported in RomanDuval_2021_LMC_Elem_Depl()" % elem)
+		return None, None, None
+
+	depl_data = ascii.read(OBS_DIR + 'RomanDuval21/LMC_depletions.txt')
+	# First get all the elements since we want to sort by a given element
+	elements = depl_data['element'].data
+	elements = np.array([elem.replace('I', '') for elem in elements])
+	elem_mask = elements == elem
+
+	if len(elements[elem_mask])==0:
+		print("RomanDuval_2021_LMC_Elem_Depl does not have data for %s depletions"%elem)
+		return None,None,None
+
+	NH_vals = np.power(10, depl_data['logN(H)'].data)[elem_mask]
+	depletions = depl_data['d(X)'].data[elem_mask]
+	depletion_error = depl_data['e_d(X)'].data[elem_mask]
+	depletion_limits = np.array([depletions - depletion_error, depletions + depletion_error])
+
+	depletions = np.power(10, depletions)
+	depletion_limits = np.power(10, depletion_limits)
+
+	# Some of these observations are solely upper or lower limits
+	depletion_is_limit = depl_data['l_d(X)'].data[elem_mask]
+	upper_limit = depletion_is_limit == '<'
+	lower_limit = depletion_is_limit == '>'
+	depletion_limits[1, lower_limit] = np.inf
+	depletion_limits[0, lower_limit] = depletions[lower_limit]
+	depletion_limits[0, upper_limit] = np.inf
+	depletion_limits[1, upper_limit] = depletions[upper_limit]
+
+	return depletions, depletion_limits, NH_vals
+
+
+def Jenkins_Wallerstein_2017_SMC_Elem_Depl(elem):
+
+	depl_data = ascii.read(OBS_DIR + 'JenkinsWallerstein17/SMC.csv')
+
+	elems = ['Mg', 'Si', 'Fe']
+	if elem not in elems:
+		print("Jenkins_Wallerstein_2017_SMC_Elem_Depl does not have data for %s depletions" % elem)
+		return None, None, None
+
+	depletions = np.array(depl_data['d(' + elem + ')'].data)
+	valid_mask = depletions != 0
+	NH_vals = np.array(depl_data['log(NH)'])[valid_mask]
+	error_lower = np.array(depl_data['d(' + elem + ')_l'])[valid_mask]
+	error_upper = np.array(depl_data['d(' + elem + ')_u'])[valid_mask]
+	depletions = depletions[valid_mask]
+
+	depletion_limits = np.array([depletions - error_lower, depletions + error_upper])
+	depletions = np.power(10, depletions)
+	depletion_limits = np.power(10, depletion_limits)
+	NH_vals = np.power(10, NH_vals)
+
+	return depletions, depletion_limits, NH_vals
+
 def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 	"""
 	Gives C depletion data vs <nH> from sightlines in Parvathi+ (2012).
@@ -352,6 +413,9 @@ def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 		density_vals = nH
 
 	return C_depl, C_error, density_vals
+
+
+
 
 
 
@@ -543,7 +607,7 @@ def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=Tr
 	elif param == 'sigma_dust':
 		vals = data['dust']
 	elif param == 'r':
-		vals = data['Rg']
+		vals = data['Rg_kpc']
 	elif param == 'r25':
 		vals = data['Rg/R25']
 	else:

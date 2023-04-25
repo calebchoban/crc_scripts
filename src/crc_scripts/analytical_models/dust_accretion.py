@@ -1,6 +1,5 @@
 import numpy as np
-from gizmo_library import config
-from gizmo_library import utils
+from .. import config
 
 # Theoretical dust yields for all sources of creation
 

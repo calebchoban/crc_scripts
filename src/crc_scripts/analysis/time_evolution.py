@@ -1,16 +1,16 @@
 import os
 import numpy as np
-from .utils import weighted_percentile
 import pickle
-from .snapshot import Snapshot
+from ..math_utils import weighted_percentile
+from ..io.snapshot import Snapshot
 
 # This is a class that compiles the evolution data of a Snapshot/Halo/Disk
 # over a specified time for a simulation
 
 class Dust_Evo(object):
 
-	def __init__(self, sdir, snap_lims, cosmological=0, periodic_bound_fix=False,
-				 totals=None, medians=None , median_subsamples=None, star_totals=None, dirc='./', name_prefix=''):
+	def __init__(self, sdir, snap_lims, cosmological=0, periodic_bound_fix=False, totals=None, medians=None,
+				 median_subsamples=None, star_totals=None, dirc='./', name_prefix='', FIREver=2):
 		# Set property totals and property medians you want from each snapshot. Also set median masks which will
 		# take subsampled medians based on gas properties
 		if totals is None:
@@ -41,6 +41,7 @@ class Dust_Evo(object):
 		self.cosmological = cosmological
 		self.hubble=None
 		self.omega=None
+		self.FIREver = FIREver
 		self.dirc = dirc
 		# In case the sim was non-cosmological and used periodic BC which causes
 		# galaxy to be split between the 4 corners of the box
@@ -57,13 +58,47 @@ class Dust_Evo(object):
 		self.name = 'dust_evo_'+name_prefix+'_'+self.basename+'_snaps'
 
 		# Check if object file has already been created if so load that first instead of creating a new one
-		if os.path.isfile(dirc+self.name):
-			with open(dirc+self.name, 'rb') as handle:
+		if not os.path.isfile(self.dirc + self.name + '.pickle'):
+			self.dust_evo_data = Dust_Evo_Data(sdir, snap_lims, self.totals, self.medians, self.median_subsamples,
+											   self.star_totals, cosmological=cosmological, pb_fix=periodic_bound_fix, )
+		else:
+			with open(self.dirc+self.name + '.pickle', 'rb') as handle:
 				self.dust_evo_data = pickle.load(handle)
 			print("Dust_Evo data already exists so loading that first....")
-		else:
-			self.dust_evo_data = Dust_Evo_Data(sdir, snap_lims, self.totals, self.medians, self.median_subsamples,
-							self.star_totals, cosmological=cosmological, pb_fix=periodic_bound_fix,)
+
+			# If previously saved data set has different snap limits need to update limits before loading
+			if not np.array_equiv(self.snap_lims, self.dust_evo_data.snap_lims):
+				if self.snap_lims[0]<self.dust_evo_data.snap_lims[0] or self.snap_lims[0]>self.dust_evo_data.snap_lims[1]:
+					print('Given snapshot limits differ from previously saved data structure')
+					print("Previous limits:",self.dust_evo_data.snap_lims)
+					print("New limits:",self.snap_lims)
+					print("Adding new snapshots now......")
+					self.dust_evo_data.change_snap_lims(self.snap_lims)
+					if self.dust_evo_data.haloIDs is not None:
+						print("Since the initial limits were given an array of halo IDs make sure you call setHalo() again "
+							  "with an array of halo IDs that match the new limits.")
+						self.dust_evo_data.setHalo = False
+						self.setHalo = False
+
+			new_props = False
+			# If previously saved data is missing properties or subsamples then update property list
+			missing_props = list(set(self.totals) - set(self.dust_evo_data.total_props))
+			if len(missing_props) > 0:
+				print('New Totals:',missing_props)
+				self.dust_evo_data.add_total_property(missing_props)
+				new_props=True
+			missing_props = list(set(self.medians) - set(list(list(self.dust_evo_data.median_props))))
+			if len(missing_props) > 0:
+				print('New Medians:',missing_props)
+				self.dust_evo_data.add_median_property(missing_props)
+				new_props=True
+			missing_props = list(set(self.median_subsamples) - set(self.dust_evo_data.subsamples))
+			if len(missing_props) > 0:
+				print('New Subsamples:',missing_props)
+				self.dust_evo_data.add_subsample(missing_props)
+				new_props=True
+			if new_props:
+				print("Some properties are missing from the previously saved data structure. Adding them now...")
 
 		self.k = 0
 
@@ -93,36 +128,14 @@ class Dust_Evo(object):
 
 		if self.k: return
 
-		# Check if previously saved, if so load that and then check if it covers all the snapshots given
-		if os.path.isfile(self.dirc+self.name+'.pickle'):
-			with open(self.dirc+self.name+'.pickle', 'rb') as handle:
-				self.dust_evo_data = pickle.load(handle)
-			# If previously saved data set has different snap limits need to update limits before loading
-			if not np.array_equiv(self.snap_lims, self.dust_evo_data.snap_lims):
-				print('Snap limits differ from previously saved data structure. Adding them now.....')
-				self.dust_evo_data.change_snap_lims(self.snap_lims)
-			new_props = False
-			# If previously saved data is missing properties or subsamples then update property list
-			missing_props = list(set(self.totals) - set(self.dust_evo_data.total_props))
-			if len(missing_props) > 0:
-				print('New Totals:',missing_props)
-				self.dust_evo_data.add_total_property(missing_props)
-				new_props=True
-			missing_props = list(set(self.medians) - set(list(list(self.dust_evo_data.median_props))))
-			if len(missing_props) > 0:
-				print('New Medians:',missing_props)
-				self.dust_evo_data.add_median_property(missing_props)
-				new_props=True
-			missing_props = list(set(self.median_subsamples) - set(self.dust_evo_data.subsamples))
-			if len(missing_props) > 0:
-				print('New Subsamples:',missing_props)
-				self.dust_evo_data.add_subsample(missing_props)
-				new_props=True
-			if new_props:
-				print("Some properties are missing from the previously saved data structure. Adding them now...")
+		if increment < 1:
+			increment = 1
 
 		while not self.dust_evo_data.all_snaps_loaded:
-			self.dust_evo_data.load(increment=increment)
+			ok = self.dust_evo_data.load(increment=increment)
+			if not ok:
+				print("Ran into an error when attempting to load data....")
+				return
 			self.save()
 
 		self.hubble=self.dust_evo_data.hubble
@@ -243,6 +256,17 @@ class Dust_Evo(object):
 			total = self.dust_evo_data.median_data[subsample][base_name]
 			gas = self.dust_evo_data.median_data[subsample][base_name+'_gas']
 			data = total-gas
+		elif 'Si/C' in data_name:
+			if 'total' in statistic:
+				data = (self.dust_evo_data.total_data['M_sil']+self.dust_evo_data.total_data['M_SiC']+ \
+						self.dust_evo_data.total_data['M_iron']+self.dust_evo_data.total_data['M_ORes'])/self.dust_evo_data.total_data['M_carb']
+			elif 'median' in statistic:
+				data = (self.dust_evo_data.median_data[subsample]['dz_sil']+self.dust_evo_data.median_data[subsample]['dz_SiC']+\
+							self.dust_evo_data.median_data[subsample]['dz_iron']+self.dust_evo_data.median_data[subsample]['dz_ORes']) \
+							/ self.dust_evo_data.median_data[subsample]['dz_carb']
+			else:
+				print(data_name, " is not in the dataset with given statistic.")
+				return None
 		else:
 			print(data_name," is not in the dataset.")
 			return None
@@ -282,8 +306,9 @@ class Dust_Evo_Data(object):
 		self.setDisk=False
 		self.load_kwargs = {}
 		self.set_kwargs = {}
+		self.use_halfmass_radius = False
 		# Used when dominate halo changes during sim
-		self.haloIDs = -1
+		self.haloIDs = None
 
 		self.all_snaps_loaded=False
 
@@ -335,7 +360,6 @@ class Dust_Evo_Data(object):
 		self.median_loaded = np.zeros(len(self.median_loaded))
 		self.subsamples_loaded = np.zeros(len(self.subsamples_loaded))
 
-
 	def add_total_property(self,properties):
 		self.total_props += properties
 		self.totals_loaded = np.append(self.totals_loaded,np.zeros(len(properties)))
@@ -368,16 +392,17 @@ class Dust_Evo_Data(object):
 
 	# Set to include particles in specified halo
 	# Give array of halo IDs equal to number of snapshots if the halo ID for the final main halo changes during the sim
-	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None):
+	def set_halo(self, load_kwargs={}, set_kwargs={}, ids=None, use_halfmass_radius=False):
 		if not self.setHalo:
 			if ids is not None and len(ids)!=self.num_snaps:
-				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These needs to match.")
+				print("The array of halo IDs given does not equal the number of snapshots set for the given snap limits! These need to match.")
 				return
 			elif ids is not None:
 				self.haloIDs = ids
 			self.setHalo=True
 			self.load_kwargs = load_kwargs
 			self.set_kwargs = set_kwargs
+			self.use_halfmass_radius = use_halfmass_radius
 
 		return
 
@@ -397,7 +422,7 @@ class Dust_Evo_Data(object):
 
 		if not self.setHalo and not self.setDisk:
 			print("Need to call set_halo() or set_disk() to specify halo/disk to load time evolution data.")
-			return
+			return 0
 
 
 		snaps_loaded=0
@@ -406,7 +431,7 @@ class Dust_Evo_Data(object):
 
 			# Stop loading if already loaded set increment so it can be saved
 			if snaps_loaded >= increment:
-				return
+				return 1
 			# Skip already loaded snaps
 			if self.snap_loaded[i]:
 				continue
@@ -418,12 +443,17 @@ class Dust_Evo_Data(object):
 			self.time[i] = sp.time
 			if self.cosmological:
 				self.redshift[i] = sp.redshift
-			# Calculate the data fields for both all particles in the halo and all particles in the disk
+			# Calculate the data fields for either all particles in the halo and all particles in the disk
 			if self.setHalo:
-				if self.haloIDs != -1:
+				if self.haloIDs is not None:
 					self.load_kwargs['id'] = self.haloIDs[i]
+					print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
 				gal = sp.loadhalo(**self.load_kwargs)
-				gal.set_zoom(**self.set_kwargs)
+				if self.use_halfmass_radius:
+					half_mass_radius = gal.get_half_mass_radius(rvir_frac=0.5)
+					gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
+				else:
+					gal.set_zoom(**self.set_kwargs)
 			else:
 				gal = sp.loaddisk(**self.load_kwargs)
 				gal.set_disk(**self.set_kwargs)
@@ -455,7 +485,7 @@ class Dust_Evo_Data(object):
 			# First do totals
 			for j, prop in enumerate(self.total_props):
 				if not self.totals_loaded[j]:
-					prop_mass = G.get_property(prop)
+					prop_mass = G.get_property(prop, FIREver=self.FIREver)
 					self.total_data[prop][i] = np.nansum(prop_mass)
 
 
@@ -463,11 +493,14 @@ class Dust_Evo_Data(object):
 			for j, subsample in enumerate(self.subsamples):
 				for k, prop in enumerate(self.median_props):
 					if not self.subsamples_loaded[j] or not self.median_loaded[k]:
-						prop_vals = G.get_property(prop)
+						prop_vals = G.get_property(prop, FIREver=self.FIREver)
 						mask = masks[subsample]
 						# Deal with properties that are more than one value
-						self.median_data[subsample][prop][i] = weighted_percentile(prop_vals[mask], percentiles=[50],
+						if len(prop_vals[mask]>0):
+							self.median_data[subsample][prop][i] = weighted_percentile(prop_vals[mask], percentiles=[50],
 															weights=G_mass[mask], ignore_invalid=True)
+						else:
+							self.median_data[subsample][prop][i] = np.nan
 
 
 			# Finally do star properties if there are any
@@ -497,4 +530,4 @@ class Dust_Evo_Data(object):
 		self.subsamples_loaded = np.ones(len(self.subsamples_loaded))
 		self.median_loaded = np.ones(len(self.median_loaded))
 
-		return
+		return 1

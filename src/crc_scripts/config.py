@@ -16,11 +16,12 @@ BASE_MARKERSTYLE = 'o'
 BASE_MARKERSIZE = 10
 
 # Set personal color, linewidths, and styles cycle
-LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:teal","xkcd:sienna","xkcd:magenta","xkcd:orange","xkcd:gold"]
-MARKER_COLORS = ["xkcd:orange","xkcd:teal","xkcd:sienna","xkcd:gold","xkcd:magenta","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
+LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna"]
+SECOND_LINE_COLORS = ["xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
+MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sienna","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
 				 "xkcd:peach","xkcd:olive green"]
-LINE_STYLES = ['-','--',':','-.',(0, (3, 5, 1, 5, 1, 5)),'-','--',':','-.',(0, (3, 5, 1, 5, 1, 5))]
+LINE_STYLES = ['-','--',':','-.','-','--',':','-.','-','--',':','-.']
 MARKER_STYLES = ['o','^','X','s','v','P','>','v','d','1','2','*','<',
                  'o','^','X','s','v','P','>','v','d','1','2','*','<']
 LINE_WIDTHS = np.array([0.25,0.5,0.75,1.0,1.25,1.5])*BASE_LINEWIDTH
@@ -76,15 +77,19 @@ HUBBLE 						= 0.702
 OMEGA_MATTER 				= 0.272
 L_solar 					= 3.828E26 # Watts
 
+AG89_SOLAR_Z = 0.02
+A09_SOLAR_Z = 0.0142
+
 FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
 	# FIRE-2 uses Anders & Grevesse 1989 for Solar
-	SOLAR_Z					= 0.02
+	SOLAR_Z					= AG89_SOLAR_Z
 	SOLAR_MASSFRAC			= np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
 else:
-	# FIRE-3 uses Asplund+ 2009 for Solar
-	SOLAR_Z					= 0.0142
+	# FIRE-3 uses Asplund+ 2009 for proto-solar
+	SOLAR_Z					= A09_SOLAR_Z
 	SOLAR_MASSFRAC 			= np.array([0.0142,0.2703,2.53e-3,7.41e-4,6.13e-3,1.34e-3,7.57e-4,7.12e-4,3.31e-4,6.87e-5,1.38e-3])
+
 
 
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
@@ -95,11 +100,15 @@ SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 # with olivine fraction of 0.32 and Mg fraction of 0.8
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
 
-DUST_SPECIES				= ['Silicates','Carbon','SiC','Iron','O Reservoir','Iron Inclusions']
-DUST_SOURCES				= ['Accretion','SNe Ia', 'SNe II', 'AGB']
+DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusions']
+DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
+DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 
 # Houses labels, limits, and if they should be plotted in log space for possible properties
 PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
+						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
+						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
+						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
@@ -151,7 +160,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 						  'Z_Fe': ['[Fe/H]', 															[1.1E-3,5E0], 	True],
 				  	  'Z_Fe_gas': [r'[Fe/H]$_{\rm gas}$', 												[1.1E-3,5E0], 	True],
 **dict.fromkeys(['O/H', 'O/H_all','O/H_offset','O/H_gas_ionized_offset'], ['12+log(O/H)', 				[8,9], 	    	False]),
-				  	   'O/H_gas': [r'12+log(O/H)$_{\rm gas}$', 											[8,9],	 	    False],
+**dict.fromkeys(['O/H_gas','O/H_gas_offset'], [r'12+log(O/H)$_{\rm gas}$', 								[8,9],	 	    False]),
 				  	  'O/H_dust': [r'12+log(O/H)$_{\rm dust}$', 										[8,9],	 	    False],
 				   'O/H_ionized': [r'12+log(O/H)$_{\rm ionized}$', 										[8,9],	 	    False],
 			   'O/H_gas_ionized': [r'12+log(O/H)$_{\rm ionized,gas}$', 									[8,9],	 	    False],
@@ -179,8 +188,8 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 				'inst_dust_prod': [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', 							[1E-2,1E0], 	True],
 				   'g_timescale': [r'$\tau_{\rm g}$ [Gyr]',												[1E-4,1E0],		True],
 			  'g_timescale_frac': [r'Fraction of Gas < $\tau_{\rm g}$',									[0,1.05],		False],
-				   'source_frac': ['Source Mass Fraction', 												[1E-2,1.05], 	True],
-					 'spec_frac': ['Species Mass Fraction', 											[0,1.05], 		False],
+				   'source_frac': ['Source Mass\nFraction', 												[1E-2,1.05], 	True],
+**dict.fromkeys(['spec_frac','spec_frac_Si/C'], ['Species Mass\nFraction', 								[0,1.05], 		False]),
 						  'Si/C': ['Sil-to-C Ratio', 													[0,10], 		False],
 					 'mass_frac': ['Mass Fraction',														[0,1.05],		False],
 					 'wind_rate': [r'Cont. Mass-Loss $\dot{M}_{\rm W}/M_{\star}$ [Gyr$^{-1}$]',			[3E-4,2E2],		True],

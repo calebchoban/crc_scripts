@@ -1,6 +1,5 @@
 from . import config
 import numpy as np
-from . import shieldLengths as SL
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 
@@ -271,45 +270,6 @@ def gas_temperature(internal_egy_code, helium_mass_fraction, electron_abundance,
     return T;
 
 
-
-# returns H2 mass fraction using the given option
-# 'sheild': Use recalculated shielding lengths (Cell+Sobolev) use in FIRE. Not entirely accurate but close
-# 'scale': Use just the cell length for the shielding length. Underproduced H2 mass
-def calc_fH2(G, option='shield'):
-    # Analytic calculation of molecular hydrogen from Krumholz et al. (2018)
-
-    Z = G.z[:,0] #metal mass (everything not H, He)
-    # dust mean mass per H nucleus
-    mu_H = 2.3E-24# grams
-    # standard effective number of particle kernel neighbors defined in parameters file
-    N_ngb = 32.
-    # Gas softening length
-    hsml = G.h*config.UnitLength_in_cm
-    density = G.rho*config.UnitDensity_in_cgs
-
-    if option == 'scale':
-        sobColDens = np.multiply(hsml,density) / np.power(N_ngb,1./3.) # Cheesy approximation of column density
-    elif option == 'shield':
-        shieldLength = SL.FindShieldLength(G.p*config.UnitLength_in_cm, density*0.76) # use just H density
-        sobColDens = np.multiply(shieldLength,density)
-    else:
-        print("%s is not a valid option for calc_fH2()"%option)
-        return
-
-    #  dust optical depth 
-    tau = np.multiply(sobColDens,(0.1+Z/config.SOLAR_Z))*1E-21/mu_H
-    tau[tau==0]=config.EPSILON #avoid divide by 0
-
-    chi = 3.1 * (1+3.1*np.power(Z/config.SOLAR_Z,0.365)) / 4.1 # Approximation
-
-    s = np.divide( np.log(1+0.6*chi+0.01*np.power(chi,2)) , (0.6*tau) )
-    s[s==-4.] = -4.+config.EPSILON # Avoid divide by zero
-    fH2 = np.divide((1 - 0.5*s) , (1+0.25*s)) # Fraction of Molecular Hydrogen from Krumholz & Knedin
-    fH2[fH2<0] = 0 #Nonphysical negative molecular fractions set to 0
-    
-    return fH2
-
-
 # returns the rotation matrix between two vectors. To be used to rotate galaxies
 def calc_rotate_matrix(vec1, vec2):
     """"
@@ -332,9 +292,15 @@ def fit_exponential(x_data, y_data, guess=None, bounds=None):
     return curve_fit(exp_func,x_data,y_data, p0=guess, bounds=bounds)
 
 # This fits a sersic+exponential disk profile to galactocentric vs sufrace density data
-def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None):
+def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='de_vauc'):
     def sersic_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l, sersic_index):
         return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./sersic_index))+coeff2*np.exp(-x/disk_l))
+    def de_vaucouleurs_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l):
+        return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./4.))+coeff2*np.exp(-x/disk_l))
 
-    return curve_fit(sersic_and_exp_func,x_data,np.log10(y_data), p0=guess, bounds=bounds)
+    y_data[y_data <= 0] = config.EPSILON
+    if bulge_profile=='sersic':
+        return curve_fit(sersic_and_exp_func,x_data,np.log10(y_data), p0=guess, bounds=bounds)
+    if bulge_profile=='de_vauc':
+        return curve_fit(de_vaucouleurs_and_exp_func, x_data, np.log10(y_data), p0=guess, bounds=bounds)
 

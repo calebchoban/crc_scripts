@@ -1,17 +1,9 @@
-dust_evo_data/
-analytic_dust_yields/
-snap_check_plots/
-paper_plots/
-observations/data/**
+/src/crc_scripts/observations/data/**
 __pycache__/
-NH_test.py
-paper2_plots.py
 .ipynb_checkpoints/
 .idea/
 
 
-
-*.ipynb
 *.pyc
 *.e
 *.o
@@ -24,7 +16,4 @@ paper2_plots.py
 *.pdf
 *.eps
 *.jpg
-
-/cosmo_check_snap.py
-/visual.py
 

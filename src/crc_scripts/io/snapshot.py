@@ -1,8 +1,7 @@
 import numpy as np
 import h5py
 import os
-from . import utils
-from . import config
+from .. import math_utils
 from .particle import Header,Particle
 from .galaxy import Halo,Disk
 from .AHF import AHF
@@ -43,17 +42,13 @@ class Snapshot:
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
         self.Flag_Metals = f['Header'].attrs['Flag_Metals']
-        self.Flag_DustMetals = f['Header'].attrs.get('Flag_Dust',0)
-        self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species',0)
-        if(self.Flag_DustSpecies==0 and self.Flag_DustMetals !=0): self.Flag_DustSpecies=2 # just generalized silicate and carbonaceous
-        # Determine if the snapshot came from a simulations with on-the-fly dust
-        if self.Flag_Metals and self.Flag_DustSpecies>2:
-            self.dust_impl = 'species'
-        elif self.Flag_Metals:
-            self.dust_impl = 'elemental'
+        # Deal with old flag tags
+        if f['Header'].attrs.get('Flag_Dust_Species',0):
+            self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Dust_Species',0)
         else:
-            self.dust_impl = None
+            self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
+        self.Reference_Metallicities = f['Header'].attrs['Solar_Abundances_Adopted']
         f.close()
 
         # correct for cosmological runs
@@ -160,6 +155,7 @@ class Snapshot:
                 disk = Disk(self, id=id,rmax=rmax,height=height)
                 self.AHFdiskIDs.append(id)
                 self.AHFdisks.append(disk)
+            disk.load()
 
         else:
             disk = Disk(self, id=id,rmax=rmax,height=height)
@@ -179,7 +175,7 @@ class Snapshot:
         if (part.k==-1): return None, None
 
         sft, m = part.sft, part.m
-        t, sfr = utils.SFH(sft, m, dt=dt, cum=cum, sp=self)
+        t, sfr = math_utils.SFH(sft, m, dt=dt, cum=cum, sp=self)
 
         return t, sfr
 

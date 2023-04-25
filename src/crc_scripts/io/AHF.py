@@ -1,5 +1,4 @@
 import numpy as np
-from . import utils
 import glob
 
 
@@ -87,26 +86,6 @@ class AHF:
         self.Lhat = np.array([Lx,Ly,Lz])
 
         return
-
-            
-    # load AHF particles
-    def loadpart(self, id=0):
-    
-        self.load()
-        if (self.k!=1): return [],[] # no halo catalog
-        
-        if ((id<0)|(id>=self.nhalo)): return [],[] # id not valid
-        
-        pfile = self.hdir + "/snap%03d*AHF_particles" %self.sp.snum
-        flist = glob.glob(pfile)
-        if (len(flist)==0): return [],[] # no particle file
-        PFile = flist[0]
-    
-        NDummy = np.sum(self.npart[0:id]) + id
-        NPart = self.npart[id]
-        PartID, PType = utils.loadAHFpart(PFile, NDummy, NPart)
-    
-        return PartID, PType
 
 
     # this function is only called when loading a halo

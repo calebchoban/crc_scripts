@@ -6,61 +6,61 @@ from scipy.stats import binned_statistic_2d
 import pickle
 import os
 
-import observations.dust_obs as obs
-import analytical_models.stellar_yields as st_yields
-import analytical_models.dust_accretion as dust_acc
-import plot_setup as plt_set
-import gizmo_library.config as config
-import gizmo_library.utils as utils
-import calculate as calc
+from .observations import dust_obs as obs
+from .analytical_models import stellar_yields as st_yields
+from .analytical_models import dust_accretion as dust_acc
+from . import plot_utils as plt_set
+from . import config
+from . import math_utils
+from . import data_calc_utils as calc
 
 # Check if Phil's visualization module is installed
-import importlib
-vis_installed = importlib.util.find_spec("visualization") is not None
-if vis_installed:
-	from visualization.image_maker import image_maker, edgeon_faceon_projection
-
-
-def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048, **kwargs):
-	"""
-	Wrapper for Phil's mock Hubble visualization routine. Documentation can be found here:
-	https://bitbucket.org/phopkins/pfh_python/src/master/ and check the docstring of
-	=visualization.image_maker.image_maker for more details and options.
-
-	Parameters
-	----------
-	snapdir: string
-		Directory of snapshot
-	snapnum: int
-		Number of snapshot
-	image_key : boolean
-		Restrict data to only that with good signal-to-noise if applicable
-	fov: float
-		Sets physical size of image in kpc
-	pixels: int
-		Number of pixels for image, sets resolution
-
-
-	Returns
-	-------
-	None
-
-	"""
-
-	# TODO: Incorporate Alex Gurvich's FIRE studio here
-
-	# First check if Phil's routine is installed
-	if not vis_installed:
-		print("The visualization routine is not installed! Go to https://bitbucket.org/phopkins/pfh_python/src/master/ \
-			  and follow the instructions to install the routine.")
-		return
-
-	edgeon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov,image_key=image_key,
-										pixels=pixels, edgeon=True, load_dust=True, **kwargs)
-	faceon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov, image_key=image_key,
-											pixels=pixels, faceon=True, load_dust=True, **kwargs)
-
-	return
+# import importlib
+# vis_installed = importlib.util.find_spec("visualization") is not None
+# if vis_installed:
+# 	from visualization.image_maker import image_maker, edgeon_faceon_projection
+#
+#
+# def create_visualization(snapdir, snapnum, image_key='star', fov=50, pixels=2048, **kwargs):
+# 	"""
+# 	Wrapper for Phil's mock Hubble visualization routine. Documentation can be found here:
+# 	https://bitbucket.org/phopkins/pfh_python/src/master/ and check the docstring of
+# 	=visualization.image_maker.image_maker for more details and options.
+#
+# 	Parameters
+# 	----------
+# 	snapdir: string
+# 		Directory of snapshot
+# 	snapnum: int
+# 		Number of snapshot
+# 	image_key : boolean
+# 		Restrict data to only that with good signal-to-noise if applicable
+# 	fov: float
+# 		Sets physical size of image in kpc
+# 	pixels: int
+# 		Number of pixels for image, sets resolution
+#
+#
+# 	Returns
+# 	-------
+# 	None
+#
+# 	"""
+#
+# 	# TODO: Incorporate Alex Gurvich's FIRE studio here
+#
+# 	# First check if Phil's routine is installed
+# 	if not vis_installed:
+# 		print("The visualization routine is not installed! Go to https://bitbucket.org/phopkins/pfh_python/src/master/ \
+# 			  and follow the instructions to install the routine.")
+# 		return
+#
+# 	edgeon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov,image_key=image_key,
+# 										pixels=pixels, edgeon=True, load_dust=True, **kwargs)
+# 	faceon_image = edgeon_faceon_projection(snapdir, snapnum, centering='', field_of_view=fov, image_key=image_key,
+# 											pixels=pixels, faceon=True, load_dust=True, **kwargs)
+#
+# 	return
 
 
 
@@ -160,7 +160,7 @@ def plot_extragalactic_dust_obs(axis, property1, property2, goodSNR=True, aggreg
 
 
 
-def plot_MW_dust_obs(axis, property1, property2):
+def plot_depl_dust_obs(axis, property1, property2):
 	"""
 	Plots Milky Way observational data vs the given property.
 
@@ -186,7 +186,7 @@ def plot_MW_dust_obs(axis, property1, property2):
 		log=True
 
 	if property1 == 'D/Z':
-		# Plot MW D/Z sight line data derived from depeltion measurements in Jenkins09
+		# Plot MW D/Z sight line data derived from depletion measurements in Jenkins09
 		if property2 == 'nH' or property2 == 'nH_neutral':
 			data_to_use = 'Jenkins09_DZ'
 	elif 'depletion' in property1:
@@ -197,12 +197,12 @@ def plot_MW_dust_obs(axis, property1, property2):
 		if 'nH' in property2:
 			data_to_use = 'Jenkins09_depl_nH'
 		elif 'NH' in property2:
-			data_to_use = 'Jenkins09_depl_NH'
+			data_to_use = ['Jenkins09_depl_NH', 'RD21_depl_NH','JW17_depl_NH']
 	else:
 		print("%s vs %s Milky Way observational data is not available."%(property1,property2))
 		return None
 
-	if data_to_use == 'Jenkins09_DZ':
+	if 'Jenkins09_DZ' in data_to_use:
 		# Plot J09 with Zhukovska+16/18 conversion to physical density
 		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=True, C_corr=True)
 		axis.plot(dens_vals, DZ_vals, label=r'J09 $n_{\rm H,neutral}^{\rm Z16}$', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
@@ -216,7 +216,7 @@ def plot_MW_dust_obs(axis, property1, property2):
 		dens_vals, DZ_vals = obs.Jenkins_2009_DZ_vs_dens(phys_dens=False, C_corr=True)
 		axis.plot(dens_vals, DZ_vals, label=r'J09 $\left< n_{\rm H} \right>_{\rm neutral}^{\rm min}$', c='xkcd:black', linestyle=config.LINE_STYLES[1], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
 
-	elif data_to_use == 'Jenkins09_depl_nH':
+	if 'Jenkins09_depl_nH' in data_to_use:
 		elem = property1.split('_')[0]
 		if elem == 'C':
 			# Plot raw Jenkins data since there are so few sightlines and fit is quite bad
@@ -241,7 +241,7 @@ def plot_MW_dust_obs(axis, property1, property2):
 			axis.scatter(nH_val,WNM_depl, marker='D',c='xkcd:black', zorder=2, label='WNM', s=(config.BASE_MARKERSIZE*1.5)**2)
 			axis.plot(np.logspace(np.log10(nH_val), np.log10(dens_vals[0])),np.logspace(np.log10(WNM_depl), np.log10(1-DZ_vals[0])), c='xkcd:black', linestyle=':', linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
 
-	elif data_to_use == 'Jenkins09_depl_NH':
+	if 'Jenkins09_depl_NH' in data_to_use:
 		elem = property1.split('_')[0]
 
 		depl, depl_err, NH_vals = obs.Jenkins_2009_Elem_Depl(elem,density='NH')
@@ -251,38 +251,115 @@ def plot_MW_dust_obs(axis, property1, property2):
 		depl_err[0,upper_lim]=depl[upper_lim]*(1-10**-0.1)
 		no_lim = ~upper_lim & ~lower_lim
 		# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
-		axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='Jenkins09', fmt='o', c='xkcd:medium grey',
+		axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:,no_lim], label='MW', fmt='o', c='xkcd:medium grey',
 					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
 		axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
 			  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
 		axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
 					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=2, alpha=1)
+					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
 		if elem=='C':
 			C_depl, C_error, C_NH_vals = obs.Parvathi_2012_C_Depl(solar_abund='max', density='NH')
 			NH_vals = np.append(NH_vals,C_NH_vals); depl = np.append(depl,C_depl);
 			axis.errorbar(C_NH_vals,C_depl, yerr = C_error, label='Parvathi+12', fmt='^', c='xkcd:medium grey', elinewidth=0.5*config.BASE_ELINEWIDTH,
 						  ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH, mfc='xkcd:medium grey', mec='xkcd:medium grey' , zorder=2, alpha=1)
 			# Add in shaded region for 20-40% of C in CO bars
-			axis.fill_between([np.power(10,21.75),np.power(10,22.5)],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black",
+			upper = config.get_prop_limits(property2)[1]
+			axis.fill_between([np.power(10,21.75),upper],[0.2,0.2], [0.4,0.4], facecolor="none", hatch="x", edgecolor="xkcd:black",
 							  lw=0, label='CO', zorder=2, alpha=0.99)
 
+		# Now bin the data
+		bin_lims = [np.min(NH_vals),np.max(NH_vals)]
+		# Don't want to plot below this anyways
+		if bin_lims[0]<1E18: bin_lims[0] = 1E18
+		if bin_lims[1]>1E22: bin_lims[1] = 1E22
+		# Set bins to be ~0.2 dex in size since range of data varies for each element
+		bin_nums = int((np.log10(bin_lims[1])-np.log10(bin_lims[0]))/0.33)
+		NH_vals,mean_depl_X,std_depl_X = math_utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums, weight_vals=None, log=True)
+		# Get rid of any bins with too few points to even get error bars for
+		bad_mask = ~np.isnan(std_depl_X[:,0]) & ~np.isnan(std_depl_X[:,1]) & (std_depl_X[:,0]!=mean_depl_X) & (std_depl_X[:,1]!=mean_depl_X)
+		NH_vals=NH_vals[bad_mask]; mean_depl_X=mean_depl_X[bad_mask]; std_depl_X=std_depl_X[bad_mask,:];
+		axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X-std_depl_X.T), label='Binned Obs.', fmt='s', c='xkcd:black',
+			  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+			  mfc='xkcd:white', mec='xkcd:black', zorder=3, alpha=1)
+
+	if 'RD21_depl_NH' in data_to_use:
+		elem = property1.split('_')[0]
+		# Stop here if element not observed
+		if elem in ['O', 'Mg', 'Si', 'Fe']:
+			depl, depl_err, NH_vals = obs.RomanDuval_2021_LMC_Elem_Depl(elem)
+			lower_lim = np.isinf(depl_err[1, :])
+			depl_err[1, lower_lim] = depl[lower_lim] * (1 - 10 ** -0.1)
+			upper_lim = np.isinf(depl_err[0, :])
+			depl_err[0, upper_lim] = depl[upper_lim] * (1 - 10 ** -0.1)
+			no_lim = ~upper_lim & ~lower_lim
+			# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
+			axis.errorbar(NH_vals[no_lim], depl[no_lim], yerr=depl_err[:, no_lim], label='LMC', fmt='o',
+						  c='xkcd:light gold',
+						  elinewidth=0.5 * config.BASE_ELINEWIDTH, ms=0.5 * config.BASE_MARKERSIZE,
+						  mew=0.5 * config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:light gold', zorder=-1, alpha=1)
+			axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:, lower_lim], lolims=True, fmt='o',
+						  c='xkcd:light gold',
+						  elinewidth=0.5 * config.BASE_ELINEWIDTH, ms=0.5 * config.BASE_MARKERSIZE,
+						  mew=0.5 * config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:light gold', zorder=-1, alpha=1)
+			axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:, upper_lim], uplims=True, fmt='o',
+						  c='xkcd:light gold',
+						  elinewidth=0.5 * config.BASE_ELINEWIDTH, ms=0.5 * config.BASE_MARKERSIZE,
+						  mew=0.5 * config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:light gold', zorder=-1, alpha=1)
+
 			# Now bin the data
-			bin_lims = [np.min(NH_vals),np.max(NH_vals)]
+			bin_lims = [np.min(NH_vals), np.max(NH_vals)]
 			# Don't want to plot below this anyways
-			if bin_lims[0]<1E18: bin_lims[0] = 1E18
-			if bin_lims[1]>1E22: bin_lims[0] = 1E22
+			if bin_lims[0] < 1E18: bin_lims[0] = 1E18
+			if bin_lims[1] > 1E22: bin_lims[1] = 1E22
 			# Set bins to be ~0.2 dex in size since range of data varies for each element
-			bin_nums = int((np.log10(bin_lims[1])-np.log10(bin_lims[0]))/0.33)
-			NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums, weight_vals=None, log=True)
+			bin_nums = int((np.log10(bin_lims[1]) - np.log10(bin_lims[0])) / 0.33)
+			NH_vals, mean_depl_X, std_depl_X = math_utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums,
+																weight_vals=None, log=True)
 			# Get rid of any bins with too few points to even get error bars for
-			bad_mask = ~np.isnan(std_depl_X[:,0]) & ~np.isnan(std_depl_X[:,1]) & (std_depl_X[:,0]!=mean_depl_X) & (std_depl_X[:,1]!=mean_depl_X)
-			NH_vals=NH_vals[bad_mask]; mean_depl_X=mean_depl_X[bad_mask]; std_depl_X=std_depl_X[bad_mask,:];
-			axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X-std_depl_X.T), label='Binned Obs.', fmt='s', c='xkcd:black',
-				  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
-				  mfc='xkcd:white', mec='xkcd:black', zorder=3, alpha=1)
+			bad_mask = ~np.isnan(std_depl_X[:, 0]) & ~np.isnan(std_depl_X[:, 1]) & (std_depl_X[:, 0] != mean_depl_X) & (
+						std_depl_X[:, 1] != mean_depl_X)
+			NH_vals = NH_vals[bad_mask];
+			mean_depl_X = mean_depl_X[bad_mask];
+			std_depl_X = std_depl_X[bad_mask, :];
+			axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X - std_depl_X.T), fmt='s',c='xkcd:dark gold',
+						  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:dark gold', zorder=3, alpha=1)
+
+	if 'JW17_depl_NH' in data_to_use:
+		elem = property1.split('_')[0]
+		# Stop here if element not observed
+		if elem in ['Mg', 'Si', 'Fe']:
+			depl, depl_err, NH_vals = obs.Jenkins_Wallerstein_2017_SMC_Elem_Depl(elem)
+			# First plot points without limits then plot the limits individually, helps with the marker image used for the legend
+			axis.errorbar(NH_vals, depl, yerr=depl_err, label='SMC', fmt='o',
+						  c='xkcd:jade',
+						  elinewidth=0.5 * config.BASE_ELINEWIDTH, ms=0.5 * config.BASE_MARKERSIZE,
+						  mew=0.5 * config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:jade', zorder=-1, alpha=1)
+			# Now bin the data
+			bin_lims = [np.min(NH_vals), np.max(NH_vals)]
+			# Don't want to plot below this anyways
+			if bin_lims[0] < 1E18: bin_lims[0] = 1E18
+			if bin_lims[1] > 1E22: bin_lims[1] = 1E22
+			# Set bins to be ~0.2 dex in size since range of data varies for each element
+			bin_nums = int((np.log10(bin_lims[1]) - np.log10(bin_lims[0])) / 0.25)
+			NH_vals, mean_depl_X, std_depl_X = math_utils.bin_values(NH_vals, depl, bin_lims, bin_nums=bin_nums,
+																weight_vals=None, log=True)
+			# Get rid of any bins with too few points to even get error bars for
+			bad_mask = ~np.isnan(std_depl_X[:, 0]) & ~np.isnan(std_depl_X[:, 1]) & (std_depl_X[:, 0] != mean_depl_X) & (
+					std_depl_X[:, 1] != mean_depl_X)
+			NH_vals = NH_vals[bad_mask];
+			mean_depl_X = mean_depl_X[bad_mask];
+			std_depl_X = std_depl_X[bad_mask, :];
+			axis.errorbar(NH_vals, mean_depl_X, yerr=np.abs(mean_depl_X - std_depl_X.T), fmt='s', c='xkcd:dark aqua',
+						  elinewidth=config.BASE_ELINEWIDTH, ms=config.BASE_MARKERSIZE, mew=config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', mec='xkcd:dark aqua', zorder=3, alpha=1)
 
 	return
 
@@ -309,37 +386,55 @@ def plot_galaxy_int_observational_data(axis, property):
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
 
-	if property == 'Z' or property=='O/H':
+	if property == 'Z' or 'O/H' in property:
 		if property == 'Z':
-			key_name = 'metal_z'; unit_conv = config.SOLAR_Z
+			key_name = 'metal_z_solar'
 		else:
-			key_name = 'metal'; unit_conv = 1.
+			key_name = 'metal'
 		data = obs.galaxy_integrated_DZ('R14')
-		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
+		Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=config.BASE_MARKERSIZE**2, marker=config.MARKER_STYLES[0],
+		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[0],
 					 facecolors='none', linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[0], zorder=2)
+		# Also plot broken power law in Table 1
+		a = 2.21; alpha1=1; b = 0.96; alpha2=3.1; xt = 8.1; xsol=8.69;
+		x_vals = np.linspace(7,9.5,100)
+		y_vals = np.zeros(len(x_vals))
+		y_vals[x_vals<=xt] = b+alpha2*(xsol-x_vals[x_vals<=xt]); y_vals[x_vals>xt] = a+alpha1*(xsol-x_vals[x_vals>xt]);
+		y_vals = 10**y_vals
+		# Convert from gas-to-dust ratio to dust-to-metals ratio
+		metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
+		y_vals = 1./y_vals/metal_vals
+		axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[0],linestyle='--')
 
 		data = obs.galaxy_integrated_DZ('DV19')
-		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
+		Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=config.BASE_MARKERSIZE**2, marker=config.MARKER_STYLES[1], facecolors='none',
+		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[1], facecolors='none',
 					 linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[1], zorder=2)
+		# Also plot power law in Table 1
+		a = 2.45; b = -23.3;
+		x_vals = np.linspace(7,9.5,100)
+		y_vals = 10**(a*x_vals+b)
+		# Convert from dust-to-gas ratio to dust-to-metals ratio
+		metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
+		y_vals /= metal_vals
+		axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[1],linestyle='--')
 
-		data = obs.galaxy_integrated_DZ('PH20')
-		Z_vals = data[key_name].values/unit_conv; DZ_vals = data['dtm'].values
-		lim_mask = data['limit'].values==1
-		if log:
-			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', s=config.BASE_MARKERSIZE**2,
-					 marker=config.MARKER_STYLES[2], facecolors='none', linewidths=config.LINE_WIDTHS[1],
-					 edgecolors=config.MARKER_COLORS[2], zorder=2)
-		yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
-		axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=config.BASE_MARKERSIZE, mew=config.LINE_WIDTHS[1],
-					  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
-					  ecolor=config.MARKER_COLORS[2], zorder=2)
+		# data = obs.galaxy_integrated_DZ('PH20')
+		# Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
+		# lim_mask = data['limit'].values==1
+		# if log:
+		# 	DZ_vals[DZ_vals == 0] = config.EPSILON
+		# axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', s=(0.5*config.BASE_MARKERSIZE)**2,
+		# 			 marker=config.MARKER_STYLES[2], facecolors='none', linewidths=config.LINE_WIDTHS[1],
+		# 			 edgecolors=config.MARKER_COLORS[2], zorder=2)
+		# yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
+		# axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=(0.5*config.BASE_MARKERSIZE), mew=config.LINE_WIDTHS[1],
+		# 			  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
+		# 			  ecolor=config.MARKER_COLORS[2], zorder=2)
 
 	else:
 		print("D/Z vs %s galaxy-integrated observational data is not available."%property)
@@ -383,6 +478,8 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 
 	"""
 
+	# Also allow groupings of plots
+
 	# Get plot stylization
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
@@ -404,7 +501,8 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 			DZ_val = calc.calc_gal_int_params(y_prop, snap, criteria)
 			prop_val = calc.calc_gal_int_params(x_prop, snap, criteria)
 
-			axis.scatter(prop_val, DZ_val, label=label, marker='o', color=colors[j], s=(1.1*config.BASE_MARKERSIZE)**2, zorder=3)
+			axis.scatter(prop_val, DZ_val, label=label, marker=config.BASE_MARKERSTYLE, color=colors[j], s=(1.25*config.BASE_MARKERSIZE)**2,
+						 edgecolors=config.BASE_COLOR, linewidths=config.LINE_WIDTHS[2], zorder=3)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		hands, labs = axis.get_legend_handles_labels()
@@ -421,6 +519,99 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 
 	return
 
+
+def plot_galaxy_int_prop_vs_prop_over_time(x_props, y_props, snaps, labels=None, x_criteria='all', y_criteria='all',
+										   foutname='prop_vs_prop_over_time.png', style='color-line', include_obs=True,
+										   connect_points=True, axes_args=None):
+	"""
+    Plots the galaxy integrated values between two properties for either a single simulation over time or multiple simulations over time.
+
+    Parameters
+    ----------
+    xprops: list
+        List of x-axis properties to plot
+    yprops: list
+        List of y-axis properties to plot
+    snaps : list
+        2D list of snapshots were each row is multiple snapshots at different times for a single simulation
+    labels : list, optional
+        List of labels for each simulation
+    x_criteria : string or list
+        Mask or criteria used for calculating galaxy integrated x properties (i.e molecular, cold, warm, hot, neutral, ionized)
+    y_criteria : string or list
+        Mask or criteria used for calculating galaxy integrated y properties (i.e molecular, cold, warm, hot, neutral, ionized)
+    foutname: string, optional
+        Name of file to be saved
+    style : string
+        Plotting style when plotting multiple data sets
+        'color-line' - gives different color and linestyles to each data set
+        'size' - make all lines solid black but with varying line thickness
+    include_obs : boolean
+        Overplot observed data if available
+    connect_points: boolean
+    	Add connecting lines between points for each sim
+    axes_args : list
+    	List of dictionaries contating arguments to be passed to axis setup functions
+
+    Returns
+    -------
+    None
+
+    """
+	snaps = np.array(snaps)
+	# Get plot stylization
+	linewidths, colors, linestyles = plt_set.setup_plot_style(np.shape(snaps)[0], style=style)
+	# Set up subplots based on number of parameters given
+	sharex = 'col' if len(set(x_props)) == 1 else False
+	sharey = 'row' if len(set(y_props)) == 1 else False
+	fig, axes, dims = plt_set.setup_figure(len(x_props), sharex=sharex, sharey=sharey)
+
+	labels_handles = {}
+	for i in range(len(x_props)):
+		x_prop = x_props[i]
+		x_crit = x_criteria[i] if isinstance(x_criteria, list) else x_criteria
+		y_prop = y_props[i]
+		y_crit = y_criteria[i] if isinstance(y_criteria, list) else y_criteria
+
+		# Set up for each plot
+		axis = axes[i]
+		axis_args = axes_args[i] if axes_args is not None else {}
+		plt_set.setup_axis(axis, x_prop, y_prop, **axis_args)
+
+		# First plot observational data if applicable
+		if include_obs: plot_galaxy_int_observational_data(axis, x_prop);
+
+		for j, snap_group in enumerate(snaps):
+			if i == 0 and labels is not None:
+				label = labels[j];
+			else:
+				label = None;
+			y_vals = []
+			x_vals = []
+			for k, snap in enumerate(snap_group):
+				y_vals += [calc.calc_gal_int_params(y_prop, snap, y_crit)]
+				x_vals += [calc.calc_gal_int_params(x_prop, snap, x_crit)]
+			axis.scatter(x_vals, y_vals, label=label, marker=config.MARKER_STYLES[j], color=colors[j],
+						 s=(1.25 * config.BASE_MARKERSIZE) ** 2,
+						 edgecolors=config.BASE_COLOR, linewidths=config.LINE_WIDTHS[2], zorder=3)
+			if connect_points:
+				axis.plot(x_vals, y_vals, linestyle='--', c='xkcd:grey', linewidth=config.LINE_WIDTHS[1], zorder=2)
+
+		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		hands, labs = axis.get_legend_handles_labels()
+		new_lh = dict(zip(labs, hands))
+		for key in labels_handles.keys(): new_lh.pop(key, 0);
+		if len(new_lh) > 0:
+			ncol = 2 if len(new_lh) > 4 else 1
+			axis.legend(new_lh.values(), new_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol)
+		labels_handles = dict(zip(labs, hands))
+
+	plt.tight_layout()
+	plt.savefig(foutname, bbox_inches="tight")
+	plt.close()
+
+	return
 
 
 def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
@@ -473,7 +664,7 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 		plt_set.setup_axis(axis, x_prop, y_prop)
 
 		# First plot observational data if applicable
-		if include_obs and y_prop=='D/Z': plot_MW_dust_obs(axis, y_prop, x_prop);
+		if include_obs and y_prop=='D/Z': plot_depl_dust_obs(axis, y_prop, x_prop);
 
 		for j,snap in enumerate(snaps):
 			x_vals,y_mean,y_std = calc.calc_binned_property_vs_property(y_prop, x_prop, snap, bin_nums=bin_nums)
@@ -502,8 +693,8 @@ def plot_prop_vs_prop(xprops, yprops, snaps, bin_nums=50, labels=None,
 
 
 
-def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
-			foutname='obs_elem_dep_vs_dens.png', std_bars=True, style='color', include_obs=True):
+def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, foutname='obs_elem_dep_vs_dens.png',
+								std_bars=True, style='color', include_obs=True, outside_legend=False):
 	"""
 	Plots binned relations of specified elemental depletion vs various properties for multiple simulations
 
@@ -539,7 +730,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes,dims = plt_set.setup_figure(len(elems))
+	fig,axes,dims = plt_set.setup_figure(len(elems), orientation='vertical')
 
 	labels_handles = {}
 	rollover_handles = {}
@@ -556,7 +747,15 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 			if std_bars:
 				axis.fill_between(prop_vals, 1.-std_DZ[:,0], 1.-std_DZ[:,1], alpha = 0.3, color=colors[j], zorder=1)
 
-		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
+		# Only need to label the separate simulations once for external legend so do it after the first plot
+		if i == 0 and outside_legend and len(snaps) > 1:
+			fig.legend(bbox_to_anchor=(0.5, 1.), loc='lower center', frameon=False,
+					ncol=int(np.ceil(len(snaps) / 2)), borderaxespad=0., fontsize=config.LARGE_FONT)
+			# Make sure these aren't added to legends inside the plots
+			hands, labs = axis.get_legend_handles_labels()
+			labels_handles = dict(zip(labs, hands))
+
+		if include_obs: plot_depl_dust_obs(axis, elem+'_depletion', prop)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
@@ -570,7 +769,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 			loc = 'lower left' if elem!='C' else 'upper right'
 			# If over 4 legend elements put extra into rollover for next plot
 			# Also reserve first plot legend for just simulation labels
-			if i == 0:
+			if i == 0 and not outside_legend:
 				cap = len(snaps)
 				if cap < 4:
 					ncol = 1
@@ -591,7 +790,7 @@ def plot_elem_depletion_vs_prop(elems, prop, snaps, bin_nums=50, labels=None, \
 		axis.text(.10, .4, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 	plt.tight_layout()
-	plt.savefig(foutname)
+	plt.savefig(foutname, bbox_inches="tight")
 	plt.close()
 
 	return
@@ -728,7 +927,7 @@ def comparison_binned_phase_plot(prop, main_snap, snaps, bin_nums=200, labels=No
 
 
 def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data=True, bin_nums=20, labels=None, foutname='sightline_depl_vs_prop.png', \
-						 std_bars=True, style='color-linestyle', include_obs=True):
+						 std_bars=True, style='color-linestyle', include_obs=True, outside_legend=False):
 	"""
 	Plots binned relations of specified elemental depletion vs various properties for multiple simulations
 
@@ -762,7 +961,6 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 	None
 	"""
 
-
 	# Get plot stylization
 	linewidths,colors,linestyles = plt_set.setup_plot_style(len(sightline_data_files), style=style)
 
@@ -775,8 +973,6 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 		axis = axes[i]
 		plt_set.setup_axis(axis, prop, elem+'_depletion')
 
-		if include_obs: plot_MW_dust_obs(axis, elem+'_depletion', prop)
-
 		for j,data_file in enumerate(sightline_data_files):
 
 			# Load in sight line data
@@ -787,13 +983,23 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 			if bin_data:
-				NH_vals,mean_depl_X,std_depl_X = utils.bin_values(NH, depl_X, [1E18,1E22], bin_nums=bin_nums, weight_vals=None, log=True)
+				lower,upper = axis.get_xlim()
+				NH_vals,mean_depl_X,std_depl_X = math_utils.bin_values(NH, depl_X, [lower, upper], bin_nums=bin_nums, weight_vals=None, log=True)
 				axis.plot(NH_vals, mean_depl_X, label=labels[j], linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 				if std_bars:
-					axis.fill_between(NH_vals, std_depl_X[:,0], std_depl_X[:,1], alpha = 0.3, color=colors[j], zorder=3)
+					axis.fill_between(NH_vals, std_depl_X[:,0], std_depl_X[:,1], alpha = 0.2, color=colors[j], zorder=1)
 			else:
-				axis.scatter(NH, depl_X, label=labels[j], c=colors[j], marker=config.MARKER_STYLES[j], s=2*config.BASE_MARKERSIZE, zorder=3)
+				axis.scatter(NH, depl_X, label=labels[j], c=colors[j], marker=config.MARKER_STYLES[j], s=2*config.BASE_MARKERSIZE, zorder=3, alpha=0.4)
 
+		# Only need to label the separate simulations once for external legend so do it after the first plot
+		if i == 0 and outside_legend and len(sightline_data_files) > 1:
+			fig.legend(bbox_to_anchor=(0.5, 1.), loc='lower center', frameon=False,
+					ncol=int(np.ceil(len(sightline_data_files) / 2)), borderaxespad=0., fontsize=config.LARGE_FONT)
+			# Make sure these aren't added to legends inside the plots
+			hands, labs = axis.get_legend_handles_labels()
+			labels_handles = dict(zip(labs, hands))
+
+		if include_obs: plot_depl_dust_obs(axis, elem + '_depletion', prop)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		# Also set limit to 4 legend elements per plot, rollover extra elements to next plot
@@ -820,7 +1026,7 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 		axis.text(.10, .3, elem, color=config.BASE_COLOR, fontsize = config.EXTRA_LARGE_FONT, ha = 'center', va = 'center', transform=axis.transAxes)
 
 	plt.tight_layout()
-	plt.savefig(foutname)
+	plt.savefig(foutname, bbox_inches="tight")
 	plt.close()
 
 	return
@@ -828,9 +1034,9 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 
-def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, labels=None, foutname='obs_DZ_vs_param.png', \
+def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, labels=None, foutname='obs_DZ_vs_param.png', \
 						 std_bars=True, style='color-linestyle', include_obs=True, aggregate_obs=False, mask_prop=None,
-						 show_raw_data=True):
+						 show_raw_data=True, r_max=10):
 	"""
 	Plots mock observations of one property versus another for multiple snapshots
 
@@ -895,10 +1101,6 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=50, label
 		for j,snap in enumerate(snaps):
 			# Only need to label the separate simulations in the first plot
 			label = labels[j] if (labels!=None and i==0) else None
-			try:
-				r_max = snap.get_rmax()
-			except:
-				r_max = 20
 			if  isinstance(mask_prop, list):
 					mask = mask_prop[j]
 			else:
@@ -1108,34 +1310,36 @@ def dmol_vs_props(mol_params, properties, snaps, labels=None, bin_nums=50, std_b
 	return
 
 
-
-def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutname='dust_data_vs_time.png', labels=None, style='color-linestyle', redshift=False):
+def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutname='dust_data_vs_time.png', labels=None,
+					  style='color-linestyle', redshift=False, outside_legend=False):
 	"""
-	Plots all time averaged data vs time from precompiled data for a set of simulation runs
+    Plots all time averaged data vs time from precompiled data for a set of simulation runs
 
-	Parameters
-	----------
-	params : list
-		List of parameters to plot over time
-	data_objs : list
-		List of Dust_Evo objects with data to plot
-	stat : string
-		Statistic for given param if available (median or total)
-	subsample : string or list
-		Subsampling for parameter (all, cold, hot, neutral, molecular)
-	foutname: str, optional
-		Name of file to be saved
+    Parameters
+    ----------
+    params : list
+        List of parameters to plot over time
+    data_objs : list
+        List of Dust_Evo objects with data to plot
+    stat : string
+        Statistic for given param if available (median or total)
+    subsample : string or list
+        Subsampling for parameter (all, cold, hot, neutral, molecular)
+    foutname: str, optional
+        Name of file to be saved
+    outside_legend: bool
+        Plot legend outside of figure. Useful for when you have a lot of plots.
 
-	Returns
-	-------
-	None
-	"""
+    Returns
+    -------
+    None
+    """
 
 	# Get plot stylization
-	linewidths,colors,linestyles = plt_set.setup_plot_style(len(data_objs), style=style)
+	linewidths, colors, linestyles = plt_set.setup_plot_style(len(data_objs), style=style)
 
 	# Set up subplots based on number of parameters given
-	fig,axes,dims = plt_set.setup_figure(len(params), orientation='vertical', sharex=True)
+	fig, axes, dims = plt_set.setup_figure(len(params), orientation='vertical', sharex=True)
 
 	for i, y_param in enumerate(params):
 		# Set up for each plot
@@ -1150,61 +1354,65 @@ def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutnam
 
 		# Since we are plotting with time, also want to make twinned axis for redshift to time or vice versa
 		tick_labels = False
-		if i<dims[1]:
+		if i < dims[1]:
 			tick_labels = True
-		plt_set.make_axis_secondary_time(axis, x_param, snapshot=data_objs[0], tick_labels = tick_labels)
+		plt_set.make_axis_secondary_time(axis, x_param, snapshot=data_objs[0], tick_labels=tick_labels)
 
-		param_labels=[]
+		param_labels = []
 		sub_y_params = []
 		renorm = True
 		if y_param == 'D/Z':
 			loc = 'upper left'
 		elif y_param == 'source_frac':
 			param_labels = np.array(config.DUST_SOURCES)
-			sub_y_params = np.array(['source_acc','source_SNeIa', 'source_SNeII', 'source_AGB'])
+			sub_y_params = np.array(['source_acc', 'source_SNeII', 'source_AGB','source_SNeIa'])
 			loc = 'upper right'
-		elif y_param=='spec_frac':
+			sub_colors = config.LINE_COLORS
+		elif y_param == 'spec_frac':
 			param_labels = np.array(config.DUST_SPECIES)
-			sub_y_params = np.array(['spec_sil','spec_carb','spec_SiC','spec_iron','spec_ORes','spec_ironIncl'])
-			loc =  'upper right'
+			sub_y_params = np.array(['spec_sil', 'spec_carb', 'spec_iron', 'spec_ORes', 'spec_SiC', 'spec_ironIncl'])
+			loc = 'upper right'
+			sub_colors = config.SECOND_LINE_COLORS
 			# Check which of these dust species are in the simulations given
 			in_sim = np.zeros(len(sub_y_params))
-			for j,data in enumerate(data_objs):
-				if  isinstance(subsample, list):
+			for j, data in enumerate(data_objs):
+				if isinstance(subsample, list):
 					sample = subsample[j]
 				else:
 					sample = subsample
 				for k, sub_param in enumerate(sub_y_params):
-					data_vals  = data.get_data(sub_param, subsample=sample, statistic=stat)
-					if data_vals is not None and not np.all((data_vals==0) | (np.isnan(data_vals))):
+					data_vals = data.get_data(sub_param, subsample=sample, statistic=stat)
+					if data_vals is not None and not np.all((data_vals == 0) | (np.isnan(data_vals))):
 						in_sim[k] += 1
-			param_labels = param_labels[in_sim>0]
-			sub_y_params = sub_y_params[in_sim>0]
-			print("These species in sims given:",param_labels)
-		elif y_param=='spec_sil_carb':
-			param_labels = np.array(config.DUST_SPECIES)
-			sub_y_params = np.array(['spec_sil+','spec_carb'])
-			loc =  'upper right'
+			param_labels = param_labels[in_sim > 0]
+			sub_y_params = sub_y_params[in_sim > 0]
+			print("These species in sims given:", param_labels)
+		elif y_param == 'spec_frac_Si/C':
+			param_labels = np.array(config.DUST_SPECIES_SIL_CARB)
+			sub_y_params = np.array(['spec_sil+', 'spec_carb'])
+			loc = 'upper right'
+			sub_colors = config.SECOND_LINE_COLORS
 		elif '/H_all' in y_param and y_param.split('/')[0] in config.ELEMENTS:
-			param_labels = np.array(['total','dust'])
+			param_labels = np.array(['total', 'dust'])
 			elem = y_param.split('/')[0]
-			sub_y_params =  np.array([elem+'/H',elem+'/H_dust'])
+			sub_y_params = np.array([elem + '/H', elem + '/H_dust'])
 			loc = 'lower right'
 			renorm = False
+			sub_colors = config.SECOND_LINE_COLORS
 		elif y_param == 'Si/C':
 			loc = 'upper right'
 		else:
 			loc = 'upper left'
 
-		for j,data in enumerate(data_objs):
-			if  isinstance(subsample, list):
+		for j, data in enumerate(data_objs):
+			if isinstance(subsample, list):
 				sample = subsample[j]
 			else:
 				sample = subsample
-			label = labels[j] if labels!=None else None
+			label = labels[j] if labels != None else None
 			# Chose to plot vs cosmic time or redshift
 			if x_param == 'time' and data_objs[0].cosmological and not redshift:
-				time_data = utils.quick_lookback_time(data.get_data(x_param))
+				time_data = math_utils.quick_lookback_time(data.get_data(x_param))
 			else:
 				time_data = data.get_data(x_param)
 				if data_objs[0].cosmological and redshift:
@@ -1213,7 +1421,8 @@ def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutnam
 			# Check if parameter has subparameters
 			if len(param_labels) == 0:
 				data_vals = data.get_data(y_param, subsample=sample, statistic=stat)
-				axis.plot(time_data, data_vals, color=colors[j], linestyle=linestyles[j], label=label, linewidth=config.BASE_LINEWIDTH, zorder=3)
+				axis.plot(time_data, data_vals, color=colors[j], linestyle=linestyles[j], label=label,
+						  linewidth=config.BASE_LINEWIDTH, zorder=-1)
 			else:
 				data_vals = []
 				for sub_param in sub_y_params:
@@ -1222,27 +1431,199 @@ def dust_data_vs_time(params, data_objs, stat='median', subsample='all', foutnam
 				data_vals = np.array(data_vals)
 				# Renormalize just in case since some of the older snapshots aren't normalized
 				if renorm:
-					data_vals = data_vals/np.sum(data_vals,axis=0)[np.newaxis,:]
+					data_vals = data_vals / np.sum(data_vals, axis=0)[np.newaxis, :]
 					data_vals[np.isnan(data_vals)] = 0.
 				for k in range(np.shape(data_vals)[0]):
 					# Ignore properties that are zero for the entire simulation and don't plot them
-					if not np.all(data_vals[k,:]==0):
-						axis.plot(time_data, data_vals[k,:], color=config.LINE_COLORS[k], linestyle=linestyles[j], linewidth=config.BASE_LINEWIDTH, zorder=3)
+					if not np.all(data_vals[k, :] == 0):
+						axis.plot(time_data, data_vals[k, :], color=sub_colors[k], linestyle=linestyles[j],
+								  linewidth=config.BASE_LINEWIDTH, zorder=-1)
 		# Only need to label the separate simulations in the first plot
-		if i==0 and len(data_objs)>1:
-			axis.legend(loc='best', frameon=False, fontsize=config.SMALL_FONT)
+		if i == 0 and len(data_objs) > 1:
+			if outside_legend:
+				fig.legend(bbox_to_anchor=(0.5, 1.), loc='lower center', frameon=False,
+						   ncol=int(np.ceil(len(data_objs) / 2)), borderaxespad=0., fontsize=config.LARGE_FONT)
+			else:
+				axis.legend(loc='best', frameon=False, fontsize=config.SMALL_FONT)
+
 		# If there are subparameters need to make their own legend
 		if len(param_labels) > 0:
-			#param_labels = param_labels[:np.shape(data_vals)[1]]
+			# param_labels = param_labels[:np.shape(data_vals)[1]]
 			param_lines = []
 			for j, label in enumerate(param_labels):
-				param_lines += [mlines.Line2D([], [], color=config.LINE_COLORS[j], label=label, linewidth=config.BASE_LINEWIDTH,)]
+				param_lines += [
+					mlines.Line2D([], [], color=sub_colors[j], label=label, linewidth=config.BASE_LINEWIDTH, )]
 			axis.legend(handles=param_lines, loc=loc, frameon=False, fontsize=config.SMALL_FONT)
+
+	plt.tight_layout()
+	# Need to specify the bbox_inches for external legends or else they get cutoff
+	plt.savefig(foutname, bbox_inches="tight")
+	plt.close()
+
+
+def dust_data_vs_time_seperate_sims(params, data_objs, stat = 'median', subsample = ['all'],
+									foutname = 'sim_dust_data_vs_time.pdf', sim_labels = None, sample_labels = None,
+									style = 'color-linestyle',redshift = False, sample_linewidths = None):
+	"""
+	Plots given param data vs time from precompiled data for a set of simulation runs, plotting each simulation on a
+	separate column
+	
+	Parameters
+	----------
+	params : list
+		List of parameters to plot over time
+	data_objs : list
+		List of Dust_Evo objects with data to plot
+	stat : string
+		Statistic for given param if available (median or total)
+	subsample : list
+		Subsampling for parameter (all, cold, hot, neutral, molecular)
+	foutname: str, optional
+		Name of file to be saved
+	sim_labels: list
+		Names for given data_obs/sims which will appear on the top row of plots
+	sample_labels: list
+		Names for each given subsample to appear in legend
+	style: string
+		How each subsample will be differentiated (color, linestyle, size, or combination)
+	redshift: bool
+		Plot time as redshift instead of cosmic time
+	sample_linewidths: list
+		Linewidths for each subsample
+	
+	Returns
+	-------
+	None
+	"""
+
+	# Get plot stylization
+	linewidths, colors, linestyles = plt_set.setup_plot_style(len(subsample), style=style)
+	if sample_linewidths is not None:
+		linewidths = sample_linewidths
+	num_sims = len(data_objs)
+	num_params = len(params)
+	# Set up subplots based on number of parameters given
+	fig, axes = plt.subplots(num_params, num_sims, figsize=(
+	num_sims * config.BASE_FIG_XSIZE * config.FIG_XRATIO, num_params * config.BASE_FIG_YSIZE * config.FIG_YRATIO),
+							 squeeze=True, sharex=True, sharey='row')
+	axes = list(filter(None, axes.flat))
+	dims = [num_sims, num_params]
+
+	for i, data in enumerate(data_objs):
+		for j, y_param in enumerate(params):
+			# Set up for each plot
+			axis = axes[i + j * num_sims]
+
+			# Check if data is from cosmological sims to determine time units
+			if data_objs[0].cosmological and redshift:
+				x_param = 'redshift_plus_1'
+			else:
+				x_param = 'time'
+			plt_set.setup_axis(axis, x_param, y_param)
+
+			# Since we are plotting with time, also want to make twinned axis for redshift to time or vice versa
+			tick_labels = False
+			if j == 0:
+				tick_labels = True
+			plt_set.make_axis_secondary_time(axis, x_param, snapshot=data_objs[0], tick_labels=tick_labels)
+
+			param_labels = []
+			sub_y_params = []
+			if y_param == 'D/Z':
+				loc = 'upper left'
+			elif y_param == 'source_frac':
+				param_labels = np.array(config.DUST_SOURCES)
+				sub_y_params = np.array(['source_acc', 'source_SNeII', 'source_AGB', 'source_SNeIa'])
+				loc = 'upper right'
+				sub_colors = config.LINE_COLORS
+			elif y_param == 'spec_frac':
+				param_labels = np.array(config.DUST_SPECIES)
+				sub_y_params = np.array(['spec_sil', 'spec_carb', 'spec_iron', 'spec_ORes', 'spec_SiC', 'spec_ironIncl'])
+				loc = 'upper right'
+				sub_colors = config.SECOND_LINE_COLORS
+				# Check which of these dust species are in the simulations given
+				in_sim = np.zeros(len(sub_y_params))
+				if isinstance(subsample, list):
+					sample = subsample[0]
+				else:
+					sample = subsample
+				for k, sub_param in enumerate(sub_y_params):
+					data_vals = data.get_data(sub_param, subsample=sample, statistic=stat)
+					if data_vals is not None and not np.all((data_vals == 0) | (np.isnan(data_vals))):
+						in_sim[k] += 1
+				param_labels = param_labels[in_sim > 0]
+				sub_y_params = sub_y_params[in_sim > 0]
+				print("These species in sims given:", param_labels)
+			elif y_param == 'spec_frac_Si/C':
+				param_labels = np.array(config.DUST_SPECIES_SIL_CARB)
+				sub_y_params = np.array(['spec_sil+', 'spec_carb'])
+				loc = 'upper right'
+				sub_colors = config.SECOND_LINE_COLORS
+			elif '/H_all' in y_param and y_param.split('/')[0] in config.ELEMENTS:
+				param_labels = np.array(['total', 'dust'])
+				elem = y_param.split('/')[0]
+				sub_y_params = np.array([elem + '/H', elem + '/H_dust'])
+				loc = 'lower right'
+				sub_colors = config.SECOND_LINE_COLORS
+			elif y_param == 'Si/C':
+				loc = 'upper right'
+			else:
+				loc = 'upper left'
+
+			for k, sample in enumerate(subsample):
+				sample = subsample[k]
+				label = sample_labels[k] if sample_labels != None else None
+				# Choose to plot vs cosmic time or redshift
+				if x_param == 'time' and data_objs[0].cosmological and not redshift:
+					time_data = math_utils.quick_lookback_time(data.get_data(x_param))
+				else:
+					time_data = data.get_data(x_param)
+					if data_objs[0].cosmological and redshift:
+						time_data += 1.
+
+				# Check if parameter has subparameters
+				if len(param_labels) == 0:
+					data_vals = data.get_data(y_param, subsample=sample, statistic=stat)
+					axis.plot(time_data, data_vals, color=config.BASE_COLOR, linestyle=linestyles[k], label=label,
+							  linewidth=linewidths[k], zorder=-1)
+				else:
+					data_vals = []
+					for sub_param in sub_y_params:
+						data_vals += [data.get_data(sub_param, subsample=sample, statistic=stat)]
+
+					data_vals = np.array(data_vals)
+					# Renormalize just in case since some of the older snapshots aren't normalized
+					# if renorm:
+					# 	data_vals = data_vals / np.sum(data_vals, axis=0)[np.newaxis, :]
+					# 	data_vals[np.isnan(data_vals)] = 0.
+					for m in range(np.shape(data_vals)[0]):
+						# Ignore properties that are zero for the entire simulation and don't plot them
+						if not np.all(data_vals[m, :] == 0):
+							data_vals[data_vals==0] = np.nan
+							axis.plot(time_data, data_vals[m, :], color=sub_colors[m], linestyle=linestyles[k],
+									  linewidth=linewidths[k], zorder=-1)
+
+				# Add label for each sim on the first row of plots
+				if j == 0:
+					axis.text(.05, .9, sim_labels[i], color='xkcd:medium grey', fontsize=config.LARGE_FONT, ha='left',
+							  va='top', transform=axis.transAxes, zorder=1)
+
+				# Only need to label the separate simulations in the first plot
+				if i == 0 and j == 0 and len(data_objs) > 1:
+					axis.legend(loc='best', frameon=False, fontsize=config.SMALL_FONT)
+
+				# If there are subparameters need to make their own legend but only for the first sim
+				if len(param_labels) > 0 and i == 0:
+					# param_labels = param_labels[:np.shape(data_vals)[1]]
+					param_lines = []
+					for k, label in enumerate(param_labels):
+						param_lines += [
+							mlines.Line2D([], [], color=sub_colors[k], label=label, linewidth=config.BASE_LINEWIDTH, )]
+					axis.legend(handles=param_lines, loc=loc, frameon=False, fontsize=config.SMALL_FONT)
 
 	plt.tight_layout()
 	plt.savefig(foutname)
 	plt.close()
-
 
 
 
@@ -1776,7 +2157,7 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 				in_pixel = np.logical_and(binx == x+1, biny == y+1)
 				values = dust_mass[in_pixel]/Z_mass[in_pixel]
 				weights = M[in_pixel]
-				mean_DZ[y*len(x_vals)+x],std_DZ[y*len(x_vals)+x,0],std_DZ[y*len(x_vals)+x,1] = utils.weighted_percentile(values, weights=weights)
+				mean_DZ[y*len(x_vals)+x],std_DZ[y*len(x_vals)+x,0],std_DZ[y*len(x_vals)+x,1] = math_utils.weighted_percentile(values, weights=weights)
 
 		# Now set pixel indices so we start at the center pixel and spiral outward
 		N = np.sqrt(np.shape(pixel_num)[0])

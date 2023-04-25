@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crc_scripts"
+version = "0.0.1"
+authors = [
+  { name="Caleb Choban", email="cchoban@ucsd.edu" },
+]
+description = "My personal io and analysis package for GIZMO simulations."
+readme = "README.md"
+requires-python = ">=3.7"
+install_requires=[            
+          'scipy',
+          'numpy',
+          'h5py',
+          'pandas',
+          'matplotlib',
+          'astropy',
+          'yt'
+      ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/calebchoban/crc_script/issues"

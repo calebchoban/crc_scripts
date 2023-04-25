@@ -1,7 +1,5 @@
 '''
-Utility functions for positions and velocities.
-
-@author: Andrew Wetzel <arwetzel@gmail.com>
+Utility functions for positions and velocities taken from Andrew Wetzel's analysis code.
 '''
 
 import numpy as np
@@ -639,3 +637,66 @@ def get_center_velocity(
 
     # ensure that np.average uses 64-bit internally for accuracy, but returns as input dtype
     return np.average(velocities[masks].astype(np.float64), 0, weights).astype(velocities.dtype)
+
+
+
+def rotation_matrix_from_vectors(vec1, vec2):
+    '''
+    Find the rotation matrix that aligns vec1 to vec2
+
+    Parameters
+    ----------
+    vec1: A 3d "source" vector
+    vec2: A 3d "destination" vector
+
+    Returns
+    -------
+    mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
+    '''
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+    return rotation_matrix
+
+
+def orientated_coords(coords, center, normal_vector, previous_normal=[0,0,1.]):
+    '''
+    Orientates coordinates to a new origin and aligns z axis with given normal vector.
+
+    Parameters
+    ----------
+    coords: coordinates to be orientated
+    center: new origin for given coordinates
+    normal_vector: new direction of normal axis
+    previous_normal: previous normal axis (assumed to be z-axis)
+
+    Returns
+    -------
+    new_coords: New coordinates that have been orientated
+    '''
+    RM = rotation_matrix_from_vectors(previous_normal,normal_vector)
+    # rotate coordinates so z-axis is aligned with given normal vector
+    new_coords = RM.dot(coords)
+    # Now move to new center
+    new_coords=new_coords+center
+    return new_coords
+
+def normalize_vec(vector):
+    '''
+    Normalizes a given vector,
+
+    Parameters
+    ----------
+    vector: vector to be normalized
+    Returns
+    -------
+    norm_vec: normalized vector
+    '''
+
+    magnitude = np.sqrt(np.sum(vector**2,axis=0))
+    print(magnitude)
+    norm_vec = vector/magnitude
+    return norm_vec

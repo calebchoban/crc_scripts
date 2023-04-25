@@ -1,7 +1,8 @@
 import numpy as np
-from . import utils
-from . import coordinate
 import matplotlib.pyplot as plt
+
+from .. import math_utils
+from .. import coordinate_utils
 
 # This is a class that manages a galaxy/halo in a given
 # snapshot, for either cosmological or isolated simulations.
@@ -48,7 +49,7 @@ class Halo(object):
 
         return
 
-    def set_orientation(self, ptype=4, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
+    def set_orientation(self, ptype=4, mass_radius_max = 100, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
         # ptype: int
         #   particle types to use to compute disk center and axis
         # velocity_radius_max: float
@@ -59,7 +60,7 @@ class Halo(object):
         #   min and max limits of age to select star particles [Gyr]
 
 
-        self.assign_center(ptype, velocity_radius_max)
+        self.assign_center(ptype, mass_radius_max, velocity_radius_max)
         self.assign_principal_axes(ptype, radius_max, age_limits)
 
         return
@@ -147,6 +148,46 @@ class Halo(object):
         return self.rvir
 
 
+    # Returns the half mass radius for a give particle type
+    def get_half_mass_radius(self, within_radius=None, geometry='spherical', ptype=4, rvir_frac=1.0):
+
+        within_radius = self.rvir*rvir_frac if within_radius is None else within_radius
+
+        part = self.loadpart(ptype)
+        coords = part.get_property('coords')
+        masses = part.get_property('M')
+
+        edges = np.linspace(0, within_radius, 5000, endpoint=True)
+
+        if geometry in ['cylindrical', 'scale_height']:
+            radii = np.sum(coords[:, :2] ** 2, axis=1) ** 0.5
+        elif geometry == 'spherical':
+            radii = np.sum(coords ** 2, axis=1) ** 0.5
+
+        within_mask = radii <= within_radius
+
+        ## let's co-opt this method to calculate a scale height as well
+        if geometry == 'scale_height':
+            ## take the z-component
+            radii = np.abs(coords[:, -1])
+            edges = np.linspace(0, 10 * within_radius, 5000, endpoint=True)
+
+        h, edges = np.histogram(
+            radii[within_mask],
+            bins=edges,
+            weights=masses[within_mask])
+        edges = edges[1:]
+        h /= 1.0 * np.sum(h)
+        cdf = np.cumsum(h)
+
+        # Find closest edge to the middle of the cdf
+        argmin = np.argmin((cdf - 0.5) ** 2)
+        half_mass_radius = edges[argmin]
+        print("Ptype %i half mass radius: %e kpc"%(ptype, half_mass_radius))
+
+        return half_mass_radius
+
+
     # load all particles in the halo/galaxy centered on halo center
     def loadpart(self, ptype):
 
@@ -198,15 +239,17 @@ class Halo(object):
         p, sft, m = part.p, part.sft, part.m
         r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
         rmax = rout*self.rvir if kpc==0 else rout
-        t, sfr = utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=self.sp)
+        t, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=self.sp)
 
         return t, sfr
 
 
     # calculate center position and velocity
-    def assign_center(self, ptype=4, velocity_radius_max=15):
+    def assign_center(self, ptype=4, mass_radius_max = None, velocity_radius_max=15):
 
         if self.calc_center: return
+        if mass_radius_max is None:
+            mass_radius_max=self.rvir
         print('assigning center of galaxy:')
         part = self.part[ptype]
         part.load()
@@ -216,8 +259,8 @@ class Halo(object):
             return
 
         # calculate center position
-        self.center_position = coordinate.get_center_position_zoom(part.p, part.m, self.sp.boxsize,
-            center_position=np.array([self.xc,self.yc,self.zc]))
+        self.center_position = coordinate_utils.get_center_position_zoom(part.p, part.m, self.sp.boxsize,
+            center_position=np.array([self.xc,self.yc,self.zc]), distance_max=mass_radius_max)
         self.xc = self.center_position[0]
         self.yc = self.center_position[1]
         self.zc = self.center_position[2]
@@ -226,7 +269,7 @@ class Halo(object):
             self.center_position[0], self.center_position[1], self.center_position[2]))
 
         # calculate center velocity
-        self.center_velocity = coordinate.get_center_velocity(
+        self.center_velocity = coordinate_utils.get_center_velocity(
             part.v, part.m, part.p, self.center_position, velocity_radius_max, self.sp.boxsize)
         self.vx = self.center_velocity[0]
         self.vy = self.center_velocity[1]
@@ -278,7 +321,7 @@ class Halo(object):
         center_velocity = self.center_velocity
 
         # compute radii wrt galaxy center [kpc physical]
-        radius_vectors = coordinate.get_distances(
+        radius_vectors = coordinate_utils.get_distances(
             part.p[part_indices], center_position, self.sp.boxsize, self.sp.scale_factor)
 
         # keep only particles within radius_max
@@ -289,15 +332,15 @@ class Halo(object):
         part_indices = part_indices[masks]
 
         # compute rotation vectors for principal axes (defined via moment of inertia tensor)
-        rotation_vectors, _eigen_values, axes_ratios = coordinate.get_principal_axes(
+        rotation_vectors, _eigen_values, axes_ratios = coordinate_utils.get_principal_axes(
             radius_vectors, part.m[part_indices], print_results=False)
 
         # test if need to flip principal axis to ensure that v_phi is defined as moving
         # clockwise as seen from + Z (silly Galactocentric convention)
-        velocity_vectors = coordinate.get_velocity_differences(part.v[part_indices], center_velocity)
-        velocity_vectors_rot = coordinate.get_coordinates_rotated(velocity_vectors, rotation_vectors)
-        radius_vectors_rot = coordinate.get_coordinates_rotated(radius_vectors, rotation_vectors)
-        velocity_vectors_cyl = coordinate.get_velocities_in_coordinate_system(
+        velocity_vectors = coordinate_utils.get_velocity_differences(part.v[part_indices], center_velocity)
+        velocity_vectors_rot = coordinate_utils.get_coordinates_rotated(velocity_vectors, rotation_vectors)
+        radius_vectors_rot = coordinate_utils.get_coordinates_rotated(radius_vectors, rotation_vectors)
+        velocity_vectors_cyl = coordinate_utils.get_velocities_in_coordinate_system(
             velocity_vectors_rot, radius_vectors_rot, 'cartesian', 'cylindrical')
         if np.median(velocity_vectors_cyl[:, 2]) > 0:
             rotation_vectors[0] *= -1  # flip v_phi
@@ -314,6 +357,60 @@ class Halo(object):
               axes_ratios[0], axes_ratios[1], axes_ratios[2]))
 
         return
+
+    # Calculate the stellar scale radius
+    def calc_stellar_scale_r(self, guess=[1E4,1E2,0.5,3], bounds=(0, [1E6,1E6,5,10]), radius_max=10, output_fit=False,
+                             foutname='stellar_bulge+disk_fit.png', bulge_profile='de_vauc'):
+        # guess : initial guess for central density of sersic profile, central density of exponential disk, sersic scale length, disk scale length, and sersic index
+        # bounds : Bounds for above values
+        # radius_max : maximum disk radius for fit
+        # output_fit : creates a plot of the fit and the data
+        # foutname : name for plotted image
+
+        stars = self.part[4]
+        stars.load()
+        stars.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
+        star_mass = stars.get_property('M')
+        r_bins = np.linspace(0,radius_max,int(np.floor(radius_max/.1)))
+        r_vals = np.array([(r_bins[i+1]+r_bins[i])/2. for i in range(len(r_bins)-1)])
+        rmag = np.sqrt(np.sum(np.power(stars.p[:,:2],2),axis=1))
+        sigma_star = np.zeros(len(r_vals))
+        for i in range(len(r_vals)):
+            rmin = r_bins[i]; rmax = r_bins[i+1]
+            mass = np.sum(star_mass[(rmag>rmin) & (rmag<=rmax)])
+            area = np.pi*(rmax**2 - rmin**2)
+            sigma_star[i] = mass/(area*1E6) # M_sol/pc^2
+
+
+        # Fit a sersic/bulge+exponential/disk profile to the disk stellar surface density
+        fit_params,_ = math_utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds, bulge_profile=bulge_profile)
+        coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3];
+        if bulge_profile == 'sersic':
+            sersic_index=fit_params[4]
+        else:
+            sersic_index=4
+        print("Results for bulge+disk fit to disk galaxy...\n \
+              Sersic Coefficient = %e M_solar/pc^2 \n \
+               Disk Coefficient = %e M_solar/pc^2 \n \
+               Sersic scale length = %e kpc \n \
+               Disk scale length = %e kpc \n \
+               Sersic index = %e "%(coeff1, coeff2, sersic_l,disk_l, sersic_index))
+        if output_fit:
+            plt.figure()
+            plt.scatter(r_vals, sigma_star,c='xkcd:black')
+            x_vals = np.linspace(0,radius_max,100)
+            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index)), label='Sersic Profile')
+            plt.plot(x_vals, coeff2*np.exp(-x_vals/disk_l), label='Exponential Disk')
+            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index))+coeff2*np.exp(-x_vals/disk_l), label='Total')
+            plt.ylim([np.min(sigma_star),np.max(sigma_star)])
+            plt.yscale('log')
+            plt.ylabel(r'$\Sigma_{\rm star} \; (M_{\odot}/{\rm pc}^2$')
+            plt.xlabel("Radius (kpc)")
+            plt.legend()
+            plt.savefig(foutname)
+            plt.close()
+
+        return disk_l
 
 
 class Disk(Halo):
@@ -387,7 +484,7 @@ class Disk(Halo):
 
 
     # calculate the center and principle axis of disk from particles instead of just using AHF values
-    def set_disk(self, ptype=4, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
+    def set_disk(self, ptype=4, mass_radius_max=100, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
         # ptype: int
         #   particle types to use to compute disk center and axis
         # velocity_radius_max: float
@@ -398,7 +495,7 @@ class Disk(Halo):
         #   min and max limits of age to select star particles [Gyr]
 
 
-        self.assign_center(ptype, velocity_radius_max)
+        self.assign_center(ptype, mass_radius_max, velocity_radius_max)
         self.assign_principal_axes(ptype, radius_max, age_limits)
 
         return
@@ -423,52 +520,3 @@ class Disk(Halo):
     # Returns the maximum radius
     def get_rmax(self):
         return self.rmax
-
-
-    # Calculate the stellar scale radius
-    def calc_stellar_scale_r(self, guess=[1E4,1E2,0.5,3,4], bounds=(0, [1E6,1E6,5,10,7]), radius_max=None, output_fit=False):
-        # guess : initial guess for central density of sersic profile, central density of exponential disk, sersic scale length, disk scale length, and sersic index
-        # bounds : Bounds for above values
-        # radius_max : maximum disk radius for fit
-        # output_fit : creates a plot of the fit and the data
-
-        if radius_max is None:
-            radius_max = self.rmax
-
-        stars = self.part[4]
-        stars.load()
-        stars.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-        star_mass = stars.get_property('M')
-        r_bins = np.linspace(0,radius_max,int(np.floor(radius_max/.1)))
-        r_vals = np.array([(r_bins[i+1]+r_bins[i])/2. for i in range(len(r_bins)-1)])
-        rmag = np.sqrt(np.sum(np.power(stars.p[:,:2],2),axis=1))
-        sigma_star = np.zeros(len(r_vals))
-        for i in range(len(r_vals)):
-            rmin = r_bins[i]; rmax = r_bins[i+1]
-            mass = np.sum(star_mass[(rmag>rmin) & (rmag<=rmax)])
-            area = np.pi*(rmax**2 - rmin**2)
-            sigma_star[i] = mass/(area*1E6) # M_sol/pc^2
-
-
-        # Fit a sersic/bulge+exponential/disk profile to the disk stellar surface density
-        fit_params,_ = utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds)
-        coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3]; sersic_index=fit_params[4]
-        print("Results for bulge+disk fit to disk galaxy...\n \
-              Sersic Coefficient = %e M_solar/pc^2 \n \
-               Disk Coefficient = %e M_solar/pc^2 \n \
-               Sersic scale length = %e kpc \n \
-               Disk scale length = %e kpc \n \
-               Sersic index = %e "%(coeff1, coeff2, sersic_l,disk_l, sersic_index))
-        if output_fit:
-            plt.figure()
-            plt.scatter(r_vals, sigma_star)
-            x_vals = np.linspace(0,radius_max,100)
-            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index)))
-            plt.plot(x_vals, coeff2*np.exp(-x_vals/disk_l))
-            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index))+coeff2*np.exp(-x_vals/disk_l))
-            plt.ylim([np.min(sigma_star),np.max(sigma_star)])
-            plt.yscale('log')
-            plt.savefig('disk.png')
-            plt.close()
-
-        return disk_l

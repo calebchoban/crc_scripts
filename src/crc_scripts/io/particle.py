@@ -1,8 +1,8 @@
 import numpy as np
 import h5py
-from . import utils
-from . import config
-from . import coordinate
+from .. import math_utils
+from .. import config
+from .. import coordinate_utils
 
 class Header:
 
@@ -98,14 +98,16 @@ class Particle:
                 ne = np.zeros(npart, dtype='float')
             if (sp.Flag_Metals):
                 z = np.zeros((npart,sp.Flag_Metals), dtype='float')
-            if (sp.Flag_DustMetals):
-                dz = np.zeros((npart,sp.Flag_DustMetals-4), dtype='float')
+            if (sp.Flag_DustSpecies):
+                dz = np.zeros((npart,11), dtype='float')
                 dzs = np.zeros((npart,4), dtype='float')
                 fH2 = np.zeros(npart, dtype='float')
                 fdense = np.zeros(npart, dtype='float')
                 CinCO = np.zeros(npart, dtype='float')
-            if (sp.Flag_DustSpecies):
-                spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
+                if (sp.Flag_DustSpecies>1):
+                    spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
+                else:
+                    spec = np.zeros((npart, 2), dtype='float')
             if (sp.Flag_Sfr):
                 sfr = np.zeros(npart, dtype='float')
             
@@ -139,29 +141,26 @@ class Particle:
                     ne[nL:nR] = grp['ElectronAbundance'][...]
                 if (sp.Flag_Metals):
                     z[nL:nR] = grp['Metallicity']
-                if (sp.Flag_DustMetals):
-                    dz[nL:nR] = grp['DustMetallicity'][:,:sp.Flag_DustMetals-4]
-                    dzs[nL:nR] = grp['DustMetallicity'][:,sp.Flag_DustMetals-4:]
-                if 'DustMolecular' in grp:
-                    fdense[nL:nR] = grp['DustMolecular'][:,0]
-                    CinCO[nL:nR] = grp['DustMolecular'][:,1]
-                    if 'MolecularMassFraction' in grp:
+                if (sp.Flag_DustSpecies):
+                    dz[nL:nR] = grp['DustMetallicity'][:,:11]
+                    dzs[nL:nR] = grp['DustMetallicity'][:,11:]
+                    if 'DustMolecularSpeciesFractions' or 'DustMolecular' in grp:
+                        # Old runs had a different field name
+                        field_name = 'DustMolecularSpeciesFractions' if 'DustMolecularSpeciesFractions' in grp else 'DustMolecular'
+                        fdense[nL:nR] = grp[field_name][:,0]
+                        CinCO[nL:nR] = grp[field_name][:,1]
                         fH2[nL:nR] = grp['MolecularMassFraction'][...]
-                    # Deal with the in between case when molecular data was all in one place
-                    # Can probably delete this soon since only a few sims have this specific output
-                    elif len(grp['DustMolecular'][0,:])>=3:
-                        print("Loading old dust molecular...")
-                        fH2[nL:nR] = grp['DustMolecular'][:,0]
-                        fdense[nL:nR] = grp['DustMolecular'][:,1]
-                        CinCO[nL:nR] = grp['DustMolecular'][:,2]
-                if (sp.Flag_DustSpecies>2):
-                    spec[nL:nR] = grp['DustSpecies'][...]
-                elif (sp.Flag_DustMetals and sp.Flag_DustSpecies==2):
-                    spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
-                    spec[nL:nR,1] = dz[nL:nR,2]
+                    if (sp.Flag_DustSpecies>1):
+                        # Deal with old dust tag names
+                        if 'DustSpeciesAbundance' in grp.keys():
+                            spec[nL:nR] = grp['DustSpeciesAbundance'][...]
+                        else:
+                            spec[nL:nR] = grp['DustSpecies'][...]
+                    else: # Build carbonaceous and silicates from their respective elements
+                        spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
+                        spec[nL:nR,1] = dz[nL:nR,2]
                 if (sp.Flag_Sfr):
                     sfr[nL:nR] = grp['StarFormationRate'][...]
-            
             if (ptype==4):
                 if (sp.Flag_StellarAge):
                     sft[nL:nR] = grp['StellarFormationTime'][...]
@@ -192,17 +191,16 @@ class Particle:
             self.rho = rho
             if (sp.Flag_Cooling):
                 z_he = z[:,1]; z_tot=z[:,0]
-                T = utils.approx_gas_temperature(u,ne)
+                T = math_utils.approx_gas_temperature(u,ne)
                 self.T = T
                 self.ne = ne
                 self.nh = nh
             if (sp.Flag_Metals):
                 self.z = z
-                if (sp.Flag_DustMetals):
+                if (sp.Flag_DustSpecies):
                     self.dz = dz
                     self.dzs = dzs
-                    if (sp.Flag_DustSpecies):
-                        self.spec = spec
+                    self.spec = spec
                     self.fH2 = fH2
                     self.fdense = fdense
                     self.CinCO = CinCO
@@ -213,7 +211,7 @@ class Particle:
             if (sp.Flag_StellarAge):
                 if (sp.cosmological==0): sft *= hinv
                 self.sft = sft
-                self.age = utils.get_stellar_ages(sft, sp=sp)
+                self.age = math_utils.get_stellar_ages(sft, sp=sp)
             if (sp.Flag_Metals):
                 self.z = z
 
@@ -238,11 +236,10 @@ class Particle:
                 self.nh = self.nh[mask]
             if (self.sp.Flag_Metals):
                 self.z = self.z[mask]
-            if (self.sp.Flag_DustMetals):
+            if (self.sp.Flag_DustSpecies):
                 self.dz = self.dz[mask]
                 self.dzs = self.dzs[mask]
-                if (self.sp.Flag_DustSpecies):
-                    self.spec = self.spec[mask]
+                self.spec = self.spec[mask]
                 self.fH2 = self.fH2[mask]
                 self.fdense = self.fdense[mask]
                 self.CinCO = self.CinCO[mask]
@@ -259,7 +256,7 @@ class Particle:
         return
 
 
-    # Centers coordinates given origin coordinates
+    # Centers coordinate_utilss given origin coordinate_utilss
     def center(self, origin):
 
         if self.centered: return
@@ -281,25 +278,25 @@ class Particle:
 
         if self.orientated: return
 
-        print('adjusting particle coordinates to be relative to galaxy center')
+        print('adjusting particle coordinate_utilss to be relative to galaxy center')
         print('  and aligned with the principal axes\n')
 
         if center_vel is not None and center_pos is not None:
             # convert to be relative to galaxy center [km / s]
-            self.v = coordinate.get_velocity_differences(
+            self.v = coordinate_utils.get_velocity_differences(
                         self.v, center_vel, self.p, center_pos,
                         self.boxsize, self.scale_factor, self.hubble)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
-                self.v = coordinate.get_coordinates_rotated(self.v, principal_vec)
+                self.v = coordinate_utils.get_coordinate_utilss_rotated(self.v, principal_vec)
 
         if center_pos is not None:
             # convert to be relative to galaxy center [kpc physical]
-            self.p = coordinate.get_distances(self.p, center_pos,
+            self.p = coordinate_utils.get_distances(self.p, center_pos,
                 self.boxsize, self.scale_factor)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
-                self.p = coordinate.get_coordinates_rotated(
+                self.p = coordinate_utils.get_coordinate_utilss_rotated(
                     self.p, principal_vec)
 
         self.orientated=1
@@ -308,7 +305,7 @@ class Particle:
 
 
 
-    # Fixes coordinate issue for non-cosmological periodic BCs
+    # Fixes coordinate_utils issue for non-cosmological periodic BCs
     def pb_fix(self):
         p = self.p       
         boxsize = self.sp.boxsize
@@ -319,12 +316,20 @@ class Particle:
         return
 
     # Gets derived properties from particle data
-    def get_property(self, property):
+    def get_property(self, property, FIREver=2):
 
-        if self.ptype==0:
-            if property=='M' or property=='M_gas' or property=='m':
-                data = self.m*config.UnitMass_in_Msolar
-            elif property=='h':
+        if property == 'M' or property == 'Mass':
+            data = self.m * config.UnitMass_in_Msolar
+        elif property == 'coords':
+            data = self.p
+        elif property == 'r_spherical':
+            data = np.sum(self.p ** 2, axis=1) ** 0.5
+        elif property == 'r_cylindrical' or property == 'r':
+            data = np.sum(self.p[:, :2] ** 2, axis=1) ** 0.5
+        elif self.ptype == 0:
+            if property == 'M' or property == 'M_gas' or property == 'm':
+                data = self.m * config.UnitMass_in_Msolar
+            elif property == 'h':
                 data = self.h
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
@@ -410,10 +415,9 @@ class Particle:
                 data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
             elif property == 'T':
                 data = self.T
-            elif property == 'r':
-                data = np.sqrt(np.power(self.p[:,0],2) + np.power(self.p[:,1],2))
             elif property == 'Z':
-                data = self.z[:,0]/config.SOLAR_Z
+                SOLAR_Z = config.AG89_SOLAR_Z if FIREver==2 else config.A09_SOLAR_Z
+                data = self.z[:,0]/SOLAR_Z
             elif property == 'Z_all':
                 data = self.z
             elif property == 'Z_O':
@@ -440,7 +444,7 @@ class Particle:
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
             elif property == 'O/H_offset':
-                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                offset=0.2 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 protosolar(8.73). Ma+16 finds FIRE gives 9.00.
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)-offset
             elif property == 'O/H_gas_offset':
