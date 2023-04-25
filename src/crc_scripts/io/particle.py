@@ -288,7 +288,7 @@ class Particle:
                         self.boxsize, self.scale_factor, self.hubble)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
-                self.v = coordinate_utils.get_coordinate_utilss_rotated(self.v, principal_vec)
+                self.v = coordinate_utils.get_coordinates_rotated(self.v, principal_vec)
 
         if center_pos is not None:
             # convert to be relative to galaxy center [kpc physical]
@@ -296,7 +296,7 @@ class Particle:
                 self.boxsize, self.scale_factor)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
-                self.p = coordinate_utils.get_coordinate_utilss_rotated(
+                self.p = coordinate_utils.get_coordinates_rotated(
                     self.p, principal_vec)
 
         self.orientated=1
