@@ -1,11 +1,13 @@
+from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from gizmo_library import config
-from gizmo_library import utils
+
+from . import config
+from . import math_utils
 
 
 def setup_plot_style(snap_nums, properties=[], style='color-linestyle'):
@@ -242,8 +244,30 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
     return fig,axes,dims
 
 
+def add_artists(axis, artists):
+    """
+    Adds the given artists to the given axis. Useful when you want to add a line or something to a plot.
 
-def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=None):
+    Parameters
+    ----------
+    axis : Matplotlib axis
+        Axis to add artists to
+    artists : list
+        List of Matplotlib artists to be added
+
+    Returns
+    -------
+    None
+
+    """
+    if artists is not None and artists[0] is not None:
+        for artist in artists:
+            # Just in case you reused the same artist across axes make a copy and add that instead
+            axis.add_artist(copy(artist))
+    return
+
+
+def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, artists_to_add=None):
     """
     Sets up the axis plot given x and y properties and optional limits
 
@@ -255,6 +279,10 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
         Property to be plotted on x axis
     y_prop : string
         Property to be plotted on y axis
+    x_label : string
+        Label for x axis (will override default label for give x_prop)
+    y_label : string
+        Label for y axis (will override default label for give y_prop)
     x_lim : list
         Limits for x axis
     x_log : boolean
@@ -263,8 +291,8 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
         Limits for y axis
     y_log : boolean
         Explicitly set y axis to linear or log space, otherwise go with default for y_param
-    sp: Object
-        One of the snapshots to be plotted. Only used for converting time with cosmological constants.
+    artitst_to_add : list
+        List of matplotlib artists objects to be added to axis
 
     Returns
     -------
@@ -273,8 +301,9 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
     """
 
     # Setup x axis
-    if x_prop not in config.PROP_INFO.keys():
-        print("%s is not a valid property for plot_setup\n"%x_prop)
+    if x_prop not in config.PROP_INFO.keys() and (x_label is None and x_lim is None):
+        print("%s is not a supported property for plot_setup\n"%x_prop)
+        print("Either give x_label and x_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
         print(config.PROP_INFO.keys())
         return
@@ -285,8 +314,9 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
     axis.set_xlim(x_lim)
 
     # Setup y axis
-    if y_prop not in config.PROP_INFO.keys():
-        print("%s is not a valid property plot_setup\n"%y_prop)
+    if y_prop not in config.PROP_INFO.keys() and (y_label is None and y_lim is None):
+        print("%s is not a supported property for plot_setup\n"%x_prop)
+        print("Either give y_label and y_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
         print(config.PROP_INFO.keys())
         return
@@ -297,12 +327,14 @@ def setup_axis(axis, x_prop, y_prop, x_lim=None, x_log=None, y_lim=None, y_log=N
     axis.set_ylim(y_lim)
 
     # Set axis labels and ticks
-    setup_labels(axis,x_prop,y_prop)
+    setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label)
+    # Add given artist to axis
+    add_artists(axis,artists_to_add)
 
     return
 
 
-def setup_labels(axis, x_prop, y_prop):
+def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
     """
     Sets the labels and ticks for the given axis.
 
@@ -310,10 +342,14 @@ def setup_labels(axis, x_prop, y_prop):
     ----------
     axis : Matplotlib axis
         Axis of plot
-    xlabel : string
-        X axis label
-    ylabel : string
-        Y axis label
+    x_prop :
+        Name of property on x axis
+    y_prop :
+        Name of property on y axis
+    x_label : string
+        X axis label (overrides default label for x_prop)
+    y_label : string
+        Y axis label (overrides default label for y_prop)
 
     Returns
     -------
@@ -324,9 +360,11 @@ def setup_labels(axis, x_prop, y_prop):
     # Check if there are tick labels for each axis, not having them means the axes are shared and so
     # we don't want to add a label
     if (len(axis.get_xaxis().get_ticklabels())!=0):
-        axis.set_xlabel(config.get_prop_label(x_prop), fontsize = config.LARGE_FONT)
+        label = x_label if x_label is not None else config.get_prop_label(x_prop)
+        axis.set_xlabel(label, fontsize = config.LARGE_FONT)
     if (len(axis.get_yaxis().get_ticklabels())!=0):
-        axis.set_ylabel(config.get_prop_label(y_prop), fontsize = config.LARGE_FONT)
+        label = y_label if y_label is not None else config.get_prop_label(y_prop)
+        axis.set_ylabel(label, fontsize = config.LARGE_FONT)
 
     # If plotting redshift need to make some specific changes
     if x_prop in ['redshift','redshift_plus_1']:
@@ -373,14 +411,14 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
             axis_2_name = 'redshift'
             axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
-        conv_func = utils.get_time_conversion_spline('time',axis_2_name,sp=snapshot)
+        conv_func = math_utils.get_time_conversion_spline('time',axis_2_name,sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
     elif time_name in ['redshift','redshift_plus_1']:
         axis_2_name = 'time_lookback'
         axis_2_tick_labels = ['0', '2', '4','6', '8', '10', '11', '12', '12.5', '13']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
-        conv_func = utils.get_time_conversion_spline(time_name,'time_lookback',sp=snapshot)
+        conv_func = math_utils.get_time_conversion_spline(time_name,'time_lookback',sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
 

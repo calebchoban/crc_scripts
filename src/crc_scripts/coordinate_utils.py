@@ -1,7 +1,5 @@
 '''
-Utility functions for positions and velocities.
-
-@author: Andrew Wetzel <arwetzel@gmail.com>
+Utility functions for positions and velocities taken from Andrew Wetzel's analysis code.
 '''
 
 import numpy as np

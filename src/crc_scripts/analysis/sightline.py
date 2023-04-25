@@ -1,12 +1,14 @@
 import os
 import numpy as np
-from .utils import weighted_percentile
-from . import config
-from . import coordinate
+
 import pickle
-from .snapshot import Snapshot
+
 from shutil import copyfile
 import h5py
+
+from ..math_utils import weighted_percentile
+from .. import config
+from .. import coordinate_utils
 
 # Need to add a bunch of derived fields for yt
 import yt
@@ -99,15 +101,15 @@ class Sight_Lines(object):
             self.name = name
 
         if self.pb_fix:
-            # First need to load in and fix periodic coordinates since non-cosmo sims with
-            # Periodic coordinates have funky coordinates
+            # First need to load in and fix periodic coordinate_utilss since non-cosmo sims with
+            # Periodic coordinate_utilss have funky coordinate_utilss
             self.snap_name = 'snapshot_'+str(self.snap_num)+'.hdf5'
             copyfile(self.sdir+self.snap_name, './fixed_'+self.snap_name)
             self.snap_name='fixed_'+self.snap_name
 
             f = h5py.File('./'+self.snap_name, 'r+')
             grp = f['PartType0']
-            old_p = grp['Coordinates']
+            old_p = grp['coordinate_utilss']
             new_p = old_p[...].copy()
             boxsize = f['Header'].attrs['BoxSize']
             mask1 = new_p > boxsize/2; mask2 = new_p <= boxsize/2
@@ -137,8 +139,8 @@ class Sight_Lines(object):
 
 
         # Check if data has already been saved and if so load that instead
-        if os.path.isfile(dirc+self.name):
-            with open(dirc+self.name, 'rb') as handle:
+        if os.path.isfile(self.dirc+self.name):
+            with open(self.dirc+self.name, 'rb') as handle:
                 self.sightline_data = pickle.load(handle)
             print("Preexisting file %s already exists and is loaded!"%self.name)
             self.k = 1
@@ -152,7 +154,7 @@ class Sight_Lines(object):
         return
 
 
-    # Creates random start and end points and distance for sight line given start galactic radius and center coordinates of galaxy
+    # Creates random start and end points and distance for sight line given start galactic radius and center coordinate_utilss of galaxy
     def ray_points(self, center, radius, dist_lims):
         solar_r = radius
         solar_theta = np.random.random()*2*np.pi
@@ -192,12 +194,12 @@ class Sight_Lines(object):
             radius = (radius_lims[1] - radius_lims[0]) * np.random.random() + radius_lims[0]
             start = np.array([radius * np.cos(solar_theta), radius * np.sin(solar_theta), 0])
             start = self.ds.arr(start, 'kpc')
-            start = coordinate.orientated_coords(start, self.center, self.normal_vectors[2])
+            start = coordinate_utils.orientated_coords(start, self.center, self.normal_vectors[2])
 
             # Now find all young stars from the starting point with the distance limits given
             sphere = self.ds.sphere(start, (dist_lims[1], "kpc"))
             star_age = sphere['PartType4', 'age'].in_units('Gyr')
-            star_coords = sphere['PartType4', 'Coordinates']
+            star_coords = sphere['PartType4', 'coordinate_utilss']
             radius = np.sqrt(np.sum((star_coords - start) ** 2, axis=1))
             young_stars = (star_age < self.ds.arr(age_max, 'Gyr')) & (radius > self.ds.arr(dist_lims[0], 'kpc'))
             young_star_coords = star_coords[young_stars].in_units('kpc')
@@ -235,7 +237,7 @@ class Sight_Lines(object):
         sphere = self.ds.sphere(self.center, (rmax, "kpc"))
         star_age = sphere['PartType4', 'age'].in_units('Gyr')
         young_stars = star_age < self.ds.arr(age_max,'Gyr')
-        star_coords = sphere['PartType4', 'Coordinates']
+        star_coords = sphere['PartType4', 'coordinate_utilss']
         young_star_coords = star_coords[young_stars]
         end = young_star_coords.in_units('kpc')
         start = np.empty((0,3))
@@ -244,11 +246,11 @@ class Sight_Lines(object):
             initial_norm = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
             RM = np.linalg.solve(initial_norm, self.normal_vectors)
             observer_norm_vecs = observer_angle.dot(RM)
-            start = np.append(start,end.in_units('kpc').v+observer_norm_vecs[2]*distance,axis=0)
-        end = self.ds.arr(np.repeat(end,np.shape(observer_angles)[0],axis=0),'kpc')
+            start = np.append(start,end.in_units('kpc').v+observer_norm_vecs*distance,axis=0)
+        end = self.ds.arr(np.tile(end,(np.shape(observer_angles)[0],1)),'kpc')
         start =  self.ds.arr(start,'kpc')
-        distances = self.ds.arr(np.repeat(distance,np.shape(end)[0]), 'kpc')
-        star_age = self.ds.arr(np.repeat(star_age[young_stars].v,len(observer_angles)))
+        distances = self.ds.arr(np.tile(distance,np.shape(end)[0]), 'kpc')
+        star_age = self.ds.arr(np.tile(star_age[young_stars].v,len(observer_angles)))
 
         return start, end, distances, star_age
 
@@ -276,25 +278,25 @@ class Sight_Lines(object):
             if sightline_type == 'in_disk':
                 start, end, distance = self.ray_points_in_disk(radius_lims=radius_lims, dist_lims=dist_lims)
                 start = self.ds.arr(start, 'kpc'); end = self.ds.arr(end, 'kpc'); distance = self.ds.arr(distance, 'kpc')
-                start_coord = coordinate.orientated_coords(start, self.center, self.normal_vectors[2])
-                end_coord = coordinate.orientated_coords(end, self.center, self.normal_vectors[2])
+                start_coord = coordinate_utils.orientated_coords(start, self.center, self.normal_vectors[2])
+                end_coord = coordinate_utils.orientated_coords(end, self.center, self.normal_vectors[2])
             elif sightline_type == 'face_on':
                 start, end, distance = self.ray_points_faceon(rmax=rmax, distance=distance)
                 start = self.ds.arr(start, 'kpc'); end = self.ds.arr(end, 'kpc'); distance = self.ds.arr(distance, 'kpc')
                 # Rays will default to face-on (aligned with given z-axis), but you can also give x,y,z, rotation angles to rotate rays
                 initial_norm = np.array([[1,0,0],[0,1,0],[0,0,1]],dtype=float)
-                new_normal = coordinate.get_coordinates_rotated(initial_norm, rotation_angles=rotation_angles)
-                # Get matrix that will transform x,y,z coordinate basis to the galaxy's coordinate basis
+                new_normal = coordinate_utils.get_coordinate_utilss_rotated(initial_norm, rotation_angles=rotation_angles)
+                # Get matrix that will transform x,y,z coordinate_utils basis to the galaxy's coordinate_utils basis
                 RM = np.linalg.solve(new_normal, self.normal_vectors)
                 start_coord = start.dot(RM) + self.center
                 end_coord = end.dot(RM) + self.center
                 # start_coord = RM.dot(start) + self.center
                 # end_coord = RM.dot(end) + self.center
                 # If rotation angle is given, rotation z-axis normal vector in case you want the sightlines to be at an angle with face-on
-                # previous_normal = coordinate.get_coordinates_rotated(np.array([0., 0., 1.]), rotation_angles=rotation_angles)
-                # start_coord = coordinate.orientated_coords(start, self.center, self.normal_vectors[2],
+                # previous_normal = coordinate_utils.get_coordinate_utilss_rotated(np.array([0., 0., 1.]), rotation_angles=rotation_angles)
+                # start_coord = coordinate_utils.orientated_coords(start, self.center, self.normal_vectors[2],
                 #                                            previous_normal=previous_normal)
-                # end_coord = coordinate.orientated_coords(end, self.center, self.normal_vectors[2],
+                # end_coord = coordinate_utils.orientated_coords(end, self.center, self.normal_vectors[2],
                 #                                            previous_normal=previous_normal)
             else:
                 print("Given sightline_type is not supported. Must be in_disk or face_on.")
@@ -386,7 +388,7 @@ class Sight_Lines(object):
                 continue
 
             if i%save_interval==0:
-                pickle.dump(self.sightline_data, open(self.name, "wb"))
+                pickle.dump(self.sightline_data, open(self.dirc+self.name, "wb"))
                 print(i)
 
 
@@ -413,7 +415,7 @@ class Sight_Lines(object):
             self.sightline_data['depl_X'][i] = self.sightline_data['NX_gas'][i]/(self.sightline_data['NX_gas'][i]+self.sightline_data['NX_dust'][i])
 
 
-        pickle.dump(self.sightline_data, open(self.name, "wb" ))
+        pickle.dump(self.sightline_data, open(self.dirc+self.name, "wb" ))
 
         self.k=1
 

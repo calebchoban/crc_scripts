@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from astropy.io import ascii
-from gizmo_library import config
 import os
+
+from .. import config
 
 OBS_DIR = os.path.join(os.path.dirname(__file__), 'data/')
 

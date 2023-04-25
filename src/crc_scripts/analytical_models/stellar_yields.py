@@ -1,5 +1,5 @@
 import numpy as np
-import gizmo_library.config as config
+from .. import config
 
 # Theoretical metal dust yields for all sources of stellar creation
 
