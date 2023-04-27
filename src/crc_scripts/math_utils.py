@@ -292,13 +292,17 @@ def fit_exponential(x_data, y_data, guess=None, bounds=None):
     return curve_fit(exp_func,x_data,y_data, p0=guess, bounds=bounds)
 
 # This fits a sersic+exponential disk profile to galactocentric vs sufrace density data
-def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='de_vauc'):
+def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='de_vauc', no_exp=False):
     def sersic_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l, sersic_index):
         return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./sersic_index))+coeff2*np.exp(-x/disk_l))
     def de_vaucouleurs_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l):
         return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./4.))+coeff2*np.exp(-x/disk_l))
+    def sersic_func(x, coeff1,sersic_l, sersic_index):
+        return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./sersic_index)))
 
     y_data[y_data <= 0] = config.EPSILON
+    if no_exp:
+        return curve_fit(sersic_func, x_data, np.log10(y_data), p0=guess, bounds=bounds)
     if bulge_profile=='sersic':
         return curve_fit(sersic_and_exp_func,x_data,np.log10(y_data), p0=guess, bounds=bounds)
     if bulge_profile=='de_vauc':

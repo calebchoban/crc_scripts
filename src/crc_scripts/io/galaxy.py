@@ -360,7 +360,7 @@ class Halo(object):
 
     # Calculate the stellar scale radius
     def calc_stellar_scale_r(self, guess=[1E4,1E2,0.5,3], bounds=(0, [1E6,1E6,5,10]), radius_max=10, output_fit=False,
-                             foutname='stellar_bulge+disk_fit.png', bulge_profile='de_vauc'):
+                             foutname='stellar_bulge+disk_fit.png', bulge_profile='de_vauc', no_exp=False):
         # guess : initial guess for central density of sersic profile, central density of exponential disk, sersic scale length, disk scale length, and sersic index
         # bounds : Bounds for above values
         # radius_max : maximum disk radius for fit
@@ -383,12 +383,17 @@ class Halo(object):
 
 
         # Fit a sersic/bulge+exponential/disk profile to the disk stellar surface density
-        fit_params,_ = math_utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds, bulge_profile=bulge_profile)
-        coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3];
-        if bulge_profile == 'sersic':
-            sersic_index=fit_params[4]
+        fit_params,_ = math_utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds, bulge_profile=bulge_profile, no_exp=no_exp)
+        if not no_exp:
+            coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3];
+            if bulge_profile == 'sersic':
+                sersic_index = fit_params[4]
+            else:
+                sersic_index = 4
         else:
-            sersic_index=4
+            coeff1 = fit_params[0]; sersic_l = fit_params[1];sersic_index = fit_params[2];
+            coeff2 = 0; disk_l=0
+
         print("Results for bulge+disk fit to disk galaxy...\n \
               Sersic Coefficient = %e M_solar/pc^2 \n \
                Disk Coefficient = %e M_solar/pc^2 \n \
