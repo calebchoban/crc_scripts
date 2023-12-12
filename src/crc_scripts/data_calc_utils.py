@@ -115,7 +115,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100):
 
 
 def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=10, prop_lims=None,
-										 mask_prop=None):
+										 mask_prop=None, prop1_criteria='all', prop2_criteria='all'):
 	"""
 	First calculates mock observations of property1 and property2 for the given pixel resolution. Then
 	calculates median and 16/84th-percentiles of property1 in relation to binned property2.
@@ -138,7 +138,11 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		Limits for property2 binning
 	mask_prop : string
 		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
-
+	prop1_criteria : string
+		A masking criteria for property1 to include only data which meets the criteria (e.g cold/warm/hot/neutral/molecular/ionized gas or young/old stars)
+	prop2_criteria : string
+		A masking criteria for property2 to include only data which meets the criteria (e.g cold/warm/hot/neutral/molecular/ionized gas or young/old stars)
+		
 	Returns
 	-------
 	bin_vals: ndarray
@@ -173,73 +177,120 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			ptype = 0
 
 		P = snap.loadpart(ptype)
-		x = P.p[:,0]; y = P.p[:,1];
+		
+
+		criteria = prop1_criteria if i == 1 else prop2_criteria
+		mask = np.ones(P.npart, dtype=bool)
+		if ptype==0:
+				if 'cold' in criteria:
+					T = P.get_property('T')
+					mask = T < 1E3
+				elif 'hot' in criteria:
+					T = P.get_property('T')
+					mask = T > 1E4
+				elif 'warm' in criteria:
+					T = P.get_property('T')
+					mask = (T<1E4) & (T>=1E3)
+				elif 'molecular' in criteria:
+					fH2 = P.get_property('fH2')
+					mask = fH2 > 0.5
+				elif 'neutral' in criteria:
+					fHn = P.get_property('nh')
+					mask = fHn > 0.5
+				elif 'neutral_atomic' in criteria:
+					fHn = P.get_property('nh')
+					fH2 = P.get_property('fH2')
+					mask = (fHn > 0.5) & (fH2 < 0.5)
+				elif 'ionized' in criteria:
+					nH = P.get_property('nH')
+					T = P.get_property('T')
+					mask = (nH >= 0.5) & (T >= 7000) & (T <= 15000)
+				else:
+					if criteria!='all':
+						print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
+		if ptype==4:
+			if 'young' in criteria:
+				age = P.get_property('age')
+				mask = age < 0.1
+			elif 'old' in criteria:
+				age = P.get_property('age')
+				mask = age < 1.
+			else:
+				if criteria!='all':
+					print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
+
+		x = P.p[:,0][mask]; y = P.p[:,1][mask];
 
 		if property == 'sigma_dust':
-			bin_data = P.get_property('M_dust')
+			bin_data = P.get_property('M_dust')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			dust_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = dust_pixel
 		elif property=='sigma_gas':
-			bin_data = P.get_property('M_gas')
+			bin_data = P.get_property('M_gas')[mask]
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			M_pixel = ret.flatten()/pixel_area
+			pixel_data[i] = M_pixel
+		elif property=='sigma_gas_ionized':
+			bin_data = P.get_property('M_gas_ionized')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property in ['sigma_stellar','sigma_star']:
-			bin_data = P.get_property('M_stellar')
+			bin_data = P.get_property('M_stellar')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_sfr':
-			bin_data = P.get_property('M_sfr')
+			bin_data = P.get_property('M_sfr')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_gas_neutral':
-			bin_data = P.get_property('M_gas_neutral')
+			bin_data = P.get_property('M_gas_neutral')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_H2':
-			bin_data = P.get_property('M_H2')
+			bin_data = P.get_property('M_H2')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			MH2_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = MH2_pixel
 		elif property == 'sigma_Z' or property == 'sigma_metals':
-			bin_data = P.get_property('M_metals')
+			bin_data = P.get_property('M_metals')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			Z_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = Z_pixel
 		elif property == 'Z':
-			bin_data = [P.get_property('M_metals'),P.get_property('M_gas')]
+			bin_data = [P.get_property('M_metals')[mask],P.get_property('M_gas')[mask]]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			Z_pixel = ret[0].flatten()/(ret[1].flatten())/config.SOLAR_Z
 			pixel_data[i] = Z_pixel
 		elif property == 'O/H':
-			bin_data = P.get_property('O/H')
+			bin_data = P.get_property('O/H')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas_offset':
-			bin_data = P.get_property('O/H_gas_offset')
+			bin_data = P.get_property('O/H_gas_offset')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas':
-			bin_data = P.get_property('O/H_gas')
+			bin_data = P.get_property('O/H_gas')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_ionized':
-			bin_data = P.get_property('O/H')
+			bin_data = P.get_property('O/H')[mask]
 			nH = P.get_property('nH')
 			T = P.get_property('T')
-			mask = (nH>=0.5) & (T>=7000) & (T<=15000)
-			ret = binned_statistic_2d(x[mask], y[mask], bin_data[mask], statistic=np.mean, bins=[x_bins,y_bins]).statistic
+			ion_mask = (nH>=0.5) & (T>=7000) & (T<=15000)
+			ret = binned_statistic_2d(x[ion_mask], y[ion_mask], bin_data[ion_mask], statistic=np.mean, bins=[x_bins,y_bins]).statistic
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas_ionized':
-			bin_data = P.get_property('O/H_gas')
+			bin_data = P.get_property('O/H_gas')[mask]
 			nH = P.get_property('nH')
 			T = P.get_property('T')
 			mask = (nH>=0.5) & (T>=7000) & (T<=15000)
@@ -247,7 +298,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'O/H_gas_ionized_offset':
-			bin_data = P.get_property('O/H_gas_offset')
+			bin_data = P.get_property('O/H_gas_offset')[mask]
 			nH = P.get_property('nH')
 			T = P.get_property('T')
 			mask = (nH>=0.5) & (T>=7000) & (T<=15000)
@@ -255,26 +306,44 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			OH_pixel = ret.flatten()
 			pixel_data[i] = OH_pixel
 		elif property == 'fH2':
-			bin_data = [P.get_property('M_H2'),P.get_property('M_gas')]
+			bin_data = [P.get_property('M_H2')[mask],P.get_property('M_gas')[mask]]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			fH2_pixel = ret[0].flatten()/(ret[1].flatten())
 			pixel_data[i] = fH2_pixel
+		elif property == 'fHn':
+			bin_data = [P.get_property('M_gas_neutral')[mask],P.get_property('M_gas')[mask]]
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			Hn_pixel=ret[0].flatten(); gas_pixel = ret[1].flatten()
+			fHn_pixel= np.zeros(len(gas_pixel))
+			fHn_pixel[gas_pixel>0] = Hn_pixel[gas_pixel>0]/gas_pixel[gas_pixel>0]
+			pixel_data[i] = fHn_pixel
 		elif property in ['r','r25']:
 			r_conversion = 1.
 			if property == 'r25':
 				try:
 					r25 = snap.calc_stellar_scale_r()/0.2
+					print('r25: %e kpc'%r25)
 					r_conversion = 1./r25
 				except NameError:
-					print("Using r25 only works for disk galaxy objects. Will default to galactocentric radius.")
+					print("Using r25 only works for disk/halo galaxy objects. Will default to galactocentric radius.")
 			# Get the average r coordinate for each pixel in kpc
 			pixel_r_vals = np.array([np.sqrt(np.power(np.abs(y_vals),2) + np.power(np.abs(x_vals[k]),2))*r_conversion for k in range(len(x_vals))]).flatten()
 			pixel_data[i] = pixel_r_vals
 		elif property == 'D/Z':
-			bin_data = [P.get_property('M_dust'),P.get_property('M_metals')]
+			bin_data = [P.get_property('M_dust')[mask],P.get_property('M_metals')[mask]]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			DZ_pixel = np.divide(ret[0].flatten(),ret[1].flatten(),where=ret[1].flatten()!=0)
 			pixel_data[i] = DZ_pixel
+		elif property == 'D/H':
+			bin_data = [P.get_property('M_dust')[mask],P.get_property('M_gas')[mask]]
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			DH_pixel = np.divide(ret[0].flatten(),ret[1].flatten(),where=ret[1].flatten()!=0)
+			pixel_data[i] = DH_pixel
+		elif property == 'D/H_neutral':
+			bin_data = [P.get_property('M_dust')[mask],P.get_property('M_gas_neutral')[mask]]
+			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+			DH_pixel = np.divide(ret[0].flatten(),ret[1].flatten(),where=ret[1].flatten()!=0)
+			pixel_data[i] = DH_pixel
 		else:
 			print("Property given to calc_binned_obs_property_vs_property() is not supported:",property)
 			return None,None,None
@@ -286,17 +355,33 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		mask_data = [P.get_property('M_H2'),P.get_property('M_gas')]
 		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		# Need to be a bit careful to not divide by zero here
-		fH2_pixel= np.zeros(len(ret[0].flatten()))
 		H2_pixel=ret[0].flatten(); gas_pixel = ret[1].flatten()
 		fH2_pixel= np.zeros(len(gas_pixel))
 		fH2_pixel[gas_pixel>0] =H2_pixel[gas_pixel>0]/gas_pixel[gas_pixel>0]
-		mask = fH2_pixel>0.1
+		mask = fH2_pixel>0.05
+	elif mask_prop == 'neutral':		
+		P = snap.loadpart(0)
+		x = P.p[:,0]; y = P.p[:,1];
+		mask_data = [P.get_property('M_gas_neutral'),P.get_property('M_gas')]
+		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		# Need to be a bit careful to not divide by zero here
+		Hneutral_pixel=ret[0].flatten(); gas_pixel = ret[1].flatten()
+		nh_pixel= np.zeros(len(gas_pixel))
+		nh_pixel[gas_pixel>0] = Hneutral_pixel[gas_pixel>0]/gas_pixel[gas_pixel>0]
+		mask = nh_pixel>0.5
+	elif mask_prop == 'no_low_dust':		
+		P = snap.loadpart(0)
+		x = P.p[:,0]; y = P.p[:,1];
+		mask_data = P.get_property('M_dust')
+		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
+		dust_pixel = ret.flatten()/pixel_area
+		mask = dust_pixel>1E-3
 	else:
 		mask = np.ones(len(pixel_data[0]), dtype=bool)
 
 	bin_vals, mean_vals, std_vals = math_utils.bin_values(pixel_data[1][mask], pixel_data[0][mask], prop_lims, bin_nums=bin_nums, weight_vals=None, log=log_bins)\
 
-	return bin_vals, mean_vals, std_vals
+	return bin_vals, mean_vals, std_vals, pixel_data
 
 
 
@@ -435,33 +520,48 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 
 
 	# Get the data to be projected
-	if property in ['D/Z','fH2','fMC']:
+	if property in ['D/Z','fH2','D/H','D/H_neutral','fMC']:
 		if property == 'D/Z':
 			proj_data1 = P.get_property('M_dust')
 			proj_data2 = P.get_property('M_metals')
+		elif property == 'D/H':
+			proj_data1 = P.get_property('M_dust')
+			proj_data2 = P.get_property('M_gas')
+		elif property == 'D/H_neutral':
+			proj_data1 = P.get_property('M_dust')
+			proj_data2 = P.get_property('M_gas_neutral')
 		elif property == 'fH2':
 			proj_data1 = P.get_property('M_gas')
 			proj_data2 = P.get_property('M_H2')
 		else:
 			proj_data1 = P.get_property('M_gas')
 			proj_data2 = P.get_property('M_mc')
-		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], statistic=np.sum, bins=[coord1_bins,coord2_bins])
-		pixel_stats = binned_stats.statistic[0]/binned_stats.statistic[1]
+		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], 
+				     						statistic=np.sum, bins=[coord1_bins,coord2_bins])
+		pixel_stats = np.divide(binned_stats.statistic[0],binned_stats.statistic[1], where=binned_stats.statistic[1]>0,
+			  					out=np.full(np.shape(binned_stats.statistic[1]), np.nan))
 
+		if property == 'D/H_neutral':
+			print('')
+
+
+	
 	else:
-		if   property == 'sigma_dust':  	proj_data = P.get_property('M_dust')
-		elif property == 'sigma_gas': 		proj_data = P.get_property('M_gas')
-		elif property == 'sigma_H2': 		proj_data = P.get_property('M_H2')
-		elif property == 'sigma_metals': 	proj_data = P.get_property('M_metals')
-		elif property == 'sigma_sil': 		proj_data = P.get_property('M_sil')
-		elif property == 'sigma_sil+':  	proj_data = P.get_property('M_sil+')
-		elif property == 'sigma_carb':  	proj_data = P.get_property('M_carb')
-		elif property == 'sigma_SiC': 		proj_data = P.get_property('M_SiC')
-		elif property == 'sigma_iron':  	proj_data = P.get_property('M_iron')
-		elif property == 'sigma_ORes': 		proj_data = P.get_property('M_ORes')
-		elif property == 'sigma_star':  	proj_data = P.get_property('M_star')
-		elif property == 'sigma_sfr':  		proj_data = P.get_property('M_star_young')
-		elif property == 'T':				proj_data = P.get_property('T')
+		if   property == 'sigma_dust':  		proj_data = P.get_property('M_dust')
+		elif property == 'sigma_gas': 			proj_data = P.get_property('M_gas')
+		elif property == 'sigma_gas_neutral': 	proj_data = P.get_property('M_gas_neutral')
+		elif property == 'sigma_gas_ionized': 	proj_data = P.get_property('M_gas_ionized')
+		elif property == 'sigma_H2': 			proj_data = P.get_property('M_H2')
+		elif property == 'sigma_metals': 		proj_data = P.get_property('M_metals')
+		elif property == 'sigma_sil': 			proj_data = P.get_property('M_sil')
+		elif property == 'sigma_sil+':  		proj_data = P.get_property('M_sil+')
+		elif property == 'sigma_carb':  		proj_data = P.get_property('M_carb')
+		elif property == 'sigma_SiC': 			proj_data = P.get_property('M_SiC')
+		elif property == 'sigma_iron':  		proj_data = P.get_property('M_iron')
+		elif property == 'sigma_ORes': 			proj_data = P.get_property('M_ORes')
+		elif property == 'sigma_star':  		proj_data = P.get_property('M_star')
+		elif property == 'sigma_sfr':  			proj_data = P.get_property('M_star_young')
+		elif property == 'T':					proj_data = P.get_property('T')
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%property)
 			return None

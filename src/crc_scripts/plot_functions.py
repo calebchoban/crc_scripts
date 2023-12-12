@@ -101,6 +101,9 @@ def plot_extragalactic_dust_obs(axis, property1, property2, goodSNR=True, aggreg
 	elif property1 == 'sigma_dust':
 		if property2 == 'r':
 			data_to_use = 'Menard10'
+	elif 'D/H' in property1:
+		if property2 == 'sigma_gas_neutral':
+			data_to_use = 'Clark23'
 	else:
 		print("%s vs %s extragalactic observational data is not available."%(property1,property2))
 		return None
@@ -153,7 +156,15 @@ def plot_extragalactic_dust_obs(axis, property1, property2, goodSNR=True, aggreg
 	elif data_to_use == 'Menard10':
 		r_vals, sigma_dust = obs.Menard_2010_dust_dens_vs_radius(1E-3, 0)
 		axis.plot(r_vals,sigma_dust,label=r'Ménard+10', c='xkcd:black', linestyle=config.LINE_STYLES[0], linewidth=config.BASE_LINEWIDTH*1.5, zorder=2)
-
+	elif data_to_use == 'Clark23':
+		# The standard deviation for these median values is huge so just show the uncertainity in the median
+		data = obs.Clark_2023_DtH_vs_SigmaH(error_bars='unc')
+		for i, gal_name in enumerate(data.keys()):
+			bin_edges = data[gal_name][0]; median_DtH = data[gal_name][1]; unc_DtH = data[gal_name][2]
+			axis.errorbar(bin_edges, median_DtH, yerr=unc_DtH, label=gal_name, c=config.MARKER_COLORS[i], 
+				mec=config.MARKER_COLORS[i], ecolor=config.MARKER_COLORS[i], mew=0.5*config.BASE_ELINEWIDTH, 
+				fmt=config.MARKER_STYLES[i], mfc='xkcd:white', elinewidth=0.5*config.BASE_ELINEWIDTH, 
+				ms=0.5*config.BASE_MARKERSIZE, zorder=2)
 
 	return
 
@@ -396,7 +407,7 @@ def plot_galaxy_int_observational_data(axis, property):
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
 		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[0],
-					 facecolors='none', linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[0], zorder=2)
+					 facecolors='none', linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[0], zorder=2)
 		# Also plot broken power law in Table 1
 		a = 2.21; alpha1=1; b = 0.96; alpha2=3.1; xt = 8.1; xsol=8.69;
 		x_vals = np.linspace(7,9.5,100)
@@ -413,7 +424,7 @@ def plot_galaxy_int_observational_data(axis, property):
 		if log:
 			DZ_vals[DZ_vals == 0] = config.EPSILON
 		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[1], facecolors='none',
-					 linewidths=config.LINE_WIDTHS[1], edgecolors=config.MARKER_COLORS[1], zorder=2)
+					 linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[1], zorder=2)
 		# Also plot power law in Table 1
 		a = 2.45; b = -23.3;
 		x_vals = np.linspace(7,9.5,100)
@@ -551,7 +562,7 @@ def plot_galaxy_int_prop_vs_prop_over_time(x_props, y_props, snaps, labels=None,
     connect_points: boolean
     	Add connecting lines between points for each sim
     axes_args : list
-    	List of dictionaries contating arguments to be passed to axis setup functions
+    	List of dictionaries containing arguments to be passed to axis setup functions
 
     Returns
     -------
@@ -595,7 +606,7 @@ def plot_galaxy_int_prop_vs_prop_over_time(x_props, y_props, snaps, labels=None,
 						 s=(1.25 * config.BASE_MARKERSIZE) ** 2,
 						 edgecolors=config.BASE_COLOR, linewidths=config.LINE_WIDTHS[2], zorder=3)
 			if connect_points:
-				axis.plot(x_vals, y_vals, linestyle='--', c='xkcd:grey', linewidth=config.LINE_WIDTHS[1], zorder=2)
+				axis.plot(x_vals, y_vals, linestyle='--', c='xkcd:grey', linewidth=config.LINE_WIDTHS[3], zorder=2)
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
 		hands, labs = axis.get_legend_handles_labels()
@@ -1034,9 +1045,9 @@ def plot_sightline_depletion_vs_prop(elems, prop, sightline_data_files, bin_data
 
 
 
-def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, labels=None, foutname='obs_DZ_vs_param.png', \
+def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=[2], bin_nums=10, labels=None, foutname='obs_DZ_vs_param.png', \
 						 std_bars=True, style='color-linestyle', include_obs=True, aggregate_obs=False, mask_prop=None,
-						 show_raw_data=True, r_max=10):
+						 show_raw_data=True, r_max=10, loud=False, axes_args=None, xbin_lims=None, xprop_criteria='all', yprop_criteria='all'):
 	"""
 	Plots mock observations of one property versus another for multiple snapshots
 
@@ -1066,6 +1077,8 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, label
 		Overplot observed data if available
 	mask_prop : string
 		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
+	load : bool
+		Print out various intermediate data products. Useful when adjusting bin numbers and data ranges.
 
 	Returns
 	-------
@@ -1087,12 +1100,16 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, label
 	for i, x_prop in enumerate(xprops):
 		# Set up for each plot
 		axis = axes[i]
+		axis_args = axes_args[i] if axes_args is not None else {}
 		y_prop = yprops[i]
-		plt_set.setup_axis(axis, x_prop, y_prop)
+		xbin_lim = xbin_lims[i] if xbin_lims is not None else None
+		plt_set.setup_axis(axis, x_prop, y_prop, **axis_args)
+
+		resolution = pixel_res[i]
 
 		# First plot observational data if applicable
 		if include_obs:
-			plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True, aggregate_data=aggregate_obs, show_raw_data=show_raw_data);
+			plot_extragalactic_dust_obs(axis, y_prop, x_prop, goodSNR=True, aggregate_data=aggregate_obs, show_raw_data=True);
 			# Keep track of labels and handles created from observational data so we can make a separate legend
 			hands, labs = axis.get_legend_handles_labels()
 			new_obs_lh = dict(zip(labs, hands))
@@ -1106,12 +1123,20 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, label
 			else:
 					mask = mask_prop
 
-			x_vals,y_mean,y_std = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums,
-																			pixel_res=pixel_res,mask_prop=mask)
+			x_vals,y_mean,y_std,raw_data = calc.calc_binned_obs_property_vs_property(y_prop,x_prop, snap, r_max=r_max, bin_nums=bin_nums,
+																			pixel_res=resolution,mask_prop=mask,prop_lims=xbin_lim,
+																			prop1_criteria=xprop_criteria, prop2_criteria=yprop_criteria)
+
+			if loud:
+				print("Snap: %s x_prop: %s y_prop: %s"%(label,x_prop,y_prop))
+				print("Binned values....")
+				print("x_bins: ", x_vals); print("y_mean: ", y_mean); print("y_std: ", y_std)
 
 			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
+			if show_raw_data:
+				axis.scatter(raw_data[1], raw_data[0], marker='o',c=colors[j], s=(config.BASE_MARKERSIZE*0.1)**2, zorder=1)
 
 
 		# Check labels and handles between this and last axis. Any differences should be added to a new legend
@@ -1119,7 +1144,7 @@ def plot_obs_prop_vs_prop(xprops, yprops, snaps, pixel_res=2, bin_nums=10, label
 		hands, labs = axis.get_legend_handles_labels()
 		new_lh = dict(zip(labs, hands))
 		# First separate data and observation legend labels so we can make separate legends for each
-		if i==0:
+		if i==0 and labels!=None:
 			data_lh = new_lh.copy()
 			for key in new_obs_lh.keys(): data_lh.pop(key,0)
 			axis.legend(data_lh.values(), data_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
@@ -1849,7 +1874,7 @@ def compare_FIRE_metal_yields(Z, elems, foutname='FIRE_yields_comparison.png'):
 
 
 def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, color_map=config.BASE_CMAP,
-					foutname='snap_projection.png', **kwargs):
+					foutname='snap_projection.png', param_lims=None, **kwargs):
 	"""
 	Plots face on and edge on projections for one snapshots for the chosen parameters
 
@@ -1876,8 +1901,6 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
     ## L    - side length along x and y direction
     ## Lz   - depth along z direction, for particle trimming
     ## Nx   - number of pixels along x and y direction, default 250
-    ## vmin - minimum scaling of the colormap
-    ## vmax - maximum scaling of the colormap
     ## theta, phi - viewing angle
 	Returns
 	-------
@@ -1898,7 +1921,7 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 			cmap = color_map[i]
 
 
-		param_lim = config.PROP_INFO[param][1]
+		param_lim = param_lims[i] if param_lims is not None else config.PROP_INFO[param][1]
 		log_param = config.PROP_INFO[param][2]
 		if log_param:
 			norm = mpl.colors.LogNorm(vmin=np.power(10,-0.075)*param_lim[0], vmax=np.power(10,+0.075)*param_lim[1], clip=True)

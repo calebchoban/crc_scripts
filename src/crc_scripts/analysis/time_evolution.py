@@ -60,7 +60,8 @@ class Dust_Evo(object):
 		# Check if object file has already been created if so load that first instead of creating a new one
 		if not os.path.isfile(self.dirc + self.name + '.pickle'):
 			self.dust_evo_data = Dust_Evo_Data(sdir, snap_lims, self.totals, self.medians, self.median_subsamples,
-											   self.star_totals, cosmological=cosmological, pb_fix=periodic_bound_fix, )
+											   self.star_totals, cosmological=cosmological, pb_fix=periodic_bound_fix,
+											   FIREver=FIREver)
 		else:
 			with open(self.dirc+self.name + '.pickle', 'rb') as handle:
 				self.dust_evo_data = pickle.load(handle)
@@ -277,7 +278,7 @@ class Dust_Evo(object):
 
 class Dust_Evo_Data(object):
 
-	def __init__(self, sdir, snap_lims, totals, medians, median_subsamples, star_totals, cosmological=0, pb_fix=False):
+	def __init__(self, sdir, snap_lims, totals, medians, median_subsamples, star_totals, cosmological=0, pb_fix=False, FIREver=2):
 		self.sdir = sdir
 		self.snap_lims = snap_lims
 		self.num_snaps = (snap_lims[1]+1)-snap_lims[0]
@@ -285,6 +286,7 @@ class Dust_Evo_Data(object):
 		self.cosmological = cosmological
 		self.hubble=None
 		self.omega=None
+		self.FIREver= FIREver
 		self.time = np.zeros(self.num_snaps)
 		if self.cosmological:
 			self.redshift = np.zeros(self.num_snaps)

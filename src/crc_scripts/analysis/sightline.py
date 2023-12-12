@@ -109,7 +109,7 @@ class Sight_Lines(object):
 
             f = h5py.File('./'+self.snap_name, 'r+')
             grp = f['PartType0']
-            old_p = grp['coordinate_utilss']
+            old_p = grp['coordinates']
             new_p = old_p[...].copy()
             boxsize = f['Header'].attrs['BoxSize']
             mask1 = new_p > boxsize/2; mask2 = new_p <= boxsize/2
@@ -119,10 +119,11 @@ class Sight_Lines(object):
 
             full_dir = './'+self.snap_name
         else:
-            full_dir = sdir + "/snapshot_%03d" % snum
+            full_dir = sdir + "/snapshot_%03d.hdf5" % snum
             snapfile = sdir + "/snapshot_%03d.hdf5" % snum
             # multiple files
             if not (os.path.isfile(snapfile)):
+                print(snapfile)
                 full_dir = sdir + "/snapdir_%03d" % snum
                 snapfile = sdir + "/snapdir_%03d/snapshot_%03d.0.hdf5" % (snum, snum)
                 if not (os.path.isfile(snapfile)):
@@ -199,7 +200,7 @@ class Sight_Lines(object):
             # Now find all young stars from the starting point with the distance limits given
             sphere = self.ds.sphere(start, (dist_lims[1], "kpc"))
             star_age = sphere['PartType4', 'age'].in_units('Gyr')
-            star_coords = sphere['PartType4', 'coordinate_utilss']
+            star_coords = sphere['PartType4', 'Coordinates']
             radius = np.sqrt(np.sum((star_coords - start) ** 2, axis=1))
             young_stars = (star_age < self.ds.arr(age_max, 'Gyr')) & (radius > self.ds.arr(dist_lims[0], 'kpc'))
             young_star_coords = star_coords[young_stars].in_units('kpc')
@@ -237,7 +238,7 @@ class Sight_Lines(object):
         sphere = self.ds.sphere(self.center, (rmax, "kpc"))
         star_age = sphere['PartType4', 'age'].in_units('Gyr')
         young_stars = star_age < self.ds.arr(age_max,'Gyr')
-        star_coords = sphere['PartType4', 'coordinate_utilss']
+        star_coords = sphere['PartType4', 'Coordinates']
         young_star_coords = star_coords[young_stars]
         end = young_star_coords.in_units('kpc')
         start = np.empty((0,3))

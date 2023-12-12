@@ -38,12 +38,15 @@ class Snapshot:
         else:
             self.scale_factor = 1.
         self.hubble = f['Header'].attrs['HubbleParam']
+        self.solar_abundances = f['Header'].attrs['Solar_Abundances_Adopted']
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
         self.Flag_Metals = f['Header'].attrs['Flag_Metals']
         # Deal with old flag tags
-        if f['Header'].attrs.get('Flag_Dust_Species',0):
+        if f['Header'].attrs.get('ISMDustChem_NumberOfSpecies', 0):
+            self.Flag_DustSpecies = f['Header'].attrs.get('ISMDustChem_NumberOfSpecies', 0)
+        elif f['Header'].attrs.get('Flag_Dust_Species',0):
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Dust_Species',0)
         else:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
