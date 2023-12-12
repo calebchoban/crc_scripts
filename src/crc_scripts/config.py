@@ -10,7 +10,7 @@ plt.style.use('seaborn-talk')
 BASE_COLOR = 'xkcd:black'
 BASE_CMAP = 'plasma'
 BASE_DIVERGING_CMAP = 'Spectral'
-BASE_LINEWIDTH = 4.0
+BASE_LINEWIDTH = 3.0
 BASE_LINESTYLE = '-'
 BASE_MARKERSTYLE = 'o'
 BASE_MARKERSIZE = 10
@@ -20,11 +20,10 @@ LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orang
 SECOND_LINE_COLORS = ["xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
 MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sienna","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
-				 "xkcd:peach","xkcd:olive green"]
+				 "xkcd:peach","xkcd:olive green"]*10
 LINE_STYLES = ['-','--',':','-.','-','--',':','-.','-','--',':','-.']
-MARKER_STYLES = ['o','^','X','s','v','P','>','v','d','1','2','*','<',
-                 'o','^','X','s','v','P','>','v','d','1','2','*','<']
-LINE_WIDTHS = np.array([0.25,0.5,0.75,1.0,1.25,1.5])*BASE_LINEWIDTH
+MARKER_STYLES = ['o','^','X','s','v','P','>','v','d','1','2','*','<']*10
+LINE_WIDTHS = np.array([1.5,1.25,1.0,0.75,0.5,0.25])*BASE_LINEWIDTH
 AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
 
@@ -106,9 +105,11 @@ DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 
 # Houses labels, limits, and if they should be plotted in log space for possible properties
 PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
+				    	   'fHn': [r'$f_{\rm neutral}$', 												[0., 1.], 		False],
 						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
 						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
 						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
+					  'f_conden': [r'$f_{\rm condensation}$', 											[0., 1.], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
@@ -120,6 +121,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					 'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
 						   'sfr': [r'SFR [M$_{\odot}/$yr]', 											[1E-3,5E1], 	True],
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
+			 'sigma_gas_ionized': [r'$\Sigma_{\rm gas,ionized}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 				  'sigma_metals': [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-2,1E1], 	True],
 					'sigma_dust': [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
 					 'sigma_sil': [r'$\Sigma_{\rm sil}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E0], 	True],
@@ -177,6 +179,8 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 				  	  'Fe/H_gas': [r'12+log(Fe/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
 					 'Fe/H_dust': [r'12+log(Fe/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
 						   'D/Z': ['D/Z', 																[0,1.05],   	False],
+						   'D/H': ['D/H',																[7E-5,2E-2],	True],
+				   'D/H_neutral': [r'D/H$_{\rm neutral}$',												[7E-5,2E-2],	True],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 												[1E-1,1.1E0],   True],
 				   'O_depletion': [r'$\delta_{\rm O}$', 												[1E-1,1.1E0],   True],

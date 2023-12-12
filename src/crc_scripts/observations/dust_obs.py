@@ -310,7 +310,7 @@ def RomanDuval_2021_LMC_Elem_Depl(elem):
 		print("Element %s is not supported in RomanDuval_2021_LMC_Elem_Depl()" % elem)
 		return None, None, None
 
-	depl_data = ascii.read(OBS_DIR + 'RomanDuval21/LMC_depletions.txt')
+	depl_data = ascii.read(OBS_DIR + 'RomanDuval21/LMC_depletion_sightlines.txt')
 	# First get all the elements since we want to sort by a given element
 	elements = depl_data['element'].data
 	elements = np.array([elem.replace('I', '') for elem in elements])
@@ -415,6 +415,50 @@ def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 	return C_depl, C_error, density_vals
 
 
+
+def Clark_2023_DtH_vs_SigmaH(error_bars='unc'):
+	"""
+	Gives observed relations between dust-to-hydrogen (DtH) mass ratio and neutral H surface density for local group galaxies from Clark+23.
+
+	Parameters
+	----------
+	error_bars : string
+		Choose whether the error bars are the uncertainty in the median or the standard devitation
+
+	Returns
+	------
+	data : dict
+		Dictionary with each local group galaxy's name as a key. Each galaxy has a Sigma H, median DtH, and uncertainties for each median DtH.
+	"""	
+
+	data_dirc = OBS_DIR + 'Clark23/'
+	gal_names = ['M31','M33','LMC','SMC']
+	filenames = [data_dirc+gal_name+'_Bin_Dict.csv' for gal_name in gal_names]
+	gal_inclinations = {'M31': 77,'M33': 56,'LMC': 26,'SMC': 0}
+
+	data = dict()
+	for i,filename in enumerate(filenames):
+		name = gal_names[i]
+		full_data = pd.read_csv(filename)
+
+		bin_edges = full_data['bin_edges'].values
+		median_DtH = full_data['bin_DtH_med'].values
+		if error_bars == 'unc':
+			unc_DtH = full_data['bin_DtH_med_unc'].values
+		else:
+			unc_DtH = full_data['bin_DtH_std'].values
+		# Convert from log to linear
+		lin_unc_DtH = np.zeros([2,len(unc_DtH)])
+		lin_unc_DtH[0,:] = np.abs(np.power(10,median_DtH-unc_DtH)-np.power(10,median_DtH))
+		lin_unc_DtH[1,:] = np.abs(np.power(10,median_DtH+unc_DtH)-np.power(10,median_DtH))
+		lin_median_DtH = np.power(10,median_DtH)
+		lin_bin_edges = np.power(10,bin_edges)
+    
+		# Correct for galaxy inclination
+		lin_bin_edges = lin_bin_edges*np.cos(gal_inclinations[name]*np.pi/180.)
+		data[name] = [lin_bin_edges, lin_median_DtH, lin_unc_DtH]
+
+	return data
 
 
 
@@ -579,7 +623,7 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 
 
 # Similar to data from Chiang+21 but expanded to more galaxies and with varying spatial resolution. Currently unplublished.
-def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True,aggregate_data=False):
+def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True, aggregate_data=False, dust_mask_sigma=1):
 	# Use just 2kpc resolution data set since this includes almost all galaxies in the sample with only a handful at
 	# the other resolutions
 	file_name = OBS_DIR+'Chiang22_unpub/DataAssembly_2kpc.csv'
@@ -614,9 +658,11 @@ def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=Tr
 		print("%s is not a valid param for Chiang_20_DZ_vs_param"%param)
 		return
 
-	# There is a dust mask for 1 sigma and 3 sigma values. Lets just use the 3 sigma values
-	SNR = data['dust_mask_3sigma']
-	#SNR = data['dust_mask_1sigma']
+	# There is a dust mask for 1 sigma and 3 sigma values.
+	if dust_mask_sigma == 1:
+		SNR = data['dust_mask_1sigma']
+	else:
+		SNR = data['dust_mask_3sigma']
 
 	# Check whether to use all data or only that with good SNR
 	mask = np.ones(len(vals), dtype=bool)

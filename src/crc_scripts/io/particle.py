@@ -149,7 +149,8 @@ class Particle:
                         field_name = 'DustMolecularSpeciesFractions' if 'DustMolecularSpeciesFractions' in grp else 'DustMolecular'
                         fdense[nL:nR] = grp[field_name][:,0]
                         CinCO[nL:nR] = grp[field_name][:,1]
-                        fH2[nL:nR] = grp['MolecularMassFraction'][...]
+                        if 'MolecularMassFraction' in grp:
+                            fH2[nL:nR] = grp['MolecularMassFraction'][...]
                     if (sp.Flag_DustSpecies>1):
                         # Deal with old dust tag names
                         if 'DustSpeciesAbundance' in grp.keys():
@@ -278,7 +279,7 @@ class Particle:
 
         if self.orientated: return
 
-        print('adjusting particle coordinate_utilss to be relative to galaxy center')
+        print('adjusting particle coordinates to be relative to galaxy center')
         print('  and aligned with the principal axes\n')
 
         if center_vel is not None and center_pos is not None:
@@ -335,6 +336,8 @@ class Particle:
                 data = self.m*self.nh*config.UnitMass_in_Msolar
             elif property == 'M_mol' or property == 'M_H2':
                 data = self.m*self.fH2*self.nh*config.UnitMass_in_Msolar
+            elif property == 'M_gas_ionized':
+                data = self.m*(1-self.nh)*config.UnitMass_in_Msolar
             elif property == 'M_metals':
                 data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'M_dust':
@@ -417,29 +420,30 @@ class Particle:
                 data = self.T
             elif property == 'Z':
                 SOLAR_Z = config.AG89_SOLAR_Z if FIREver==2 else config.A09_SOLAR_Z
+                SOLAR_Z = self.sp.solar_abundances[0]
                 data = self.z[:,0]/SOLAR_Z
             elif property == 'Z_all':
                 data = self.z
             elif property == 'Z_O':
-                data = self.z[:,4]/config.SOLAR_MASSFRAC[4]
+                data = self.z[:,4]/self.sp.solar_abundances[4]
             elif property == 'Z_O_gas':
-                data = (self.z[:,4]-self.dz[:,4])/config.SOLAR_MASSFRAC[4]
+                data = (self.z[:,4]-self.dz[:,4])/self.sp.solar_abundances[4]
             elif property == 'Z_C':
-                data = self.z[:,2]/config.SOLAR_MASSFRAC[2]
+                data = self.z[:,2]/self.sp.solar_abundances[2]
             elif property == 'Z_C_gas':
-                data = (self.z[:,2]-self.dz[:,2])/config.SOLAR_MASSFRAC[2]
+                data = (self.z[:,2]-self.dz[:,2])/self.sp.solar_abundances[2]
             elif property == 'Z_Mg':
-                data = self.z[:,6]/config.SOLAR_MASSFRAC[6]
+                data = self.z[:,6]/self.sp.solar_abundances[6]
             elif property == 'Z_Mg_gas':
-                data = (self.z[:,6]-self.dz[:,6])/config.SOLAR_MASSFRAC[6]
+                data = (self.z[:,6]-self.dz[:,6])/self.sp.solar_abundances[6]
             elif property == 'Z_Si':
-                data = self.z[:,7]/config.SOLAR_MASSFRAC[7]
+                data = self.z[:,7]/self.sp.solar_abundances[7]
             elif property == 'Z_Si_gas':
-                data = (self.z[:,7]-self.dz[:,7])/config.SOLAR_MASSFRAC[7]
+                data = (self.z[:,7]-self.dz[:,7])/self.sp.solar_abundances[7]
             elif property == 'Z_Fe':
-                data = self.z[:,10]/config.SOLAR_MASSFRAC[10]
+                data = self.z[:,10]/self.sp.solar_abundances[10]
             elif property == 'Z_Fe_gas':
-                data = (self.z[:,10]-self.dz[:,10])/config.SOLAR_MASSFRAC[10]
+                data = (self.z[:,10]-self.dz[:,10])/self.sp.solar_abundances[10]
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
@@ -448,7 +452,7 @@ class Particle:
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)-offset
             elif property == 'O/H_gas_offset':
-                offset=0.3 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                offset=0.2 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
                 O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)-offset
             elif property == 'O/H_gas':
@@ -520,6 +524,7 @@ class Particle:
                 age = self.age
                 data[age>0.01] = 0.
             elif property == 'Z':
+                SOLAR_Z = self.sp.solar_abundances[0]
                 data = self.z[:,0]/config.SOLAR_Z
             elif property == 'Z_all':
                 data = self.z
