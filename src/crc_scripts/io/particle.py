@@ -108,6 +108,9 @@ class Particle:
                     spec = np.zeros((npart,sp.Flag_DustSpecies), dtype='float')
                 else:
                     spec = np.zeros((npart, 2), dtype='float')
+            if (sp.Flag_GrainSizeBins):
+                grain_bin_nums = np.zeros((npart,sp.Flag_DustSpecies,sp.Flag_GrainSizeBins), dtype='double')
+                grain_bin_slopes = np.zeros((npart,sp.Flag_DustSpecies,sp.Flag_GrainSizeBins), dtype='double')
             if (sp.Flag_Sfr):
                 sfr = np.zeros(npart, dtype='float')
             
@@ -157,6 +160,18 @@ class Particle:
                             spec[nL:nR] = grp['DustSpeciesAbundance'][...]
                         else:
                             spec[nL:nR] = grp['DustSpecies'][...]
+
+                        if (sp.Flag_GrainSizeBins):
+                            # Need to convert to actual linear values. 
+                            # Grain numbers are in log10 form 
+                            # Grain slopes are in log10 form but the sign represent if its positive or negative
+                            # THIS WILL PROBABLY CHANGE TO BE MASS INSTEAD OF SLOPE FOR FINAL RUNS
+                            grain_bin_nums[nL:nR] = np.power(10,grp['DustBinNumbers'][...].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
+                            grain_bin_slopes[nL:nR] = grp['DustBinSlopes'][...].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+                            grain_bin_slopes[nL:nR] = np.sign(grain_bin_slopes[nL:nR])*np.power(10,np.abs(grain_bin_slopes[nL:nR]),dtype='double')
+                            # No dust grains are denoted by -1 in snapshots
+                            no_dust = grain_bin_nums==0.1 
+                            grain_bin_nums[no_dust] = 0;grain_bin_slopes[no_dust] = 0;
                     else: # Build carbonaceous and silicates from their respective elements
                         spec[nL:nR,0] = dz[nL:nR,4]+dz[nL:nR,6]+dz[nL:nR,7]+dz[nL:nR,10]
                         spec[nL:nR,1] = dz[nL:nR,2]
@@ -205,6 +220,9 @@ class Particle:
                     self.fH2 = fH2
                     self.fdense = fdense
                     self.CinCO = CinCO
+                    if (sp.Flag_GrainSizeBins):
+                        self.grain_bin_nums = grain_bin_nums
+                        self.grain_bin_slopes = grain_bin_slopes
             if (sp.Flag_Sfr):
                 self.sfr = sfr
     
@@ -502,6 +520,43 @@ class Particle:
                 data = np.sum(self.m[(self.T<1E4) & (self.T>=1E3)])/np.sum(self.m)
             elif property == 'f_hot':
                 data = np.sum(self.m[self.T>=1E4])/np.sum(self.m)
+            elif property == 'grain_bin_nums':
+                data = self.grain_bin_nums;
+            elif property == 'grain_bin_slopes':
+                data = self.grain_bin_slopes;
+            # Note all dust grain size distribution data is normalized by the total grain number
+            elif property == 'dn/da':
+                # Gives normalized dn/da at the center of the grain bins 
+                N_total = np.sum(self.grain_bin_nums,axis=2)
+                data = self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'dm/da':
+                # Gives a^4 dn/da at the center of the grain bins (note this is in the usual observer convention of mass probability density per log a dm/dloga where the extra factor of a comes from the 1/loga)
+                N_total = np.sum(self.grain_bin_nums,axis=2)
+                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'sil_dn/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
+                data = self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'sil_dm/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
+                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'carb_dn/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
+                data = self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'carb_dm/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
+                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'SiC_dn/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
+                data = self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'SiC_dm/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
+                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'iron_dn/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
+                data = self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+            elif property == 'iron_dm/da':
+                N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
+                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
             else:
                 print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
                 return None

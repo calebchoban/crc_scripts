@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 import os
+from .. import config
 from .. import math_utils
 from .particle import Header,Particle
 from .galaxy import Halo,Disk
@@ -52,6 +53,22 @@ class Snapshot:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Reference_Metallicities = f['Header'].attrs['Solar_Abundances_Adopted']
+
+        if f['Header'].attrs.get('ISMDustChem_Num_Grain_Size_Bins',0):
+            print("This snap has grain size bins!")
+            self.Grain_Size_Max = f['Header'].attrs['ISMDustChem_Grain_Size_Max']
+            self.Grain_Size_Min = f['Header'].attrs['ISMDustChem_Grain_Size_Min']
+            self.Flag_GrainSizeBins = f['Header'].attrs['ISMDustChem_Num_Grain_Size_Bins']
+            bin_size = np.power(10,np.log10( self.Grain_Size_Max/self.Grain_Size_Min)/self.Flag_GrainSizeBins)
+            self.Grain_Bin_Edges = np.zeros(self.Flag_GrainSizeBins+1)
+            self.Grain_Bin_Centers = np.zeros(self.Flag_GrainSizeBins)
+            for i in range(self.Flag_GrainSizeBins+1):
+                self.Grain_Bin_Edges[i] = pow(bin_size,i)*self.Grain_Size_Min * config.cm_to_um
+            for i in range(self.Flag_GrainSizeBins):
+                self.Grain_Bin_Centers[i] = ( self.Grain_Bin_Edges[i+1]+ self.Grain_Bin_Edges[i])/2.
+        else:
+                self.Flag_GrainSizeBins = 0
+
         f.close()
 
         # correct for cosmological runs

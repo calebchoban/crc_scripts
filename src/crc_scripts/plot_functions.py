@@ -2205,3 +2205,66 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 	axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
 	plt.savefig(foutname)
 	plt.close()
+
+
+
+def plot_grain_size_bins(snaps, y_props='grain_num_prop', mask_criterias=None, labels=None, foutname='grain_size_dist.png', 
+						 std_bars=True, style='color-linestyle'):
+	"""
+	Plots the between two properties for multiple simulations/snapshots
+
+	Parameters
+	----------
+	snaps : list
+	    List of snapshots to plot
+	y_prop: string
+		Choose whether to plot grain size probability or grain mass propability and which dust species
+	mask_criterias: list
+		Criterias for what particles to include (i.e. hot/warm/cold gas) for each snap
+	labels : list, optional
+		List of labels for each snapshot
+	foutname: string, optional
+		Name of file to be saved
+	std_bars : boolean
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color-line' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	Returns
+	-------
+	None
+
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(1, sharey=True)
+	axis = axes[0]
+
+	x_prop='grain_size'
+	plt_set.setup_axis(axis, x_prop, y_props[0])
+
+
+	for j,snap in enumerate(snaps):
+			y_prop = y_props[j]
+			if mask_criterias is None: mask_criteria = 'all'
+			else: 					   mask_criteria=mask_criterias[j]
+			x_vals,y_mean,y_std = calc.calc_binned_grain_distribution(y_prop, mask_criteria, snap)
+
+			if labels is not None: label = labels[j];
+			else:    			   label = None;
+			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if std_bars:
+				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+		
+	axis.legend(loc='best', fontsize=config.SMALL_FONT, frameon=False)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return

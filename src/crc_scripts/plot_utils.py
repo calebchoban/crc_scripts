@@ -315,7 +315,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
 
     # Setup y axis
     if y_prop not in config.PROP_INFO.keys() and (y_label is None and y_lim is None):
-        print("%s is not a supported property for plot_setup\n"%x_prop)
+        print("%s is not a supported property for plot_setup\n"%y_prop)
         print("Either give y_label and y_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
         print(config.PROP_INFO.keys())

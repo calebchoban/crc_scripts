@@ -70,6 +70,7 @@ pc_to_m						= 3.086E16
 Kpc_to_cm					= 3.086E21
 km_per_kpc					= 3.086E16
 sec_per_Gyr					= 3.16E16
+cm_to_um					= 1E4
 Ergs_per_joule				= 1E7
 SOLAR_GAL_RADIUS			= 8 # kpc
 HUBBLE 						= 0.702
@@ -201,7 +202,12 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
-			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True]
+			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True],
+					'grain_size': [r'a ($\mu m$)',														[1E-3,10],		True],
+**dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
+								  [r'$\frac{\partial n}{\partial a}$',									[1E-10,1E4],	True]),
+**dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
+								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E-10,1E-4],	True])
 							}
 
 

@@ -113,6 +113,131 @@ def calc_phase_hist_data(property, snap, bin_nums=100):
 	return ret
 
 
+def get_particle_mask(ptype, snap, mask_criteria='all'):
+	"""
+	Creates a boolean array for the given particle type in the given 
+	snapshot to mask particles which meet the mask_criteria.
+
+	Parameters
+	----------
+	ptype : int
+		Particle type: 0=gas and 4=stars 
+	snap : snapshot/galaxy
+		Snapshot or Galaxy object from which particle data can be loaded
+	mask_criteria : string
+		Criteria for the mask (e.g. neutral, molecular, hot, warm, cold, young, old)
+		These can be stacked for multiple masks such as 'hot_neutral' will give hot and neutral gas
+
+	Returns
+	-------
+	mask: ndarray
+		Boolean array to mask particles
+	"""	
+
+	P = snap.loadpart(ptype)
+	mask = np.ones(P.npart, dtype=bool)
+	mask_identified = 0;
+
+	if ptype==0:
+			if 'cold' in mask_criteria:
+				mask_identified+=1
+				T = P.get_property('T')
+				mask = mask & (T < 1E3)
+			if 'hot' in mask_criteria:
+				mask_identified+=1
+				T = P.get_property('T')
+				mask = mask & (T > 1E4)
+			if 'coronal' in mask_criteria:
+				mask_identified+=1
+				T = P.get_property('T')
+				mask = mask & (T > 3E5)
+			if 'warm' in mask_criteria:
+				mask_identified+=1
+				T = P.get_property('T')
+				mask = mask & (T<1E4) & (T>=1E3)
+			if 'molecular' in mask_criteria:
+				mask_identified+=1
+				fH2 = P.get_property('fH2')
+				mask = mask & (fH2 > 0.5)
+			if 'neutral' in mask_criteria:
+				mask_identified+=1
+				fHn = P.get_property('nh')
+				mask = mask & (fHn > 0.5)
+			if 'neutral_atomic' in mask_criteria:
+				mask_identified+=1
+				fHn = P.get_property('nh')
+				fH2 = P.get_property('fH2')
+				mask = mask & (fHn > 0.5) & (fH2 < 0.5)
+			if 'ionized' in mask_criteria:
+				mask_identified+=1
+				nH = P.get_property('nH')
+				T = P.get_property('T')
+				mask = mask & (nH >= 0.5) & (T >= 7000) & (T <= 15000)
+			if not mask_identified and mask_criteria not in ['all','']:
+				print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
+	if ptype==4:
+		if 'young' in mask_criteria:
+			mask_identified+=1
+			age = P.get_property('age')
+			mask = mask & (age < 0.1)
+		if 'old' in mask_criteria:
+			mask_identified+=1
+			age = P.get_property('age')
+			mask = mask & (age > 1.)
+		if not mask_identified and mask_criteria not in ['all','']:
+			print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
+
+	if np.all(mask == False):
+		print(f"Warning: no particles match the mask criteria ({mask_criteria}) for snapshot {snap.nsnap!r}!")
+
+	return mask
+
+
+def calc_binned_grain_distribution(distrib, mask_criteria, snap):
+	"""
+	Calculates median and 16/84th-percentiles of given distribution for the given snapshot gas data. 
+	Currently only works for grain size distribution of gas particles.
+
+	Parameters
+	----------
+	distrib: string
+		Name of distribution to calculate median and percentiles for. Supported properties
+		'SPEC_grain_num_prob','SPEC_grain_mass_prob' w/ SPEC = sil, carb, SiC, or iron 
+	mask_criteria: string
+		Mask criteria you want to apply to the gas particle data (i.e hot, cold, etc)
+	snap : snapshot/galaxy
+		Snapshot or Galaxy object from which particle data can be loaded
+
+	Returns
+	-------
+	bin_vals: ndarray
+		Bins for grain size
+	mean_vals : ndarray
+		Median of distrib across grain size bins
+	std_vals : ndarray
+		16/84th-percentiles of distrib across grain size bins
+
+	"""
+
+	ptype = 0
+	P = snap.loadpart(ptype)
+	# All grain size bin are the same for all particles so use the center of the bins as the x data points
+	bin_nums = snap.Flag_GrainSizeBins
+	mean_vals = np.zeros(bin_nums)
+	# 16th and 84th percentiles
+	std_vals = np.zeros([bin_nums,2])
+
+	mask = get_particle_mask(ptype,snap,mask_criteria=mask_criteria)
+	bin_vals = snap.Grain_Bin_Centers
+	y_data =  P.get_property(distrib)[mask]
+	weights = P.get_property('M')[mask]
+
+	for i in range(bin_nums):
+		values = y_data[:,i]
+		mean_vals[i],std_vals[i,0],std_vals[i,1] = math_utils.weighted_percentile(values, weights=weights)
+
+	return bin_vals, mean_vals, std_vals
+
 
 def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=10, prop_lims=None,
 										 mask_prop=None, prop1_criteria='all', prop2_criteria='all'):
@@ -177,48 +302,8 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			ptype = 0
 
 		P = snap.loadpart(ptype)
-		
-
 		criteria = prop1_criteria if i == 1 else prop2_criteria
-		mask = np.ones(P.npart, dtype=bool)
-		if ptype==0:
-				if 'cold' in criteria:
-					T = P.get_property('T')
-					mask = T < 1E3
-				elif 'hot' in criteria:
-					T = P.get_property('T')
-					mask = T > 1E4
-				elif 'warm' in criteria:
-					T = P.get_property('T')
-					mask = (T<1E4) & (T>=1E3)
-				elif 'molecular' in criteria:
-					fH2 = P.get_property('fH2')
-					mask = fH2 > 0.5
-				elif 'neutral' in criteria:
-					fHn = P.get_property('nh')
-					mask = fHn > 0.5
-				elif 'neutral_atomic' in criteria:
-					fHn = P.get_property('nh')
-					fH2 = P.get_property('fH2')
-					mask = (fHn > 0.5) & (fH2 < 0.5)
-				elif 'ionized' in criteria:
-					nH = P.get_property('nH')
-					T = P.get_property('T')
-					mask = (nH >= 0.5) & (T >= 7000) & (T <= 15000)
-				else:
-					if criteria!='all':
-						print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
-		if ptype==4:
-			if 'young' in criteria:
-				age = P.get_property('age')
-				mask = age < 0.1
-			elif 'old' in criteria:
-				age = P.get_property('age')
-				mask = age < 1.
-			else:
-				if criteria!='all':
-					print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
-
+		mask = get_particle_mask(ptype, snap, mask_criteria=criteria)
 		x = P.p[:,0][mask]; y = P.p[:,1][mask];
 
 		if property == 'sigma_dust':
@@ -417,48 +502,9 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 
 	P = snap.loadpart(ptype)
-	mask = np.ones(P.npart, dtype=bool)
+	mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
 	weights = P.get_property('M')
 	prop_vals = P.get_property(property)
-
-	if ptype==0:
-		if 'cold' in criteria:
-			T = P.get_property('T')
-			mask = T < 1E3
-		elif 'hot' in criteria:
-			T = P.get_property('T')
-			mask = T > 1E4
-		elif 'warm' in criteria:
-			T = P.get_property('T')
-			mask = (T<1E4) & (T>=1E3)
-		elif 'molecular' in criteria:
-			fH2 = P.get_property('fH2')
-			mask = fH2 > 0.5
-		elif 'neutral' in criteria:
-			fHn = P.get_property('nh')
-			mask = fHn > 0.5
-		elif 'neutral_atomic' in criteria:
-			fHn = P.get_property('nh')
-			fH2 = P.get_property('fH2')
-			mask = (fHn > 0.5) & (fH2 < 0.5)
-		elif 'ionized' in criteria:
-			nH = P.get_property('nH')
-			T = P.get_property('T')
-			mask = (nH >= 0.5) & (T >= 7000) & (T <= 15000)
-		else:
-			if criteria!='all':
-				print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
-	if ptype==4:
-		if 'young' in criteria:
-			age = P.get_property('age')
-			mask = age < 0.1
-		elif 'old' in criteria:
-			age = P.get_property('age')
-			mask = age < 1.
-		else:
-			if criteria!='all':
-				print("Criteria %s used in calc_gal_int_params() is not supported. Defaulting to all."%criteria)
-
 	weights=weights[mask]
 	prop_vals=prop_vals[mask]
 
