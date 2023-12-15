@@ -168,7 +168,7 @@ class Particle:
                             # THIS WILL PROBABLY CHANGE TO BE MASS INSTEAD OF SLOPE FOR FINAL RUNS
                             grain_bin_nums[nL:nR] = np.power(10,grp['DustBinNumbers'][...].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
                             grain_bin_slopes[nL:nR] = grp['DustBinSlopes'][...].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
-                            grain_bin_slopes[nL:nR] = np.sign(grain_bin_slopes[nL:nR])*np.power(10,np.abs(grain_bin_slopes[nL:nR]),dtype='double')
+                            grain_bin_slopes[nL:nR] = np.sign(grain_bin_slopes[nL:nR])*np.power(10,np.abs(grain_bin_slopes[nL:nR]),dtype='double') / (config.cm_to_um*config.cm_to_um)
                             # No dust grains are denoted by -1 in snapshots
                             no_dust = grain_bin_nums==0.1 
                             grain_bin_nums[no_dust] = 0;grain_bin_slopes[no_dust] = 0;
@@ -221,6 +221,9 @@ class Particle:
                     self.fdense = fdense
                     self.CinCO = CinCO
                     if (sp.Flag_GrainSizeBins):
+                        # Since dn/da is normalized to to the dust mass in the code, need to multiply by h factor
+                        grain_bin_nums /= hinv
+                        grain_bin_slopes /= hinv
                         self.grain_bin_nums = grain_bin_nums
                         self.grain_bin_slopes = grain_bin_slopes
             if (sp.Flag_Sfr):

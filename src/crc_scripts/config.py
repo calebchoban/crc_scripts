@@ -54,7 +54,6 @@ mpl.rcParams['hatch.linewidth'] = BASE_ELINEWIDTH
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
 UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
-Grams_to_Msolar 			= 5.02785e-34
 UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
 UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s # 0.978 Gyr/h
 UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
@@ -72,6 +71,7 @@ km_per_kpc					= 3.086E16
 sec_per_Gyr					= 3.16E16
 cm_to_um					= 1E4
 Ergs_per_joule				= 1E7
+grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
 HUBBLE 						= 0.702
 OMEGA_MATTER 				= 0.272
@@ -99,6 +99,7 @@ SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 # number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
 # with olivine fraction of 0.32 and Mg fraction of 0.8
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
+DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
 
 DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusions']
 DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
@@ -149,7 +150,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 						'M_dust': [r'$M_{\rm dust}\;[M_{\odot}]$',										[1E4,1E9],		True],
 							'nH': [r'$n_{\rm H}$ [cm$^{-3}$]', 											[3E-2, 0.9E3],  True],
 					'nH_neutral': [r'$n_{\rm H,neutral}$ [cm$^{-3}$]', 									[3E-2, 0.9E3],  True],
-							 'T': [r'T [K]', 															[1.1E1,0.9E5],  True],
+							 'T': [r'T [K]', 															[1.1E1,0.9E7],  True],
 							 'Z': [r'Z [Z$_{\odot}$]', 													[1.1E-3,5E0], 	True],
 					 'stellar_Z': [r'Z_{\rm star} [Z$_{\odot}$]', 										[1.1E-3,5E0], 	True],
 						   'Z_O': ['[O/H]', 															[1.1E-3,5E0], 	True],
@@ -203,7 +204,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
 			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True],
-					'grain_size': [r'a ($\mu m$)',														[1E-3,10],		True],
+					'grain_size': [r'a ($\mu m$)',														[7E-4,10],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
 								  [r'$\frac{\partial n}{\partial a}$',									[1E-10,1E4],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],

@@ -2208,10 +2208,10 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 
 
 
-def plot_grain_size_bins(snaps, y_props='grain_num_prop', mask_criterias=None, labels=None, foutname='grain_size_dist.png', 
+def plot_binned_grain_distribution(snaps, y_props='dn/da', mask_criterias=None, labels=None, foutname='binned_grain_size_dist.png', 
 						 std_bars=True, style='color-linestyle'):
 	"""
-	Plots the between two properties for multiple simulations/snapshots
+	Plots grain size distribution binned across gas particles.
 
 	Parameters
 	----------
@@ -2259,6 +2259,94 @@ def plot_grain_size_bins(snaps, y_props='grain_num_prop', mask_criterias=None, l
 			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 			if std_bars:
 				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+		
+	axis.legend(loc='best', fontsize=config.SMALL_FONT, frameon=False)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+
+def plot_grain_size_bins(snap, y_prop='dn/da', particle_ids=None, foutname='grain_size_dist.png', 
+						 style='color-linestyle'):
+	"""
+	Plots the full grain size distribution for a few select particles. Useful for testing.
+
+	Parameters
+	----------
+	snaps : list
+	    List of snapshots to plot
+	y_prop: string
+		Choose whether to plot grain size probability or grain mass propability and which dust species
+	particle_ids: list
+		List of particle ids to plot. If none are given then chose a particle from each of the ISM phases.
+	labels : list, optional
+		List of labels for each snapshot
+	foutname: string, optional
+		Name of file to be saved
+	style : string
+		Plotting style when plotting multiple data sets
+		'color-line' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	Returns
+	-------
+	None
+
+	"""
+
+	G = snap.loadpart(0)
+	IDs = G.id
+
+	if particle_ids is None:
+		# Get plot stylization
+		linewidths,colors,linestyles = plt_set.setup_plot_style(3, style=style)
+		T = G.get_property('T')
+		ISM_phases = [0,1E3,1E4,1E7]
+		particle_ids = np.zeros(len(ISM_phases)-1, dtype='int')
+		for i in range(len(ISM_phases)-1):
+
+			mask = (T>ISM_phases[i]) & (T<ISM_phases[i+1])
+			if len(IDs[mask]) > 0:
+				particle_ids[i] = IDs[mask][0]
+		print("Particle IDs chosen (0 means no particles in that ISM phase):",particle_ids)
+	else:
+		linewidths,colors,linestyles = plt_set.setup_plot_style(len(particle_ids), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(1, sharey=True)
+	axis = axes[0]
+
+	x_prop='grain_size'
+	plt_set.setup_axis(axis, x_prop, y_prop)
+
+	bin_nums = G.get_property('grain_bin_nums')
+	bin_slopes = G.get_property('grain_bin_slopes')
+	bin_edges = snap.Grain_Bin_Edges
+	bin_centers = snap.Grain_Bin_Centers
+
+	# default to silicates for now
+	spec_num=0
+	for j,id in enumerate(particle_ids):
+		index = np.where(IDs == id)[0][0]
+		for k in range(snap.Flag_GrainSizeBins):
+			bin_num = bin_nums[index][spec_num][k]; 
+			bin_slope = bin_slopes[index][spec_num][k]; 
+			# Since the grain bin number and slopes can be extremely large, rounding errors can cause negative values near the bin edges
+			# that seem large but are small compared to the number of grains. To avoid this when plotting we dont include the 1% around the bin edges.
+			grain_sizes = np.logspace(np.log10(bin_edges[k]*1.01),np.log10(bin_edges[k+1]*0.99))
+			if y_prop=='dn/da':
+				dist_vals = (bin_num/(bin_edges[k+1]-bin_edges[k])+bin_slope*(grain_sizes-bin_centers[k]))
+			else: 
+				dist_vals = np.power(grain_sizes,4)*(bin_num/(bin_edges[k+1]-bin_edges[k])+bin_slope*(grain_sizes-bin_centers[k]))
+
+			if k==0: label = 'id ' + str(particle_ids[j])
+			else: label = None
+
+			axis.plot(grain_sizes,dist_vals, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
 
 		
 	axis.legend(loc='best', fontsize=config.SMALL_FONT, frameon=False)
