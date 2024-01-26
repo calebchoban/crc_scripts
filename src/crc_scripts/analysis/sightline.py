@@ -85,11 +85,6 @@ class Sight_Lines(object):
         self.snap_num = snum
         self.cosmological = cosmological
         self.dirc = dirc
-        # In case the sim was non-cosmological and used periodic BC which causes
-        # galaxy to be split between the 4 corners of the box
-        self.pb_fix = False
-        if periodic_bound_fix and cosmological==0:
-            self.pb_fix=True
 
 
         # Get the basename of the directory the snapshots are stored in
@@ -100,35 +95,16 @@ class Sight_Lines(object):
         else:
             self.name = name
 
-        if self.pb_fix:
-            # First need to load in and fix periodic coordinate_utilss since non-cosmo sims with
-            # Periodic coordinate_utilss have funky coordinate_utilss
-            self.snap_name = 'snapshot_'+str(self.snap_num)+'.hdf5'
-            copyfile(self.sdir+self.snap_name, './fixed_'+self.snap_name)
-            self.snap_name='fixed_'+self.snap_name
-
-            f = h5py.File('./'+self.snap_name, 'r+')
-            grp = f['PartType0']
-            old_p = grp['coordinates']
-            new_p = old_p[...].copy()
-            boxsize = f['Header'].attrs['BoxSize']
-            mask1 = new_p > boxsize/2; mask2 = new_p <= boxsize/2
-            new_p[mask1] -= boxsize/2; new_p[mask2] += boxsize/2;
-            old_p[...]=new_p
-            f.close()
-
-            full_dir = './'+self.snap_name
-        else:
-            full_dir = sdir + "/snapshot_%03d.hdf5" % snum
-            snapfile = sdir + "/snapshot_%03d.hdf5" % snum
-            # multiple files
+        full_dir = sdir + "/snapshot_%03d.hdf5" % snum
+        snapfile = sdir + "/snapshot_%03d.hdf5" % snum
+        # multiple files
+        if not (os.path.isfile(snapfile)):
+            print(snapfile)
+            full_dir = sdir + "/snapdir_%03d" % snum
+            snapfile = sdir + "/snapdir_%03d/snapshot_%03d.0.hdf5" % (snum, snum)
             if not (os.path.isfile(snapfile)):
-                print(snapfile)
-                full_dir = sdir + "/snapdir_%03d" % snum
-                snapfile = sdir + "/snapdir_%03d/snapshot_%03d.0.hdf5" % (snum, snum)
-                if not (os.path.isfile(snapfile)):
-                    print("Snapshot does not exist.")
-                    return 0
+                print("Snapshot does not exist.")
+                return 0
 
 
         # Load data with yt
@@ -335,9 +311,6 @@ class Sight_Lines(object):
 
         pickle.dump(self.sightline_data, open(self.name, "wb" ))
 
-        # Delete extra snap if pb_fix work around used
-        if self.pb_fix:
-            os.remove(self.snap_name)
 
         self.k=1
 

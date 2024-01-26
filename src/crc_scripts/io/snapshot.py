@@ -9,20 +9,13 @@ from .AHF import AHF
 
 class Snapshot:
 
-    def __init__(self, sdir, snum, cosmological=0, periodic_bound_fix=False):
+    def __init__(self, sdir, snum, cosmological=1):
 
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological
         self.nsnap = self.check_snap_exist()
         self.k = -1 if self.nsnap==0 else 1
-
-        # In case the sim was non-cosmological and used periodic BC which causes
-        # galaxy to be split between the 4 corners of the box
-        self.pb_fix = False
-        if periodic_bound_fix and cosmological==0:
-            self.pb_fix=True
-
 
         # now, read snapshot header if it exists
         if (self.k==-1): return
@@ -39,7 +32,10 @@ class Snapshot:
         else:
             self.scale_factor = 1.
         self.hubble = f['Header'].attrs['HubbleParam']
-        self.solar_abundances = f['Header'].attrs['Solar_Abundances_Adopted']
+        if 'Solar_Abundances_Adopted' in f['Header'].attrs.keys():
+            self.solar_abundances = f['Header'].attrs['Solar_Abundances_Adopted']
+        else: # Old snaps without abundances are from FIRE-1/2 which use the same abundances
+            self.solar_abundances = config.AG89_ABUNDANCES
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
@@ -52,7 +48,6 @@ class Snapshot:
         else:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
-        self.Reference_Metallicities = f['Header'].attrs['Solar_Abundances_Adopted']
 
         if f['Header'].attrs.get('ISMDustChem_Num_Grain_Size_Bins',0):
             print("This snap has grain size bins!")

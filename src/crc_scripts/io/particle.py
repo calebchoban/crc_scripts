@@ -193,8 +193,6 @@ class Particle:
         self.k = 1
         self.npart = npart
         self.p = p
-        if self.sp.pb_fix:
-            self.pb_fix()
         self.v = v
         self.m = m
         self.id = id
@@ -327,18 +325,8 @@ class Particle:
 
 
 
-    # Fixes coordinate_utils issue for non-cosmological periodic BCs
-    def pb_fix(self):
-        p = self.p       
-        boxsize = self.sp.boxsize
-        mask1 = p > boxsize/2; mask2 = p <= boxsize/2
-        p[mask1] -= boxsize/2; p[mask2] += boxsize/2;
-        self.p = p
-
-        return
-
     # Gets derived properties from particle data
-    def get_property(self, property, FIREver=2):
+    def get_property(self, property):
 
         if property == 'M' or property == 'Mass':
             data = self.m * config.UnitMass_in_Msolar
@@ -440,7 +428,6 @@ class Particle:
             elif property == 'T':
                 data = self.T
             elif property == 'Z':
-                SOLAR_Z = config.AG89_SOLAR_Z if FIREver==2 else config.A09_SOLAR_Z
                 SOLAR_Z = self.sp.solar_abundances[0]
                 data = self.z[:,0]/SOLAR_Z
             elif property == 'Z_all':
