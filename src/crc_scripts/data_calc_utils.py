@@ -503,18 +503,21 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 	P = snap.loadpart(ptype)
 	mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
-	weights = P.get_property('M')
 	prop_vals = P.get_property(property)
-	weights=weights[mask]
-	prop_vals=prop_vals[mask]
-
-	val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
+	# Galaxy-integrated masses are just total masses so just add them up
+	if 'M_' in property:
+		val = np.sum(prop_vals)
+	else:
+		weights = P.get_property('M')
+		weights=weights[mask]
+		prop_vals=prop_vals[mask]
+		val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
 
 	return val
 
 
 
-def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
+def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_zeros=True):
 	"""
 	Calculates the 2D projection of a give property given the projection orientation and resolution
 
@@ -562,7 +565,6 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 	coord1_bins = np.linspace(-L1,L1,pixel_bins)
 	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
 	coord2_bins = np.linspace(-L2,L2,pixel_bins)
-
 
 
 	# Get the data to be projected
@@ -622,7 +624,12 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy'):
 		binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=stats, bins=[coord1_bins,coord2_bins])
 		pixel_stats = binned_stats.statistic/pixel_area
 
-	return pixel_stats, coord1_bins, coord2_bins
+	if no_zeros:
+		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
+
+	extent=[coord1_bins[0], coord1_bins[-1], coord2_bins[0], coord2_bins[-1]]
+
+	return pixel_stats.T, coord1_bins, coord2_bins, extent
 
 
 def calc_radial_dens_projection(property, snap, rmax, rmin=0, proj='xy', bin_nums=50, log_bins=False):

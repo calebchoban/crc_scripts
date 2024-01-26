@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-# Allow plotting when run on command line
-plt.switch_backend('agg')
+# # Allow plotting when run on command line
+# plt.switch_backend('agg')
 # Set style of plots
 plt.style.use('seaborn-talk')
 # Set base colors, linewidths, and styles for plotting
@@ -13,7 +13,7 @@ BASE_DIVERGING_CMAP = 'Spectral'
 BASE_LINEWIDTH = 3.0
 BASE_LINESTYLE = '-'
 BASE_MARKERSTYLE = 'o'
-BASE_MARKERSIZE = 10
+BASE_MARKERSIZE = 15
 
 # Set personal color, linewidths, and styles cycle
 LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna"]
@@ -27,6 +27,8 @@ LINE_WIDTHS = np.array([1.5,1.25,1.0,0.75,0.5,0.25])*BASE_LINEWIDTH
 AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
 
+LATEX_PAGEWIDTH=6.9738480697 ## in
+LATEX_COLUMNWIDTH=3.32 ## in
 # Font sizes and fig sizes for plots
 XSMALL_FONT					= 16
 SMALL_FONT					= 22
@@ -35,6 +37,7 @@ EXTRA_LARGE_FONT			= 40
 BASE_FIG_XSIZE 				= 10
 BASE_FIG_YSIZE 				= 7.5
 BASE_FIG_SIZE  				= 10
+BASE_FIG_SIZE  				= LATEX_PAGEWIDTH
 # Change these on the fly if you want to increase or decrease image size
 FIG_XRATIO 					= 1.
 FIG_YRATIO 					= 1.
@@ -43,12 +46,73 @@ DEFAULT_PLOT_ORIENTATION = 'horizontal'
 
 
 
-plt.rcParams['figure.dpi'] = 200
+mpl.rcParams['legend.frameon'] = False
+
+mpl.rcParams['figure.facecolor'] = 'white'
+mpl.rcParams['axes.facecolor'] = 'white'
+
+mpl.rcParams['axes.edgecolor'] = 'black'
+mpl.rcParams['axes.labelcolor'] = 'black'
+mpl.rcParams['text.color'] = 'black'
+
+mpl.rcParams['xtick.color'] = 'black'
+mpl.rcParams['ytick.color'] = 'black'
+
+# Set all axes to have ticks facing inwards and include minor ticks
+mpl.rcParams["xtick.direction"] = 'in'
+mpl.rcParams["ytick.direction"] = 'in'
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["ytick.right"] = True
+
+# Make the x and y ticks bigger                                                    
+mpl.rcParams['xtick.labelsize'] = 11
+mpl.rcParams['xtick.major.size'] = 5
+mpl.rcParams['xtick.major.width'] = .5
+mpl.rcParams['ytick.labelsize'] = 11
+mpl.rcParams['ytick.major.size'] = 5
+mpl.rcParams['ytick.major.width'] = .5
+
+# Make the axes linewidths bigger                                                  
+mpl.rcParams['axes.linewidth'] = AXIS_BORDER_WIDTH
+																					
+# Make the x and y ticks bigger                                                    
+mpl.rcParams['xtick.labelsize'] = SMALL_FONT
+mpl.rcParams['xtick.major.size'] = 4*AXIS_BORDER_WIDTH
+mpl.rcParams['xtick.major.width'] = AXIS_BORDER_WIDTH
+mpl.rcParams['xtick.minor.size'] = 2*AXIS_BORDER_WIDTH
+mpl.rcParams['xtick.minor.width'] = AXIS_BORDER_WIDTH/2
+mpl.rcParams['ytick.labelsize'] = SMALL_FONT
+mpl.rcParams['ytick.major.size'] = 4*AXIS_BORDER_WIDTH
+mpl.rcParams['ytick.major.width'] = AXIS_BORDER_WIDTH
+mpl.rcParams['ytick.minor.size'] = 2*AXIS_BORDER_WIDTH
+mpl.rcParams['ytick.minor.width'] = AXIS_BORDER_WIDTH/2
+
+
+mpl.rcParams['font.size'] = LARGE_FONT
+mpl.rcParams['axes.labelsize'] = LARGE_FONT
+mpl.rcParams['legend.fontsize'] = SMALL_FONT
+
+mpl.rcParams['figure.figsize'] = [5*LATEX_PAGEWIDTH/2,5*LATEX_PAGEWIDTH/2]
+mpl.rcParams['figure.dpi'] = 120
+
+mpl.rcParams['figure.subplot.bottom'] = 0
+mpl.rcParams['figure.subplot.top'] = 1
+mpl.rcParams['figure.subplot.left'] = 0
+mpl.rcParams['figure.subplot.right'] = 1
+
+mpl.rcParams['figure.subplot.hspace'] = 0.2
+mpl.rcParams['figure.subplot.wspace'] = 0.2
+
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
 mpl.rcParams["legend.labelspacing"] = 0.35
 mpl.rcParams["legend.columnspacing"] = 0.75
 # This looks to be the only way to set hatch line widths!
 mpl.rcParams['hatch.linewidth'] = BASE_ELINEWIDTH
+
+mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
+
 
 # Conversion factors for code to cgs units
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
@@ -78,17 +142,19 @@ OMEGA_MATTER 				= 0.272
 L_solar 					= 3.828E26 # Watts
 
 AG89_SOLAR_Z = 0.02
+AG89_ABUNDANCES = np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
 A09_SOLAR_Z = 0.0142
+A09_ABUNDANCES = np.array([0.0142,0.2703,2.53e-3,7.41e-4,6.13e-3,1.34e-3,7.57e-4,7.12e-4,3.31e-4,6.87e-5,1.38e-3])
 
 FIRE_VERSION 				= 2
 if FIRE_VERSION == 2:
 	# FIRE-2 uses Anders & Grevesse 1989 for Solar
 	SOLAR_Z					= AG89_SOLAR_Z
-	SOLAR_MASSFRAC			= np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
+	SOLAR_MASSFRAC			= AG89_ABUNDANCES
 else:
 	# FIRE-3 uses Asplund+ 2009 for proto-solar
 	SOLAR_Z					= A09_SOLAR_Z
-	SOLAR_MASSFRAC 			= np.array([0.0142,0.2703,2.53e-3,7.41e-4,6.13e-3,1.34e-3,7.57e-4,7.12e-4,3.31e-4,6.87e-5,1.38e-3])
+	SOLAR_MASSFRAC 			= AG89_ABUNDANCES
 
 
 
@@ -122,6 +188,8 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 				 'sigma_stellar': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 					 'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
 						   'sfr': [r'SFR [M$_{\odot}/$yr]', 											[1E-3,5E1], 	True],
+					 'sfr_10Myr': [r'SFR$_{\rm 10\;Myr}$ [M$_{\odot}/$yr]', 							[1E-3,5E1], 	True],
+					'sfr_100Myr': [r'SFR$_{\rm 100\;Myr}$ [M$_{\odot}/$yr]', 							[1E-3,5E1], 	True],						   						   
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 			 'sigma_gas_ionized': [r'$\Sigma_{\rm gas,ionized}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
 				  'sigma_metals': [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', 					[1E-2,1E1], 	True],

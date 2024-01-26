@@ -20,7 +20,6 @@ class AHF:
         # load AHF catalog
         sp = self.sp
         if hdir is None: hdir = sp.sdir + "/AHF_halos"
-        print('halo file directory is', hdir)
         hfile = hdir + "/snap%03d*.AHF_halos" %sp.snum
         flist = glob.glob(hfile)
         # Check for different halo file name format
