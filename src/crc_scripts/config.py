@@ -34,8 +34,9 @@ XSMALL_FONT					= 16
 SMALL_FONT					= 22
 LARGE_FONT					= 30
 EXTRA_LARGE_FONT			= 40
-BASE_FIG_XSIZE 				= 10
-BASE_FIG_YSIZE 				= 7.5
+BASE_FIG_XSIZE 				= LATEX_PAGEWIDTH
+BASE_FIG_YSIZE 				= LATEX_PAGEWIDTH
+BASE_AXES_RATIO				= 0.7 # Y to X axes length ratio
 BASE_FIG_SIZE  				= 10
 BASE_FIG_SIZE  				= LATEX_PAGEWIDTH
 # Change these on the fly if you want to increase or decrease image size

@@ -69,7 +69,7 @@ class Figure(object):
         axes_kwargs : dict
             Additional arguements for plot_utils.setup_axi()
         """
-         
+        
         plot_utils.setup_axis(self.axes[axis_num], x_prop, y_prop, **kwargs)
 
 
@@ -107,6 +107,15 @@ class Figure(object):
         self.axis_artists[axis_num] += sc
 
         if std_bars:
+            default_std_kwargs = {
+            'color': kwargs['color'], 
+            'zorder': kwargs['zorder']-1,
+            'alpha': 0.3}
+
+            for kwarg in default_std_kwargs:
+                if kwarg not in std_kwargs:
+                    std_kwargs[kwarg] = default_std_kwargs[kwarg]
+
             self.plot_shaded_region(axis_num, x_data, np.array(y_std)[:,0], np.array(y_std)[:,1], **std_kwargs)
 
 
@@ -162,6 +171,25 @@ class Figure(object):
         sc = axis.scatter(x_data, y_data, **kwargs)
         self.axis_artists[axis_num] += [sc]
 
+    def plot_histogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None):
+     
+
+        z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
+        z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
+        z_label = config.get_prop_label(z_prop)
+
+        if z_log:
+            norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+        else:
+            norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+
+        axis = self.axes[axis_num]
+        img = axis.pcolormesh(X, Y, Z, cmap=cmap, norm=norm)
+        axis.autoscale('tight')
+        self.axis_artists[axis_num] += [img]
+
+        if label!=None:
+            axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=4)
 
     def set_all_legends(self, labels_per_legend=4, max_cols=2, **kwargs):
         default_kwargs = {
@@ -216,14 +244,13 @@ class Figure(object):
         self.fig.legend(kwargs)
 
 
-    def add_colorbar(self, axis_num, cbar_prop, cmap='magma_r', vmin=0, vmax=1):
-        norm = mpl.colors.Normalize(vmin,vmax)
-        cmap = plt.get_cmap(cmap)
-       
+    def add_colorbar(self, axis_num, cbar_prop=None):
+
+        mappable = self.axis_artists[axis_num][0]
         axis = self.axes[axis_num]
         divider = make_axes_locatable(axis)
         cax = divider.append_axes("right", size="5%", pad=0.0)
-        cbar = self.fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),cax=cax,pad=0)
+        cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
         cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
 
@@ -299,11 +326,6 @@ class Projection(Figure):
         else: sub_L = None
         plot_utils.setup_proj_axis(axes_set, main_L, sub_L=sub_L, axes_visible=axes_visible)
 
-        # if self.has_colorbars:
-        #     # Make a dummy color bar for now so that way you can check how it all looks before plotting anything
-        #     cbar = plot_utils.setup_proj_colorbar(property, self.fig, axes_set[-1], **kwargs)       
-        #     self.axis_colorbar[axis_num] = cbar
-
 
     
     def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, **kwargs):
@@ -312,16 +334,11 @@ class Projection(Figure):
             'interpolation': 'bicubic',
             'aspect': 'equal',
             'origin': 'lower',
-            'zorder': 3}        
+            'zorder': 1}        
 
         for kwarg in default_imshow_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_imshow_kwargs[kwarg]   
-
-        axes_set = self.axes[axis_num]
-        ax1 = axes_set[0]
-        if label is not None:
-            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
 
         # Change default projection limits
         if v_limits is not None:
@@ -331,17 +348,18 @@ class Projection(Figure):
                 norm = mpl.colors.Normalize(vmin=v_limits[0], vmax=v_limits[1], clip=True)
             kwargs['norm'] = norm
 
+
+        axes_set = self.axes[axis_num]
+        ax1 = axes_set[0]
 		# Plot top projection
         img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
+        if label is not None:
+            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
             img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
         if self.has_colorbars:
-            # Delete the dummy colorbar
-            # cbar = self.axis_colorbar[axis_num]
-            # cbar.remove()
-            # print(axes_set)
             cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1)       
             self.axis_colorbar[axis_num] = cbar
 

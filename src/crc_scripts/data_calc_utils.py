@@ -65,7 +65,7 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 
 
 
-def calc_phase_hist_data(property, snap, bin_nums=100):
+def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None):
 	"""
 	Calculate the 2D histogram for the given property and data from gas particle
 
@@ -89,13 +89,14 @@ def calc_phase_hist_data(property, snap, bin_nums=100):
 	G = snap.loadpart(0)
 	nH_data = G.get_property('nH')
 	T_data = G.get_property('T')
-	nH_bin_lims = config.PROP_INFO['nH'][1]
-	T_bin_lims = config.PROP_INFO['T'][1]
-	if config.PROP_INFO['nH'][2]:
+
+	nH_bin_lims = config.get_prop_limits('nH') if nH_lims is None else nH_lims
+	T_bin_lims = config.get_prop_limits('T') if T_lims is None else T_lims
+	if config.get_prop_if_log('nH'):
 		nH_bins = np.logspace(np.log10(nH_bin_lims[0]),np.log10(nH_bin_lims[1]),bin_nums)
 	else:
 		nH_bins = np.linspace(nH_bin_lims[0], nH_bin_lims[1], bin_nums)
-	if config.PROP_INFO['T'][2]:
+	if config.get_prop_if_log('T'):
 		T_bins = np.logspace(np.log10(T_bin_lims[0]),np.log10(T_bin_lims[1]),bin_nums)
 	else:
 		T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)

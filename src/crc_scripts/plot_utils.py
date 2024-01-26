@@ -192,31 +192,31 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
 
 
     if num_plots == 1:
-        fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
+        fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_SIZE,config.BASE_FIG_SIZE*config.BASE_AXES_RATIO))
         axes = np.array([axes])
         dims = np.array([1,1])
     elif num_plots%2 == 0 and num_plots<5:
         if orientation == 'vertical':
-            fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_SIZE,config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
             dims = np.array([2,num_plots//2])
         else:
-            fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*config.BASE_FIG_SIZE,num_plots/2*config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
             dims = np.array([num_plots//2,2])
     elif num_plots%3 == 0:
         if orientation == 'vertical':
-            fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_SIZE,3*config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
             dims = np.array([3,num_plots//3])
         else:
-            fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*config.BASE_FIG_SIZE,num_plots/3*config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
             dims = np.array([num_plots//3,3])
     else:
         dim_num = 3 # default number of plots in specified orientation
         if orientation == 'vertical':
-            fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,dim_num*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_SIZE,dim_num*config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                         squeeze=True, sharex=sharex, sharey=sharey)
             # Need to delete extra axes and reshow tick labels if axes were shared
             axes[(dim_num-1)-(dim_num-num_plots%dim_num),num_plots//dim_num].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
@@ -225,7 +225,7 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
                 axes[dim_num-1-i, num_plots//dim_num] = None
             dims = np.array([dim_num,num_plots//dim_num])
         else:
-            fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=(dim_num*(1)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+            fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=(dim_num*(1)*config.BASE_FIG_SIZE,np.ceil(num_plots/dim_num)*config.BASE_FIG_SIZE*config.BASE_AXES_RATIO),
                                     squeeze=True, sharex=sharex, sharey=sharey)
             # Need to delete extra axes and reshow tick labels if axes were shared
             for i in range(dim_num-num_plots%dim_num):
@@ -263,7 +263,7 @@ def add_artists(axis, artists):
     return
 
 
-def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, artists_to_add=None):
+def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, artists_to_add=None, face_color='xkcd:white'):
     """
     Sets up the axis plot given x and y properties and optional limits
 
@@ -321,6 +321,8 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     if config.get_prop_if_log(y_prop) or y_log:
         axis.set_yscale('log')
     axis.set_ylim(y_lim)
+
+    axis.set_facecolor(face_color)
 
     # Set axis labels and ticks
     setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label)
@@ -611,17 +613,18 @@ def setup_projection(num_plots,L,Lz=None):
 def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]):
 
     axes = []
-    base_size = 10
     height_ratios = np.array(height_ratios)
-    cbar_height = height_ratios[0]*.05
+    cbar_height = 0.05*height_ratios[0]
+    width_space = 0.01*height_ratios[0]
+    height_space = 0.01*height_ratios[0]
     # Check whether you want another projection below the first (usually edge-on with a disk)
     if sub_projs:
         if has_colorbars:
-            fig, axes = plt.subplots(nrows=3, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':np.append(height_ratios,[cbar_height])},
+            fig, axes = plt.subplots(nrows=3, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':np.append(height_ratios,[cbar_height])},
                                     figsize=[num_plots*config.BASE_FIG_SIZE,
                                             (height_ratios[0]+height_ratios[1]+cbar_height)/height_ratios[0]*config.BASE_FIG_SIZE])
         else:
-            fig, axes = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':height_ratios},
+            fig, axes = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':height_ratios},
                                     figsize=[num_plots*config.BASE_FIG_SIZE,
                                             (height_ratios[0]+height_ratios[1])/height_ratios[0]*config.BASE_FIG_SIZE])     
         # Deal with only one projection being plotted
@@ -637,9 +640,9 @@ def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]
 
     # Only one projection
     else:
-        gs = gridspec.GridSpec(2,num_plots,height_ratios=height_ratios,hspace=0.0,wspace=0.025,top=0.975, bottom=0.025, left=0.025, right=0.975)
+        gs = gridspec.GridSpec(2,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
         ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if has_colorbars else 1
-        fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
+        fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
         for i in range(num_plots):
             ax = plt.subplot(gs[0,i])
             cbarax = plt.subplot(gs[1,i])
