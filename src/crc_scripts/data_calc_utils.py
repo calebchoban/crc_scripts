@@ -189,7 +189,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 			print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
 
 	if np.all(mask == False):
-		print(f"Warning: no particles match the mask criteria ({mask_criteria}) for snapshot {snap.nsnap!r}!")
+		print(f"Warning: no particles match the mask criteria ({mask_criteria})!")
 
 	return mask
 
@@ -505,6 +505,7 @@ def calc_gal_int_params(property, snap, criteria='all'):
 	P = snap.loadpart(ptype)
 	mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
 	prop_vals = P.get_property(property)[mask]
+
 	# Galaxy-integrated masses are just total masses so just add them up
 	if 'M_' in property:
 		val = np.sum(prop_vals)
@@ -513,6 +514,11 @@ def calc_gal_int_params(property, snap, criteria='all'):
 		weights=weights[mask]
 		prop_vals=prop_vals
 		val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
+
+		if property == 'Z':
+			print(property, criteria)
+			print(prop_vals)
+			print(val,np.mean(prop_vals),np.median(prop_vals))
 
 	return val
 

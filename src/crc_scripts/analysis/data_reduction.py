@@ -420,11 +420,11 @@ class Reduced_Data(object):
             for prop in self.gas_props:
                 for subsample in self.gas_subsamples:
                     data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,sp,criteria=subsample)
+                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,criteria=subsample)
             for prop in self.star_props:
                 for subsample in self.star_subsamples:
                     data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,sp,criteria=subsample)
+                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,criteria=subsample)
 
             # snap all loaded
             self.snap_loaded[i]=True
