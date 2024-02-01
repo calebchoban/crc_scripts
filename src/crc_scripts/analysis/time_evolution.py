@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pickle
-from ..math_utils import weighted_percentile
+from ..math_utils import weighted_percentile, quick_lookback_time
 from ..io.snapshot import Snapshot
 
 # This is a class that compiles the evolution data of a Snapshot/Halo/Disk
@@ -284,6 +284,7 @@ class Dust_Evo_Data(object):
 		self.time = np.zeros(self.num_snaps)
 		if self.cosmological:
 			self.redshift = np.zeros(self.num_snaps)
+			self.scale_factor = np.zeros(self.num_snaps)
 
 
 		# Populate the data dictionaries
@@ -433,6 +434,8 @@ class Dust_Evo_Data(object):
 			self.time[i] = sp.time
 			if self.cosmological:
 				self.redshift[i] = sp.redshift
+				self.scale_factor[i] = sp.scale_factor
+				self.time[i] = quick_lookback_time(sp.time, sp=sp)
 			# Calculate the data fields for either all particles in the halo and all particles in the disk
 			if self.setHalo:
 				if self.haloIDs is not None:

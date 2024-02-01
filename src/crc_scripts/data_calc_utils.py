@@ -478,7 +478,7 @@ def calc_gal_int_params(property, snap, criteria='all'):
 	Parameters
 	----------
 	property: string
-		Property to calculate the galaxy-integrated value for (D/Z, Z)
+		Property to calculate the galaxy-integrated value for (D/Z, Z, M_gas, etc)
 	snap : snapshot/galaxy
 		Snapshot or Galaxy object from which particle data can be loaded
 	criteria : string, optional
@@ -496,7 +496,7 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 	"""
 
-	if property in ['M_star']:
+	if 'M_star' in property or 'sfr' in property or 'M_stellar' in property:
 		ptype = 4
 	else:
 		ptype = 0
@@ -504,14 +504,14 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 	P = snap.loadpart(ptype)
 	mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
-	prop_vals = P.get_property(property)
+	prop_vals = P.get_property(property)[mask]
 	# Galaxy-integrated masses are just total masses so just add them up
 	if 'M_' in property:
 		val = np.sum(prop_vals)
 	else:
 		weights = P.get_property('M')
 		weights=weights[mask]
-		prop_vals=prop_vals[mask]
+		prop_vals=prop_vals
 		val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
 
 	return val

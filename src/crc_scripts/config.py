@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import os
+
+BASE_DIR = os.path.dirname(__file__)
+OBS_DIR = os.path.join(BASE_DIR, 'observations/data/')
 
 # # Allow plotting when run on command line
 # plt.switch_backend('agg')
@@ -13,7 +17,9 @@ BASE_DIVERGING_CMAP = 'Spectral'
 BASE_LINEWIDTH = 3.0
 BASE_LINESTYLE = '-'
 BASE_MARKERSTYLE = 'o'
-BASE_MARKERSIZE = 15
+BASE_MARKERSIZE = 10**2
+LARGE_MARKERSIZE = 15**2
+SMALL_MARKERSIZE = 7.5**2
 
 # Set personal color, linewidths, and styles cycle
 LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna"]
@@ -103,8 +109,8 @@ mpl.rcParams['figure.subplot.top'] = 1
 mpl.rcParams['figure.subplot.left'] = 0
 mpl.rcParams['figure.subplot.right'] = 1
 
-mpl.rcParams['figure.subplot.hspace'] = 0.2
-mpl.rcParams['figure.subplot.wspace'] = 0.2
+mpl.rcParams['figure.subplot.hspace'] = 0.3
+mpl.rcParams['figure.subplot.wspace'] = 0.3
 
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
 mpl.rcParams["legend.labelspacing"] = 0.35

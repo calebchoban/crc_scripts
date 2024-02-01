@@ -3,6 +3,7 @@ import h5py
 from .. import math_utils
 from .. import config
 from .. import coordinate_utils
+from .snap_utils import get_snap_file_name
 
 class Header:
 
@@ -123,7 +124,7 @@ class Particle:
         # do the reading
         nL = 0
         for i in range(sp.nsnap):
-            snapfile = sp.get_snap_file_name(i)
+            snapfile = get_snap_file_name(sp.sdir,sp.snum,sp.nsnap,i)
             f = h5py.File(snapfile, 'r')
             npart_this = f['Header'].attrs['NumPart_ThisFile'][ptype]
             if npart_this <=0: continue  # if there are no particles of this type in the snap no reason to continue
@@ -563,11 +564,15 @@ class Particle:
         elif self.ptype==4:
             if property in ['M','M_star','M_stellar']:
                 data = self.m*config.UnitMass_in_Msolar
-            elif property in ['M_star_young','M_stellar_young','M_sfr']:
+            elif property in ['M_star_young','M_stellar_young','M_star_10Myr']:
                 # Assume young stars are < 10 Myr old
                 data = self.m*config.UnitMass_in_Msolar
                 age = self.age
                 data[age>0.01] = 0.
+            elif property in ['M_star_100Myr']:
+                data = self.m*config.UnitMass_in_Msolar
+                age = self.age
+                data[age>0.1] = 0.        
             elif property == 'Z':
                 SOLAR_Z = self.sp.solar_abundances[0]
                 data = self.z[:,0]/config.SOLAR_Z

@@ -6,6 +6,7 @@ from .. import math_utils
 from .particle import Header,Particle
 from .galaxy import Halo,Disk
 from .AHF import AHF
+from .snap_utils import check_snap_exist,get_snap_file_name
 
 class Snapshot:
 
@@ -14,12 +15,12 @@ class Snapshot:
         self.sdir = sdir
         self.snum = snum
         self.cosmological = cosmological
-        self.nsnap = self.check_snap_exist()
+        self.nsnap = check_snap_exist(sdir,snum)
         self.k = -1 if self.nsnap==0 else 1
 
         # now, read snapshot header if it exists
         if (self.k==-1): return
-        snapfile = self.get_snap_file_name(0)
+        snapfile = get_snap_file_name(sdir,snum,self.nsnap,0)
         f = h5py.File(snapfile, 'r')
         self.npart = f['Header'].attrs['NumPart_Total']
         self.time = f['Header'].attrs['Time']
@@ -34,8 +35,12 @@ class Snapshot:
         self.hubble = f['Header'].attrs['HubbleParam']
         if 'Solar_Abundances_Adopted' in f['Header'].attrs.keys():
             self.solar_abundances = f['Header'].attrs['Solar_Abundances_Adopted']
-        else: # Old snaps without abundances are from FIRE-1/2 which use the same abundances
+        else: # Old snaps without abundances are from FIRE-1/2 which use the AG89 abundances
             self.solar_abundances = config.AG89_ABUNDANCES
+        if self.solar_abundances[0] == 0.02:
+            self.FIRE_ver = 2
+        else:
+            self.FIRE_ver = 3
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
@@ -193,45 +198,3 @@ class Snapshot:
         t, sfr = math_utils.SFH(sft, m, dt=dt, cum=cum, sp=self)
 
         return t, sfr
-
-
-    # this function only used once when loading a snapshot
-    def check_snap_exist(self):
-    
-        sdir = self.sdir
-        snum = self.snum
-        
-        # single file case
-        snapfile = sdir + "/snapshot_%03d.hdf5" %snum
-        if (os.path.isfile(snapfile)): return 1
-        
-        # multiple files
-        snapfile = sdir + "/snapdir_%03d/snapshot_%03d.0.hdf5" %(snum,snum)
-        if (os.path.isfile(snapfile)):
-            f = h5py.File(snapfile, 'r')
-            nsnap = f['Header'].attrs['NumFilesPerSnapshot']
-        else:
-            print("Snapshot does not exist.")
-            return 0
-        
-        for i in np.arange(1,nsnap,1):
-            snapfile = sdir + "/snapdir_%03d/snapshot_%03d.%d.hdf5" %(snum,snum,i)
-            if (not os.path.isfile(snapfile)):
-                print("Snapshot is not complete.")
-                return 0
-        
-        return nsnap
-
-
-    # this function returns snapshot file name
-    def get_snap_file_name(self, i):
-    
-        sdir = self.sdir
-        snum = self.snum
-        
-        if (self.nsnap==1):
-            snapfile = sdir + "/snapshot_%03d.hdf5" %snum
-        else:
-            snapfile = sdir + "/snapdir_%03d/snapshot_%03d.%d.hdf5" %(snum,snum,i)
-
-        return snapfile
