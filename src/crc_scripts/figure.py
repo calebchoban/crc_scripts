@@ -26,6 +26,7 @@ class Figure(object):
 
         # Keep track of Artists for plotted data in case you want to remove it later
         self.axis_artists = [[]]*self.plot_num
+        self.axis_legend = [None]*self.plot_num
 
 
     def set_axes(self, x_props, y_props, axes_kwargs=None):
@@ -53,7 +54,7 @@ class Figure(object):
             self.set_axis(self.axes[i], x_props[i], y_props[i], **axes_kwargs[i])
     
 
-    def set_axis(self, axis_num, x_prop, y_prop, **kwargs):
+    def set_axis(self, axis_num, x_prop, y_prop, twin_time_axis = True, **kwargs):
         """
         Set specific axis in figure given the properties you want you plot on the x and y axis 
         Can also give more arguements for axis such as setting log/linear and the limits.
@@ -67,10 +68,17 @@ class Figure(object):
         y_prop : string
             Property for each y axis.
         axes_kwargs : dict
-            Additional arguements for plot_utils.setup_axi()
+            Additional arguements for plot_utils.setup_axis()
         """
         
         plot_utils.setup_axis(self.axes[axis_num], x_prop, y_prop, **kwargs)
+        # If we have a time/redshift axis, create a twin time/redshift axis
+        if twin_time_axis and x_prop in ['redshift','time','redshift_plus_1']:
+            # Only want extra labels on the top axis
+            tick_labels=False
+            if axis_num < self.dims[1]:
+                tick_labels=True
+            plot_utils.make_axis_secondary_time(self.axes[axis_num], x_prop, snapshot=None, tick_labels=tick_labels)
 
 
     def save(self, filename, **kwargs):
@@ -124,10 +132,9 @@ class Figure(object):
             'fmt': 'o', 
             'c': config.BASE_COLOR,
             'elinewidth': config.BASE_ELINEWIDTH, 
-            'ms': config.BASE_MARKERSIZE, 
+            'ms': config.BASE_MARKERSIZE**0.5, 
             'mew': config.BASE_ELINEWIDTH,
             'mfc': 'xkcd:white',
-            'mec': config.BASE_COLOR,
             'zorder': 3,
             'alpha': 1}
         
@@ -218,42 +225,83 @@ class Figure(object):
         default_kwargs = {
             'loc': 'best',
             'fontsize': config.SMALL_FONT,
-            'frameon': False}
+            'frameon': False,
+            'ncol': 2}
 
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
 
         axis = self.axes[axis_num]
-        axis.legend(**kwargs)
+        lg = axis.legend(**kwargs)
+        self.axis_legend[axis_num] = lg
 
     
-    def set_outside_legend(self, **kwargs):
+    def set_outside_legend(self, override_color=None, **kwargs):
         default_kwargs = {
-            'bbox_to_anchor': (0.5, 1.),
             'loc': 'lower center',
+            'bbox_to_anchor': (0.5, 1.1),
             'frameon': False,
             'ncol': 2,
             'borderaxespad': 0,
-            'fontsize': config.LARGE_FONT}     
+            'fontsize': config.LARGE_FONT,
+            "bbox_transform": self.fig.transFigure}     
         
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
+        # Check for old legends and remove
+        legends = [c for c in self.fig.get_children() if isinstance(c, mpl.legend.Legend)]
+        if len(legends)>0:
+            for legend in legends: legend.remove()
 
-        self.fig.legend(kwargs)
+
+        # Check labels and handles between each axis in turn so that we only get unique handles and exlucde any already in legends within the axis
+        labels_handles = {}
+        for i in range(len(self.axes)):
+            axis = self.axes[i]
+            hands, labs = axis.get_legend_handles_labels()
+            new_lh = dict(zip(labs, hands))
+            if self.axis_legend[i] is not None:
+                exclude_lh = self.axis_legend[i].legend_handles
+                for key in exclude_lh.keys(): new_lh.pop(key, 0);
+            for key in labels_handles.keys(): new_lh.pop(key, 0);
+            labels_handles.update(new_lh)
+        fig_legend = self.fig.legend(labels_handles.values(), labels_handles.keys(), **kwargs)
+        if override_color is not None:
+            for handle in fig_legend.legendHandles:
+                handle.set_facecolor(override_color)
 
 
-    def add_colorbar(self, axis_num, cbar_prop=None):
 
-        mappable = self.axis_artists[axis_num][0]
+    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False):
+
+        # Find the artist with a colormap, seems to have a specific attribute we can use
+        for artist in self.axis_artists[axis_num]:
+            if hasattr(artist, 'autoscale_None'):
+                mappable = artist; break;
         axis = self.axes[axis_num]
         divider = make_axes_locatable(axis)
         cax = divider.append_axes("right", size="5%", pad=0.0)
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
         cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
+        if invert_axis:
+            cbar.ax.invert_yaxis()
 
+    def add_text(self, axis_num, x, y, text, **kwargs):
+        default_kwargs = {
+            'color': config.BASE_COLOR,
+            'fontsize': config.EXTRA_LARGE_FONT,
+            'ha': 'center',
+            "va": 'center'} 
+        
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]
+                 
+        axis=self.axes[axis_num]
+        axis.text(x, y, text, transform=axis.transAxes, **kwargs)
 
     def add_artist(self, axis_num, artist, **kwargs):
 
