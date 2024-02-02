@@ -7,6 +7,8 @@ from ..io.snapshot import Snapshot
 from .. import data_calc_utils as calc_utils
 from ..io.snap_utils import check_snap_exist
 
+import time
+
 # This is a class that compiles the evolution data of a Snapshot/Halo
 # over a specified time for a simulation
 
@@ -45,7 +47,7 @@ class Buffer(object):
 
         # Get the basename of the directory the snapshots are stored in
         self.basename = os.path.basename(os.path.dirname(os.path.normpath(sdir)))
-        self.name = 'snap_reduced_data'
+        self.name = self.basename+'_reduced_data'
         if save_w_sims:
             self.data_dirc = sdir[:-7]+data_dirc
         else:
@@ -77,7 +79,7 @@ class Buffer(object):
         return
 
 
-    def load(self, increment=5, override=False):
+    def load(self, increment=2, override=False):
 
         if self.k: return
 
@@ -417,15 +419,17 @@ class Reduced_Data(object):
             print('Loading data....')
 
             # First do totals
-            for prop in self.gas_props:
-                for subsample in self.gas_subsamples:
+            for subsample in self.gas_subsamples:
+                # Only need to get the mask once
+                sample_mask = calc_utils.get_particle_mask(0,gal,mask_criteria=subsample)
+                for prop in self.gas_props:
                     data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,criteria=subsample)
-            for prop in self.star_props:
-                for subsample in self.star_subsamples:
+                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
+            for subsample in self.star_subsamples:
+                sample_mask = calc_utils.get_particle_mask(4,gal,mask_criteria=subsample)
+                for prop in self.star_props:
                     data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,criteria=subsample)
-
+                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
             # snap all loaded
             self.snap_loaded[i]=True
             snaps_loaded+=1

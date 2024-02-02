@@ -114,7 +114,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	return ret
 
 
-def get_particle_mask(ptype, snap, mask_criteria='all'):
+def get_particle_mask(ptype, snap, mask_criteria='all',verbose=False):
 	"""
 	Creates a boolean array for the given particle type in the given 
 	snapshot to mask particles which meet the mask_criteria.
@@ -137,6 +137,8 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 
 	P = snap.loadpart(ptype)
 	mask = np.ones(P.npart, dtype=bool)
+	# Don't actually need a mask here
+	if mask_criteria=='all': return mask
 	mask_identified = 0;
 
 	if ptype==0:
@@ -176,7 +178,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 				mask = mask & (nH >= 0.5) & (T >= 7000) & (T <= 15000)
 			if not mask_identified and mask_criteria not in ['all','']:
 				print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
-	if ptype==4:
+	elif ptype==4:
 		if 'young' in mask_criteria:
 			mask_identified+=1
 			age = P.get_property('age')
@@ -188,7 +190,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 		if not mask_identified and mask_criteria not in ['all','']:
 			print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
 
-	if np.all(mask == False):
+	if verbose and np.all(mask == False):
 		print(f"Warning: no particles match the mask criteria ({mask_criteria})!")
 
 	return mask
@@ -470,8 +472,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 	return bin_vals, mean_vals, std_vals, pixel_data
 
 
-
-def calc_gal_int_params(property, snap, criteria='all'):
+def calc_gal_int_params(property, snap, criteria='all', mask=None):
 	"""
 	Calculate the galaxy-integrated values given center and virial radius for multiple simulations/snapshots
 
@@ -487,6 +488,8 @@ def calc_gal_int_params(property, snap, criteria='all'):
 		cold/neutral : Use only cold/neutral gas T<1000K
 		hot/ionized: Use only ionized/hot gas
 		molecular: Use only molecular gas
+	mask : array, optional
+		Array for masking data if you have your on mask in mind.
 
 
 	Returns
@@ -503,7 +506,8 @@ def calc_gal_int_params(property, snap, criteria='all'):
 
 
 	P = snap.loadpart(ptype)
-	mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
+	if mask is None:
+		mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
 	prop_vals = P.get_property(property)[mask]
 
 	# Galaxy-integrated masses are just total masses so just add them up
@@ -514,12 +518,6 @@ def calc_gal_int_params(property, snap, criteria='all'):
 		weights=weights[mask]
 		prop_vals=prop_vals
 		val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
-
-		if property == 'Z':
-			print(property, criteria)
-			print(prop_vals)
-			print(val,np.mean(prop_vals),np.median(prop_vals))
-
 	return val
 
 
