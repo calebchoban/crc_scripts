@@ -264,6 +264,9 @@ class Particle:
                 self.fH2 = self.fH2[mask]
                 self.fdense = self.fdense[mask]
                 self.CinCO = self.CinCO[mask]
+                if (self.sp.Flag_GrainSizeBins):
+                    self.grain_bin_nums = self.grain_bin_nums[mask]
+                    self.grain_bin_slopes = self.grain_bin_slopes[mask]
             if (self.sp.Flag_Sfr):
                 self.sfr = self.sfr[mask]
     
@@ -298,9 +301,6 @@ class Particle:
     def orientate(self, center_pos=None, center_vel=None, principal_vec=None):
 
         if self.orientated: return
-
-        print('adjusting particle coordinates to be relative to galaxy center')
-        print('  and aligned with the principal axes\n')
 
         if center_vel is not None and center_pos is not None:
             # convert to be relative to galaxy center [km / s]
@@ -551,7 +551,6 @@ class Particle:
             else:
                 print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
                 return None
-
         elif self.ptype in [1,2,3]:
             if property=='M' or property=='M_dm' or property=='m':
                 data = self.m*config.UnitMass_in_Msolar

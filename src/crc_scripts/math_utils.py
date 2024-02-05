@@ -40,14 +40,13 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
             return np.zeros(len(percentiles))
 
     # Standardize and sort based on values in a
-    percentiles = percentiles
-
     idx = np.argsort(a)
     a_sort = a[idx]
     w_sort = weights[idx]
 
     # Get the percentiles for each data point in array
-    p=1.*w_sort.cumsum()/w_sort.sum()*100
+    p=w_sort.cumsum()
+    p=p/p[-1]*100
     # Get the value of a at the given percentiles
     values=np.interp(percentiles, p, a_sort)
     return values

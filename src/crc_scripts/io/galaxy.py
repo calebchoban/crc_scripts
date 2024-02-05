@@ -193,14 +193,16 @@ class Halo(object):
 
         part = self.part[ptype]
 
-        part.load()
-        part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-        if self.zoom:
-            rmax = self.rout*self.rvir if not self.outkpc else self.rout
-        else:
-            rmax = self.rvir
-        in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
-        part.mask(in_halo)
+        # If the particles have previously been loaded and orientated we are done here
+        if not part.k or not self.set_orientation:
+            part.load()
+            part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
+            if self.zoom:
+                rmax = self.rout*self.rvir if not self.outkpc else self.rout
+            else:
+                rmax = self.rvir
+            in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
+            part.mask(in_halo)
 
         return part
 

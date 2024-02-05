@@ -6,8 +6,8 @@ from ..math_utils import weighted_percentile, quick_lookback_time
 from ..io.snapshot import Snapshot
 from .. import data_calc_utils as calc_utils
 from ..io.snap_utils import check_snap_exist
-
 import time
+
 
 # This is a class that compiles the evolution data of a Snapshot/Halo
 # over a specified time for a simulation
@@ -79,7 +79,7 @@ class Buffer(object):
         return
 
 
-    def load(self, increment=2, override=False):
+    def load(self, increment=2, override=False, verbose=True):
 
         if self.k: return
 
@@ -101,7 +101,7 @@ class Buffer(object):
             increment = 1
 
         while not self.reduced_data.all_snaps_loaded:
-            ok = self.reduced_data.load(increment=increment)
+            ok = self.reduced_data.load(increment=increment, verbose=verbose)
             if not ok:
                 print("Ran into an error when attempting to load data....")
                 return
@@ -377,7 +377,7 @@ class Reduced_Data(object):
             return 0
 
 
-    def load(self, increment=5):
+    def load(self, increment=5, verbose=True):
         # Load total masses of different gases/stars and then calculated the median and 16/86th percentiles for
         # gas properties for each snapshot. Only loads set increment number of snaps at a time.
 
@@ -396,7 +396,8 @@ class Reduced_Data(object):
             if self.snap_loaded[i]:
                 continue
 
-            print('Loading snap',snum,'...')
+            if verbose: print('Loading snap',snum,'...')
+            start=time.time()
             sp = Snapshot(self.sdir, snum, cosmological=self.cosmological)
             self.hubble = sp.hubble
             self.omega = sp.omega
@@ -408,7 +409,7 @@ class Reduced_Data(object):
             # Calculate the data fields for either all particles in the halo
             if self.setHalo:
                 self.load_kwargs['id'] = self.haloIDs[i]
-                print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
+                if verbose: print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
                 gal = sp.loadhalo(**self.load_kwargs)
                 if self.use_halfmass_radius:
                     half_mass_radius = gal.get_half_mass_radius(rvir_frac=0.5)
@@ -416,7 +417,6 @@ class Reduced_Data(object):
                 else:
                     gal.set_zoom(**self.set_kwargs)
 
-            print('Loading data....')
 
             # First do totals
             for subsample in self.gas_subsamples:
@@ -433,6 +433,9 @@ class Reduced_Data(object):
             # snap all loaded
             self.snap_loaded[i]=True
             snaps_loaded+=1
+
+            end=time.time()
+            if verbose: print("Took %.3f secs to load this snap:"%(end-start))
 
         self.all_snaps_loaded=True
 
