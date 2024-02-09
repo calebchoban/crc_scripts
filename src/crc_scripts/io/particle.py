@@ -329,6 +329,7 @@ class Particle:
     # Gets derived properties from particle data
     def get_property(self, property):
 
+        data = np.zeros(len(self.m))
         if property == 'M' or property == 'Mass':
             data = self.m * config.UnitMass_in_Msolar
         elif property == 'coords':
@@ -344,82 +345,15 @@ class Particle:
                 data = self.h
             elif property == 'M_gas_neutral':
                 data = self.m*self.nh*config.UnitMass_in_Msolar
-            elif property == 'M_mol' or property == 'M_H2':
+            elif (property == 'M_mol' or property == 'M_H2') and hasattr(self,'fH2'):
                 data = self.m*self.fH2*self.nh*config.UnitMass_in_Msolar
+            elif property == 'fH2' and hasattr(self,'fH2'):
+                data = self.fH2
+                data[data>1] = 1
             elif property == 'M_gas_ionized':
                 data = self.m*(1-self.nh)*config.UnitMass_in_Msolar
             elif property == 'M_metals':
                 data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_dust':
-                data = self.dz[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_sil':
-                data = self.spec[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_carb':
-                data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_SiC':
-                if self.sp.Flag_DustSpecies>2:
-                    data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'M_iron':
-                if self.sp.Flag_DustSpecies>5:
-                    data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
-                elif self.sp.Flag_DustSpecies>2:
-                    data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'M_ORes':
-                if self.sp.Flag_DustSpecies>=5:
-                    data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'M_sil+':
-                data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
-            elif property == 'dz_sil':
-                data = self.spec[:,0]/self.dz[:,0]
-            elif property == 'dz_carb':
-                data = self.spec[:,1]/self.dz[:,0]
-            elif property == 'dz_SiC':
-                if self.sp.Flag_DustSpecies>2:
-                    data = self.spec[:,2]/self.dz[:,0]
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'dz_iron':
-                if self.sp.Flag_DustSpecies>5:
-                    data = (self.spec[:,3]+self.spec[:,5])/self.dz[:,0]
-                elif self.sp.Flag_DustSpecies>2:
-                    data = self.spec[:,3]/self.dz[:,0]
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'dz_ORes':
-                if self.sp.Flag_DustSpecies>=5:
-                    data = self.spec[:,4]/self.dz[:,0]
-                else:
-                    data = np.zeros(len(self.m))
-            elif property == 'M_acc_dust':
-                data = self.dzs[:,0]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_SNeIa_dust':
-                data = self.dzs[:,1]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_SNeII_dust':
-                data = self.dzs[:,2]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'M_AGB_dust':
-                data = self.dzs[:,3]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
-            elif property == 'dz_acc':
-                data = self.dzs[:,0]
-            elif property == 'dz_SNeIa':
-                data = self.dzs[:,1]
-            elif property == 'dz_SNeII':
-                data = self.dzs[:,2]
-            elif property == 'dz_AGB':
-                data = self.dzs[:,3]
-            elif property == 'fH2':
-                data = self.fH2
-                data[data>1] = 1
-            elif property == 'fdense':
-                data = self.fdense
-                data[data>1] = 1
-            elif property == 'CinCO':
-                data = self.CinCO/self.z[:,2]
             elif property == 'nH':
                 data = self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS
             elif property == 'nh':
@@ -435,24 +369,14 @@ class Particle:
                 data = self.z
             elif property == 'Z_O':
                 data = self.z[:,4]/self.sp.solar_abundances[4]
-            elif property == 'Z_O_gas':
-                data = (self.z[:,4]-self.dz[:,4])/self.sp.solar_abundances[4]
             elif property == 'Z_C':
                 data = self.z[:,2]/self.sp.solar_abundances[2]
-            elif property == 'Z_C_gas':
-                data = (self.z[:,2]-self.dz[:,2])/self.sp.solar_abundances[2]
             elif property == 'Z_Mg':
                 data = self.z[:,6]/self.sp.solar_abundances[6]
-            elif property == 'Z_Mg_gas':
-                data = (self.z[:,6]-self.dz[:,6])/self.sp.solar_abundances[6]
             elif property == 'Z_Si':
                 data = self.z[:,7]/self.sp.solar_abundances[7]
-            elif property == 'Z_Si_gas':
-                data = (self.z[:,7]-self.dz[:,7])/self.sp.solar_abundances[7]
             elif property == 'Z_Fe':
                 data = self.z[:,10]/self.sp.solar_abundances[10]
-            elif property == 'Z_Fe_gas':
-                data = (self.z[:,10]-self.dz[:,10])/self.sp.solar_abundances[10]
             elif property == 'O/H':
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)
@@ -460,105 +384,166 @@ class Particle:
                 offset=0.2 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 protosolar(8.73). Ma+16 finds FIRE gives 9.00.
                 O = self.z[:,4]/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(O/H)-offset
-            elif property == 'O/H_gas_offset':
-                offset=0.2 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
-                O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(O/H)-offset
-            elif property == 'O/H_gas':
-                O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(O/H)
             elif property == 'C/H':
                 C = self.z[:,2]/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(C/H)
-            elif property == 'C/H_gas':
-                C = (self.z[:,2]-self.dz[:,2])/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(C/H)
             elif property == 'Mg/H':
                 Mg = self.z[:,6]/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(Mg/H)
-            elif property == 'Mg/H_gas':
-                Mg = (self.z[:,6]-self.dz[:,6])/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(Mg/H)
             elif property == 'Si/H':
                 Si = self.z[:,7]/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(Si/H)
-            elif property == 'Si/H_gas':
-                Si = (self.z[:,7]-self.dz[:,7])/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(Si/H)
             elif property == 'Fe/H':
                 Fe = self.z[:,10]/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
                 data = 12+np.log10(Fe/H)
-            elif property == 'Fe/H_gas':
-                Fe = (self.z[:,10]-self.dz[:,10])/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
-                data = 12+np.log10(Fe/H)
-            elif property == 'Si/C':
-                data = self.spec[:,0]/self.spec[:,1]
-            elif property == 'D/Z':
-                data = self.dz[:,0]/self.z[:,0]
-                data[data > 1] = 1.
-            elif 'depletion' in property:
-                elem = property.split('_')[0]
-                if elem not in config.ELEMENTS:
-                    print('%s is not a valid element to calculate depletion for. Valid elements are'%elem)
-                    print(config.ELEMENTS)
-                    return None
-                elem_indx = config.ELEMENTS.index(elem)
-                data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
-                data[data > 1] = 1.
             elif property == 'f_cold':
                 data = np.sum(self.m[self.T<=1E3])/np.sum(self.m)
             elif property == 'f_warm':
                 data = np.sum(self.m[(self.T<1E4) & (self.T>=1E3)])/np.sum(self.m)
             elif property == 'f_hot':
                 data = np.sum(self.m[self.T>=1E4])/np.sum(self.m)
-            elif property == 'grain_bin_nums':
-                data = self.grain_bin_nums;
-            elif property == 'grain_bin_slopes':
-                data = self.grain_bin_slopes;
-            # Note all dust grain size distribution data is normalized by the total grain number
-            elif property == 'dn/da':
-                # Gives normalized dn/da at the center of the grain bins 
-                N_total = np.sum(self.grain_bin_nums,axis=2)
-                data = self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'dm/da':
-                # Gives a^4 dn/da at the center of the grain bins (note this is in the usual observer convention of mass probability density per log a dm/dloga where the extra factor of a comes from the 1/loga)
-                N_total = np.sum(self.grain_bin_nums,axis=2)
-                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'sil_dn/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
-                data = self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'sil_dm/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
-                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'carb_dn/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
-                data = self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'carb_dm/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
-                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'SiC_dn/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
-                data = self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'SiC_dm/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
-                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'iron_dn/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
-                data = self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            elif property == 'iron_dm/da':
-                N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
-                data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-            else:
-                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
-                return None
+            elif self.sp.Flag_DustSpecies:
+                if property == 'M_dust':
+                    data = self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_sil':
+                    data = self.spec[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_carb':
+                    data = self.spec[:,1]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_SiC':
+                    if self.sp.Flag_DustSpecies>2:
+                        data = self.spec[:,2]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_iron':
+                    if self.sp.Flag_DustSpecies>5:
+                        data = (self.spec[:,3]+self.spec[:,5])*self.m*config.UnitMass_in_Msolar
+                    elif self.sp.Flag_DustSpecies>2:
+                        data = self.spec[:,3]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_ORes':
+                    if self.sp.Flag_DustSpecies>=5:
+                        data = self.spec[:,4]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_sil+':
+                    data = (self.spec[:,0]+np.sum(self.spec[:,2:],axis=1))*self.m*config.UnitMass_in_Msolar
+                elif property == 'dz_sil':
+                    data = self.spec[:,0]/self.dz[:,0]
+                elif property == 'dz_carb':
+                    data = self.spec[:,1]/self.dz[:,0]
+                elif property == 'dz_SiC':
+                    if self.sp.Flag_DustSpecies>2:
+                        data = self.spec[:,2]/self.dz[:,0]
+                elif property == 'dz_iron':
+                    if self.sp.Flag_DustSpecies>5:
+                        data = (self.spec[:,3]+self.spec[:,5])/self.dz[:,0]
+                    elif self.sp.Flag_DustSpecies>2:
+                        data = self.spec[:,3]/self.dz[:,0]
+                elif property == 'dz_ORes':
+                    if self.sp.Flag_DustSpecies>=5:
+                        data = self.spec[:,4]/self.dz[:,0]
+                elif property == 'M_acc_dust':
+                    data = self.dzs[:,0]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_SNeIa_dust':
+                    data = self.dzs[:,1]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_SNeII_dust':
+                    data = self.dzs[:,2]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'M_AGB_dust':
+                    data = self.dzs[:,3]*self.dz[:,0]*self.m*config.UnitMass_in_Msolar
+                elif property == 'dz_acc':
+                    data = self.dzs[:,0]
+                elif property == 'dz_SNeIa':
+                    data = self.dzs[:,1]
+                elif property == 'dz_SNeII':
+                    data = self.dzs[:,2]
+                elif property == 'dz_AGB':
+                    data = self.dzs[:,3]
+                elif property == 'fdense':
+                    data = self.fdense
+                    data[data>1] = 1
+                elif property == 'CinCO':
+                    data = self.CinCO/self.z[:,2]
+                elif property == 'Z_O_gas':
+                    data = (self.z[:,4]-self.dz[:,4])/self.sp.solar_abundances[4]
+                elif property == 'Z_C_gas':
+                    data = (self.z[:,2]-self.dz[:,2])/self.sp.solar_abundances[2]
+                elif property == 'Z_Mg_gas':
+                    data = (self.z[:,6]-self.dz[:,6])/self.sp.solar_abundances[6]
+                elif property == 'Z_Si_gas':
+                    data = (self.z[:,7]-self.dz[:,7])/self.sp.solar_abundances[7]
+                elif property == 'Z_Fe_gas':
+                    data = (self.z[:,10]-self.dz[:,10])/self.sp.solar_abundances[10]
+                elif property == 'O/H_gas_offset':
+                    offset=0.2 # This is roughly difference in O/H_solar between AG89 (8.93) and Asplund+09 (8.69). Ma+16 finds FIRE gives 9.00.
+                    O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(O/H)-offset
+                elif property == 'O/H_gas':
+                    O = (self.z[:,4]-self.dz[:,4])/config.ATOMIC_MASS[4]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(O/H)
+                elif property == 'C/H_gas':
+                    C = (self.z[:,2]-self.dz[:,2])/config.ATOMIC_MASS[2]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(C/H)
+                elif property == 'Mg/H_gas':
+                    Mg = (self.z[:,6]-self.dz[:,6])/config.ATOMIC_MASS[6]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(Mg/H)
+                elif property == 'Si/H_gas':
+                    Si = (self.z[:,7]-self.dz[:,7])/config.ATOMIC_MASS[7]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(Si/H)
+                elif property == 'Fe/H_gas':
+                    Fe = (self.z[:,10]-self.dz[:,10])/config.ATOMIC_MASS[10]; H = (1-(self.z[:,0]+self.z[:,1]))/config.ATOMIC_MASS[0]
+                    data = 12+np.log10(Fe/H)
+                elif property == 'Si/C':
+                    data = self.spec[:,0]/self.spec[:,1]
+                elif property == 'D/Z':
+                    data = self.dz[:,0]/self.z[:,0]
+                    data[data > 1] = 1.
+                elif 'depletion' in property:
+                    elem = property.split('_')[0]
+                    if elem not in config.ELEMENTS:
+                        print('%s is not a valid element to calculate depletion for. Valid elements are'%elem)
+                        print(config.ELEMENTS)
+                    elem_indx = config.ELEMENTS.index(elem)
+                    data =  self.dz[:,elem_indx]/self.z[:,elem_indx]
+                    data[data > 1] = 1.
+                elif self.sp.Flag_GrainSizeBins:
+                    if property == 'grain_bin_nums':
+                        data = self.grain_bin_nums;
+                    elif property == 'grain_bin_slopes':
+                        data = self.grain_bin_slopes;
+                    # Note all dust grain size distribution data is normalized by the total grain number
+                    elif property == 'dn/da':
+                        # Gives normalized dn/da at the center of the grain bins 
+                        N_total = np.sum(self.grain_bin_nums,axis=2)
+                        data = self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'dm/da':
+                        # Gives a^4 dn/da at the center of the grain bins (note this is in the usual observer convention of mass probability density per log a dm/dloga where the extra factor of a comes from the 1/loga)
+                        N_total = np.sum(self.grain_bin_nums,axis=2)
+                        data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'sil_dn/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
+                        data = self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'sil_dm/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,0,np.newaxis]
+                        data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'carb_dn/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
+                        data = self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'carb_dm/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,1,np.newaxis]
+                        data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'SiC_dn/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
+                        data = self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'SiC_dm/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,2,np.newaxis]
+                        data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'iron_dn/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
+                        data = self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif property == 'iron_dm/da':
+                        N_total = np.sum(self.grain_bin_nums,axis=2)[:,3,np.newaxis]
+                        data = np.power(self.sp.Grain_Bin_Centers,4)*self.grain_bin_nums[:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+
         elif self.ptype in [1,2,3]:
             if property=='M' or property=='M_dm' or property=='m':
                 data = self.m*config.UnitMass_in_Msolar
             elif property=='h':
                 data = self.h
-            else:
-                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
-                return None
 
         elif self.ptype==4:
             if property in ['M','M_star','M_stellar']:
@@ -582,13 +567,10 @@ class Particle:
                 data = 12+np.log10(O/H)
             elif property == 'age':
                 data = self.age
-            else:
-                print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
-                return None
 
+        if np.all(data==0):
+            print("Property %s given to Particle with ptype %i is not supported. Returning zero array."%(property,self.ptype))
+            return data
         else:
-            print("Property %s given to Particle with ptype %i is not supported"%(property,self.ptype))
-            return None
-
-        # Make sure to return a copy of the data
-        return data.copy()
+            # Make sure to return a copy of the data
+            return data.copy()
