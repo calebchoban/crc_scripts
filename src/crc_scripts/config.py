@@ -28,7 +28,7 @@ MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sien
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
 				 "xkcd:peach","xkcd:olive green"]*10
 LINE_STYLES = ['-','--',':','-.','-','--',':','-.','-','--',':','-.']
-MARKER_STYLES = ['o','^','X','s','v','P','>','v','d','1','2','*','<']*10
+MARKER_STYLES = ['o','^','X','s','d','>','P','<','v','1','2','*','<']*10
 LINE_WIDTHS = np.array([1.5,1.25,1.0,0.75,0.5,0.25])*BASE_LINEWIDTH
 AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
@@ -179,8 +179,9 @@ DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
 DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 
 # Houses labels, limits, and if they should be plotted in log space for possible properties
-PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
-				    	   'fHn': [r'$f_{\rm neutral}$', 												[0., 1.], 		False],
+PROP_INFO  				= {
+**dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0., 1.], 		False]),
+**dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0., 1.], 		False]),
 						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
 						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
 						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
@@ -210,7 +211,7 @@ PROP_INFO  				= {'fH2': [r'$f_{\rm H_2}$', 													[0., 1.], 		False],
 					  'sigma_H2': [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-1,1E2], 	True],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
-						  'time': ['Time [Gyr]',														[1E-2,1E1],		True],
+						  'time': ['Time [Gyr]',														[1E-2,1E1],		False],
 				 'time_lookback': ['Lookback Time [Gyr]',												[1E-1,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],

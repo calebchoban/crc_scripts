@@ -16,16 +16,19 @@ class Buffer(object):
 
     def __init__(self, sdir, snap_nums, cosmological=1, gas_props=None, gas_subsamples=None, 
                  star_props=None, star_subsamples=None,data_dirc='reduced_data/', 
-                save_w_sims=True, halohist_file=None):
+                save_w_sims=True, halohist_file=None, base_FIRE=False):
         # Set property totals and property medians you want from each snapshot. Also set median masks which will
         # take subsampled medians based on gas properties
         if gas_props is None:
-            self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_dust','M_metals','M_sil','M_carb',
-                            'M_SiC','M_iron','M_ORes','M_SNeIa_dust','M_SNeII_dust','M_AGB_dust','M_acc_dust',
-                            'D/Z','Z','dz_acc','dz_SNeIa','dz_SNeII','dz_AGB','dz_sil','dz_carb',
-                            'dz_SiC','dz_iron','dz_ORes','CinCO','fdense','fH2',
-                            'Z_C','Z_O','Z_Mg','Z_Si','Z_Fe',
-                            'C/H','C/H_gas','O/H','O/H_gas','Mg/H','Mg/H_gas','Si/H','Si/H_gas','Fe/H','Fe/H_gas']
+            if not base_FIRE:
+                self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_dust','M_metals','M_sil','M_carb',
+                                'M_SiC','M_iron','M_ORes','M_SNeIa_dust','M_SNeII_dust','M_AGB_dust','M_acc_dust',
+                                'D/Z','Z','dz_acc','dz_SNeIa','dz_SNeII','dz_AGB','dz_sil','dz_carb',
+                                'dz_SiC','dz_iron','dz_ORes','CinCO','fdense','fH2',
+                                'Z_C','Z_O','Z_Mg','Z_Si','Z_Fe',
+                                'C/H','C/H_gas','O/H','O/H_gas','Mg/H','Mg/H_gas','Si/H','Si/H_gas','Fe/H','Fe/H_gas']
+            else:
+                self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_metals','Z','fH2']
         else: 
             self.gas_properties = gas_props
         self.gas_subsamples = ['all','cold','warm','hot','neutral','molecular'] if gas_subsamples is None else gas_subsamples
@@ -124,7 +127,7 @@ class Buffer(object):
         return
 
     # Returns the specified data or derived data field if possible
-    def get_data(self, prop, subsample='all',statistic='total'):
+    def get_data(self, prop, subsample='all',statistic='total',snap_nums=None):
 
         if not self.reduced_data.all_snaps_loaded:
             print("Warning: Not all snapshots have been loaded! All unloaded values will be zero!")
@@ -138,32 +141,44 @@ class Buffer(object):
         elif prop == 'redshift' and self.reduced_data.cosmological:
             data = self.reduced_data.redshift
         elif prop in ['sfr_10Myr','sfr']:
-            data = self.reduced_data['M_sfr_10Myr_'+subsample]/1E7
+            data = reduced_data['M_star_10Myr_'+subsample]/1E7
         elif prop == 'sfr_100Myr':
-            data = self.reduced_data['M_sfr_100Myr_'+subsample]/1E8
+            data = reduced_data['M_star_100Myr_'+subsample]/1E8
+        elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral']:
+            if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
+            elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
+            elif 'hot' in prop: data = reduced_data['M_gas_hot']/reduced_data['M_gas_all']
+            elif 'H2' in prop: data = reduced_data['M_H2_all']/reduced_data['M_gas_all']
+            elif 'neutral' in prop: data = reduced_data['M_gas_neutral_all']/reduced_data['M_gas_all']
         elif 'source' in prop:
             if 'total' in statistic:
-                if 'source_acc' in prop:
-                    data = self.reduced_data['M_acc_dust_'+subsample]/self.reduced_data['M_dust_'+subsample]
-                elif 'source_SNeIa' in prop:
-                    data = self.reduced_data['M_SNeIa_dust_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                if 'source_frac' in prop:
+                    data = [reduced_data['M_acc_dust_'+subsample],reduced_data['M_acc_dust_'+subsample],reduced_data['M_AGB_dust_'+subsample],
+                            reduced_data['M_SNeIa_dust_'+subsample]]/reduced_data['M_dust_'+subsample]
+                elif 'source_acc' in prop:
+                    data = reduced_data['M_acc_dust_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'source_SNeII' in prop:
-                    data = self.reduced_data['M_SNeII_dust_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_SNeII_dust_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'source_AGB' in prop:
-                    data = self.reduced_data['M_AGB_dust_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_AGB_dust_'+subsample]/reduced_data['M_dust_'+subsample]
+                elif 'source_SNeIa' in prop:
+                    data = reduced_data['M_SNeIa_dust_'+subsample]/reduced_data['M_dust_'+subsample]
                 else:
                     print(prop," is not in the dataset.")
                     return None
                 data[np.isnan(data)] = 0
             elif 'median' in statistic:
-                if 'source_acc' in prop:
-                    data = self.reduced_data['dz_acc_'+subsample]
-                elif 'source_SNeIa' in prop:
-                    data = self.reduced_data['dz_SNeIa_'+subsample]
+                if 'source_frac' in prop:
+                    data = [reduced_data['dz_acc_'+subsample],reduced_data['dz_SNeII_'+subsample],reduced_data['dz_AGB_'+subsample],
+                            reduced_data['dz_SNeIa_'+subsample]]
+                elif 'source_acc' in prop:
+                    data = reduced_data['dz_acc_'+subsample]
                 elif 'source_SNeII' in prop:
-                    data = self.reduced_data['dz_SNeII_'+subsample]
+                    data = reduced_data['dz_SNeII_'+subsample]
                 elif 'source_AGB' in prop:
-                    data = self.reduced_data['dz_AGB_'+subsample]
+                    data = reduced_data['dz_AGB_'+subsample]
+                elif 'source_SNeIa' in prop:
+                    data = reduced_data['dz_SNeIa_'+subsample]
                 else:
                     print(prop," is not in the dataset.")
                     return None
@@ -172,34 +187,48 @@ class Buffer(object):
                 return None
         elif 'spec' in prop:
             if 'total' in statistic:
-                if 'spec_sil' in prop:
-                    data = self.reduced_data['M_sil_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                if 'spec_frac' in prop:
+                    if 'spec_frac+'==prop:
+                        data = [reduced_data['M_sil_'+subsample]+reduced_data['M_SiC_'+subsample]+reduced_data['M_iron_'+subsample]+\
+                                reduced_data['M_ORes_'+subsample],reduced_data['M_carb_'+subsample],]/reduced_data['M_dust_'+subsample]
+                    else:
+                        data = [reduced_data['M_sil_'+subsample],reduced_data['M_carb_'+subsample],reduced_data['M_SiC_'+subsample],
+                                reduced_data['M_iron_'+subsample],reduced_data['M_ORes_'+subsample]]/reduced_data['M_dust_'+subsample]
+                elif 'spec_sil' in prop:
+                    data = reduced_data['M_sil_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'spec_carb' in prop:
-                    data = self.reduced_data['M_carb_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_carb_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'spec_SiC' in prop:
-                    data = self.reduced_data['M_SiC_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_SiC_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'spec_iron' in prop and 'spec_ironIncl' not in prop:
-                    data = self.reduced_data['M_iron_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_iron_'+subsample]/reduced_data['M_dust_'+subsample]
                 elif 'spec_ORes' in prop:
-                    data = self.reduced_data['M_ORes_'+subsample]/self.reduced_data['M_dust_'+subsample]
+                    data = reduced_data['M_ORes_'+subsample]/reduced_data['M_dust_'+subsample]
                 else:
                     print(prop," is not in the dataset.")
                     return None
                 data[np.isnan(data)] = 0
             elif 'median' in statistic:
-                if 'spec_sil' in prop:
-                    data = self.reduced_data[subsample]['dz_sil']
+                if 'spec_frac' in prop:
+                    if 'spec_frac+'==prop:
+                        data = [reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+reduced_data['dz_iron_'+subsample]+\
+                                reduced_data['dz_ORes_'+subsample],reduced_data['dz_carb_'+subsample]]
+                    else:
+                        data = [reduced_data['dz_sil_'+subsample],reduced_data['dz_carb_'+subsample],reduced_data['dz_SiC_'+subsample],
+                            reduced_data['dz_iron_'+subsample],reduced_data['dz_ORes_'+subsample]]
+                elif 'spec_sil' in prop:
+                    data = reduced_data['dz_sil_'+subsample]
                 elif 'spec_carb' in prop:
-                    data = self.reduced_data[subsample]['dz_carb']
+                    data = reduced_data['dz_carb_'+subsample]
                 elif 'spec_SiC' in prop:
-                    data = self.reduced_data[subsample]['dz_SiC']
+                    data = reduced_data['dz_SiC_'+subsample]
                 elif 'spec_iron' in prop and 'spec_ironIncl' not in prop:
-                    data = self.reduced_data[subsample]['dz_iron']
+                    data = reduced_data['dz_iron_'+subsample]
                 elif 'spec_ORes' in prop:
-                    data = self.reduced_data[subsample]['dz_ORes']
+                    data = reduced_data['dz_ORes_'+subsample]
                 elif 'spec_sil+' in prop:
-                    data = self.reduced_data[subsample]['dz_sil']+self.reduced_data[subsample]['dz_SiC']+\
-                            self.reduced_data[subsample]['dz_iron']+self.reduced_data[subsample]['dz_ORes']
+                    data = reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+\
+                            reduced_data['dz_iron_'+subsample]+reduced_data['dz_ORes_'+subsample]
                 else:
                     print(prop," is not in the dataset.")
                     return None
@@ -208,30 +237,45 @@ class Buffer(object):
                 return None
         elif prop in ['C/H_dust','O/H_dust','Mg/H_dust','Si/H_dust','Fe/H_dust']:
             base_name = prop.split('_')[0]
-            total = self.reduced_data[base_name+'_'+subsample]
-            gas = self.reduced_data[base_name+'_gas_'+subsample]
+            total = reduced_data[base_name+'_'+subsample]
+            gas = reduced_data[base_name+'_gas_'+subsample]
             data = 12 + np.log10(np.power(10,total-12) - np.power(10,gas-12))
         elif prop in ['Z_C_dust','Z_O_dust','Z_Mg_dust','Z_Si_dust','Z_Fe_dust']:
             base_name = prop.split('_')[0] + '_' + prop.split('_')[1]
-            total = self.reduced_data[base_name+'_'+subsample]
-            gas = self.reduced_data[base_name+'_gas_'+subsample]
+            total = reduced_data[base_name+'_'+subsample]
+            gas = reduced_data[base_name+'_gas_'+subsample]
             data = total-gas
         elif 'Si/C' in prop:
             if 'total' in statistic:
-                data = (self.reduced_data['M_sil_'+subsample]+self.reduced_data['M_SiC_'+subsample]+ \
-                        self.reduced_data['M_iron_'+subsample]+self.reduced_data['M_ORes_'+subsample])/self.reduced_data['M_carb_'+subsample]
+                data = (reduced_data['M_sil_'+subsample]+reduced_data['M_SiC_'+subsample]+ \
+                        reduced_data['M_iron_'+subsample]+reduced_data['M_ORes_'+subsample])/reduced_data['M_carb_'+subsample]
             elif 'median' in statistic:
-                data = (self.reduced_data['dz_sil_'+subsample]+self.reduced_data['dz_SiC_'+subsample]+\
-                            self.reduced_data['dz_iron_'+subsample]+self.reduced_data['dz_ORes_'+subsample]) \
-                            / self.reduced_data['dz_carb_'+subsample]
+                data = (reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+\
+                            reduced_data['dz_iron_'+subsample]+reduced_data['dz_ORes_'+subsample]) \
+                            / reduced_data['dz_carb_'+subsample]
             else:
                 print(prop, " is not in the dataset with given statistic.")
                 return None
         else:
             print(prop," is not in the dataset.")
             return None
+        
+        # Only return specified snaps
+        data = data.copy()
+        if snap_nums is not None:
+            intersect = np.intersect1d(snap_nums, self.reduced_data.snaps)
+            if np.array_equal(intersect.sort(), snap_nums.sort()):
+                indices = np.isin(self.reduced_data.snaps,snap_nums)
+                if len(np.shape(data))>1:
+                    data = data[:,indices]
+                else:
+                    data = data[indices]
+            else:
+                print("Missing snaps in loaded data. Only those listed below are included.")
+                print(intersect,snap_nums)
+                return
 
-        return data.copy()
+        return data
 
 
 

@@ -6,7 +6,6 @@ from . import math_utils
 
 
 
-
 def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None):
 	"""
 	Calculates median and 16/84th-percentiles of property1 in relation to binned property2 for
@@ -503,7 +502,6 @@ def calc_gal_int_params(property, snap, criteria='all', mask=None):
 		ptype = 4
 	else:
 		ptype = 0
-
 
 	P = snap.loadpart(ptype)
 	if mask is None:
