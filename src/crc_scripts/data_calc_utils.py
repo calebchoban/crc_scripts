@@ -100,7 +100,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	else:
 		T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)
 
-	if property in ['M_H2','M_gas']:
+	if 'M_' in property:
 		func = np.sum
 	else:
 		func = np.mean
@@ -163,11 +163,11 @@ def get_particle_mask(ptype, snap, mask_criteria='all',verbose=False):
 				mask = mask & (fH2 > 0.5)
 			if 'neutral' in mask_criteria:
 				mask_identified+=1
-				fHn = P.get_property('nh')
+				fHn = P.get_property('fnh')
 				mask = mask & (fHn > 0.5)
 			if 'neutral_atomic' in mask_criteria:
 				mask_identified+=1
-				fHn = P.get_property('nh')
+				fHn = P.get_property('fnh')
 				fH2 = P.get_property('fH2')
 				mask = mask & (fHn > 0.5) & (fH2 < 0.5)
 			if 'ionized' in mask_criteria:

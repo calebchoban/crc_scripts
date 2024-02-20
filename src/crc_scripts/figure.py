@@ -25,8 +25,8 @@ class Figure(object):
         self.fig, self.axes, self.dims = plot_utils.setup_figure(plot_num, **kwargs)
 
         # Keep track of Artists for plotted data in case you want to remove it later
-        self.axis_artists = [[]]*self.plot_num
-        self.axis_legend = [None]*self.plot_num
+        self.axis_artists = [[] for i in range(self.plot_num)]
+        self.axis_legend = [None for i in range(self.plot_num)]
 
 
     def set_axes(self, x_props, y_props, axes_kwargs=None):
@@ -183,7 +183,6 @@ class Figure(object):
 
         z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
         z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
-        z_label = config.get_prop_label(z_prop)
 
         if z_log:
             norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
@@ -240,7 +239,7 @@ class Figure(object):
     def set_outside_legend(self, override_color=None, **kwargs):
         default_kwargs = {
             'loc': 'lower center',
-            'bbox_to_anchor': (0.5, 1.1),
+            'bbox_to_anchor': (0.5, 1.07),
             'frameon': False,
             'ncol': 2,
             'borderaxespad': 0,
@@ -274,20 +273,44 @@ class Figure(object):
 
 
 
-    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False):
+    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False, no_minor_ticks=False, side='right'):
 
+        # Since we are adding a colorbar lets make sure the plots aren't too close together
+        if self.plot_num>1:
+            if side in ['right','left']:
+                self.fig.subplots_adjust(wspace=mpl.rcParams["figure.subplot.wspace"])
+            else:
+                self.fig.subplots_adjust(hspace=mpl.rcParams["figure.subplot.hspace"])
         # Find the artist with a colormap, seems to have a specific attribute we can use
         for artist in self.axis_artists[axis_num]:
             if hasattr(artist, 'autoscale_None'):
                 mappable = artist; break;
         axis = self.axes[axis_num]
         divider = make_axes_locatable(axis)
-        cax = divider.append_axes("right", size="5%", pad=0.0)
+        cax = divider.append_axes(side, size="5%", pad=0.0)
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
         cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
         if invert_axis:
             cbar.ax.invert_yaxis()
+        if no_minor_ticks:
+            cbar.ax.minorticks_off()
+
+    def add_outside_colorbar(self, axis_num=0, cbar_prop=None, invert_axis=False, no_minor_ticks=False):
+
+        # Find the artist with a colormap, seems to have a specific attribute we can use
+        for artist in self.axis_artists[axis_num]:
+            if hasattr(artist, 'autoscale_None'):
+                mappable = artist; break;
+        self.fig.subplots_adjust(right=0.9)
+        cax = self.fig.add_axes([0.95, 0.15, 0.05, 0.7])
+        cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
+        cbar_label = config.get_prop_label(cbar_prop)
+        cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
+        if invert_axis:
+            cbar.ax.invert_yaxis()
+        if no_minor_ticks:
+            cbar.ax.minorticks_off()
 
     def add_text(self, axis_num, x, y, text, **kwargs):
         default_kwargs = {
@@ -339,13 +362,14 @@ class Projection(Figure):
         self.sub_proj = sub_proj
         self.has_colorbars = has_colorbars
         if self.sub_proj: self.height_ratios = height_ratios
+        else: height_ratios = [1]
         # Set up subplots based on number of parameters given
         self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, sub_proj, has_colorbars=has_colorbars,height_ratios=height_ratios)
 
-        self.axis_artists = [[]]*self.plot_num
+        self.axis_artists = [[] for i in range(self.plot_num)]
         if has_colorbars:
-            self.axis_colorbar = [None]*self.plot_num
-        self.axis_properties = ['']*self.plot_num
+            self.axis_colorbar = [None for i in range(self.plot_num)]
+        self.axis_properties = ['' for i in range(self.plot_num)]
 
 
     def set_all_axis(self, properties, main_Ls, axes_visible=False, colorbar_kwargs=None):
