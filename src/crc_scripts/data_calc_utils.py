@@ -107,7 +107,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	bin_data = G.get_property(property)
 	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
 	# Need to catch case were np.sum is given empty array which will return zero
-	if property in ['M_H2','M_gas']:
+	if 'M_' in property:
 		ret.statistic[ret.statistic<=0] = np.nan
 
 	return ret

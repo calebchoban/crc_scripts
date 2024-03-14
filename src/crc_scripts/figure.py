@@ -26,7 +26,9 @@ class Figure(object):
 
         # Keep track of Artists for plotted data in case you want to remove it later
         self.axis_artists = [[] for i in range(self.plot_num)]
-        self.axis_legend = [None for i in range(self.plot_num)]
+        # Keeps track of what handles and labels are already included in legends for each axis
+        self.axis_legend_handles_labels = [{} for i in range(self.plot_num)]
+        self.outside_legend_handles_labels = {}
 
 
     def set_axes(self, x_props, y_props, axes_kwargs=None):
@@ -209,7 +211,7 @@ class Figure(object):
 
         # Check labels and handles between each axis in turn. Any differences should be added to a new legend in the next axis
         labels_handles = {}
-        for axis in self.axes:
+        for i,axis in enumerate(self.axes):
             hands, labs = axis.get_legend_handles_labels()
             new_lh = dict(zip(labs, hands))
             for key in labels_handles.keys(): new_lh.pop(key, 0);
@@ -218,7 +220,8 @@ class Figure(object):
                 # Remove any old legends
                 if axis.get_legend() is not None: axis.get_legend().remove()
                 axis.legend(new_lh.values(), new_lh.keys(), ncol=ncol,**kwargs)
-            labels_handles = dict(zip(labs, hands))
+                self.axis_legend_handles_labels[i] = new_lh
+            labels_handles.update(new_lh)
         
     def set_axis_legend(self, axis_num, **kwargs):
         default_kwargs = {
@@ -232,11 +235,16 @@ class Figure(object):
                 kwargs[kwarg] = default_kwargs[kwarg]
 
         axis = self.axes[axis_num]
-        lg = axis.legend(**kwargs)
-        self.axis_legend[axis_num] = lg
+        # Remove existing legend
+        if axis.get_legend() is not None: axis.get_legend().remove()
+        hands, labs = axis.get_legend_handles_labels()
+        # Dictionaries do not have duplicate keys so this effectively gets rid of duplicate legend labels
+        new_lh = dict(zip(labs, hands))
+        axis.legend(new_lh.values(), new_lh.keys(),**kwargs)
+        self.axis_legend_handles_labels[axis_num] = new_lh
 
     
-    def set_outside_legend(self, override_color=None, **kwargs):
+    def set_outside_legend(self, **kwargs):
         default_kwargs = {
             'loc': 'lower center',
             'bbox_to_anchor': (0.5, 1.07),
@@ -253,23 +261,26 @@ class Figure(object):
         legends = [c for c in self.fig.get_children() if isinstance(c, mpl.legend.Legend)]
         if len(legends)>0:
             for legend in legends: legend.remove()
-
-
-        # Check labels and handles between each axis in turn so that we only get unique handles and exlucde any already in legends within the axis
-        labels_handles = {}
+        # Check labels and handles which are already included in axes legends so we only get unique handles and exclude any already in legends within the axis
+        axis_labels_handles = {}
+        legend_labels_handles = {}
+        # Collect all plotted handles and thos included in legends already. Then only include the difference
         for i in range(len(self.axes)):
             axis = self.axes[i]
             hands, labs = axis.get_legend_handles_labels()
-            new_lh = dict(zip(labs, hands))
-            if self.axis_legend[i] is not None:
-                exclude_lh = self.axis_legend[i].legend_handles
-                for key in exclude_lh.keys(): new_lh.pop(key, 0);
-            for key in labels_handles.keys(): new_lh.pop(key, 0);
-            labels_handles.update(new_lh)
-        fig_legend = self.fig.legend(labels_handles.values(), labels_handles.keys(), **kwargs)
-        if override_color is not None:
-            for handle in fig_legend.legendHandles:
-                handle.set_facecolor(override_color)
+            # This also remove duplicate labels
+            axis_labels_handles.update(dict(zip(labs, hands)))
+            legend_labels_handles.update(self.axis_legend_handles_labels[i])
+        for key in legend_labels_handles: axis_labels_handles.pop(key, 0)
+        fig_legend = self.fig.legend(axis_labels_handles.values(), axis_labels_handles.keys(), **kwargs)
+        self.outside_legend_handles_labels = axis_labels_handles
+
+        ### THIS NO LONGER WORKS FOR SCATTERS WITH COLORMAPS IN NEW VERSION OF MATPLOTLIB 
+        # Overide the legend marker colors to all be the same
+        # if override_color is not None:
+        #     for handle in fig_legend.legend_handles:
+        #         handle.set(cmap=None,norm=None,facecolor=None)
+
 
 
 

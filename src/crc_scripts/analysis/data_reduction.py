@@ -31,10 +31,10 @@ class Buffer(object):
                 self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_metals','Z','fH2']
         else: 
             self.gas_properties = gas_props
-        self.gas_subsamples = ['all','cold','warm','hot','neutral','molecular'] if gas_subsamples is None else gas_subsamples
+        self.gas_subsamples = ['all','cold','warm','hot','coronal','neutral','molecular','ionized'] if gas_subsamples is None else gas_subsamples
         
         if star_props is None:
-            self.star_properties = ['M_star','M_star_10Myr','M_star_100Myr']
+            self.star_properties = ['M_star','M_star_10Myr','M_star_100Myr','r_1/2']
         else: 
             self.star_properties = star_props
         self.star_subsamples = ['all']  if star_subsamples is None else star_subsamples
@@ -98,8 +98,6 @@ class Buffer(object):
             self.reduced_data.check_props_and_snaps(self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
                                              self.star_subsamples)
 
-
-
         if increment < 1:
             increment = 1
 
@@ -144,12 +142,14 @@ class Buffer(object):
             data = reduced_data['M_star_10Myr_'+subsample]/1E7
         elif prop == 'sfr_100Myr':
             data = reduced_data['M_star_100Myr_'+subsample]/1E8
-        elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral']:
+        elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral','f_coronal','f_ionized']:
             if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
             elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
             elif 'hot' in prop: data = reduced_data['M_gas_hot']/reduced_data['M_gas_all']
             elif 'H2' in prop: data = reduced_data['M_H2_all']/reduced_data['M_gas_all']
             elif 'neutral' in prop: data = reduced_data['M_gas_neutral_all']/reduced_data['M_gas_all']
+            elif 'coronal' in prop: data = reduced_data['M_gas_coronal']/reduced_data['M_gas_all']
+            elif 'ionized' in prop: data = reduced_data['M_gas_ionzed']/reduced_data['M_gas_all']
         elif 'source' in prop:
             if 'total' in statistic:
                 if 'source_frac' in prop:
@@ -343,6 +343,9 @@ class Reduced_Data(object):
             # Now find matching redshifts between snaps we have and redshifts listed in halo history
             for i, z in enumerate(ref_redshifts):
                 idx = np.nanargmin(np.abs(z - halo_redshifts))
+                if np.abs(z-halo_redshifts[idx])/z > 0.1:
+                    print("WARNING: The requested snapshots aren't included in the provided halo history file! Either fix the file or dont specify a file.")
+                    return
                 self.haloIDs[i] = halo_IDs[idx]
 
         self.all_snaps_loaded=False
@@ -398,7 +401,11 @@ class Reduced_Data(object):
         if len(new_props)>0:
             print("New properties listed below added. Will need to reload all snaps.")
             print(new_props)
-
+            # Add new props not already in reduced_data
+            self.gas_props = self.gas_props+list(set(gas_props)-set(self.gas_props))
+            self.gas_subsamples = self.gas_subsamples+list(set(gas_subsamples)-set(self.gas_subsamples))
+            self.star_props = self.star_props+list(set(star_props)-set(self.star_props))
+            self.star_subsamples = self.star_subsamples+list(set(star_subsamples)-set(self.star_subsamples))
             new_data = {key : np.zeros(self.num_snaps) for key in new_props}
             self.data.update(new_data)
             # Need to reload all snaps
@@ -473,7 +480,10 @@ class Reduced_Data(object):
                 sample_mask = calc_utils.get_particle_mask(4,gal,mask_criteria=subsample)
                 for prop in self.star_props:
                     data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
+                    if prop == 'r_1/2':
+                        self.data[data_key][i] = gal.get_half_mass_radius(within_radius=None, geometry='spherical', ptype=4, rvir_frac=0.5)
+                    else:
+                        self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
             # snap all loaded
             self.snap_loaded[i]=True
             snaps_loaded+=1

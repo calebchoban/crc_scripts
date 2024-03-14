@@ -9,7 +9,7 @@ OBS_DIR = os.path.join(BASE_DIR, 'observations/data/')
 # # Allow plotting when run on command line
 # plt.switch_backend('agg')
 # Set style of plots
-plt.style.use('seaborn-talk')
+#plt.style.use('seaborn-v0_8-talk')
 # Set base colors, linewidths, and styles for plotting
 BASE_COLOR = 'xkcd:black'
 BASE_CMAP = 'plasma'
@@ -22,13 +22,13 @@ LARGE_MARKERSIZE = 15**2
 SMALL_MARKERSIZE = 7.5**2
 
 # Set personal color, linewidths, and styles cycle
-LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna"]
+LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna","xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
 SECOND_LINE_COLORS = ["xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
 MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sienna","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
 				 "xkcd:peach","xkcd:olive green"]*10
 LINE_STYLES = ['-','--',':','-.','-','--',':','-.','-','--',':','-.']
-MARKER_STYLES = ['o','^','X','s','d','>','P','<','v','1','2','*','<']*10
+MARKER_STYLES = ['o','^','X','s','d','>','P','<','v','*','D','p']*10
 LINE_WIDTHS = np.array([1.5,1.25,1.0,0.75,0.5,0.25])*BASE_LINEWIDTH
 AXIS_BORDER_WIDTH = 3
 BASE_ELINEWIDTH = 3
@@ -185,11 +185,14 @@ PROP_INFO  				= {
 						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
 						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
 						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
+					 'f_coronal': [r'$f_{\rm coronal}$', 												[0., 1.], 		False],
+					 'f_ionized': [r'$f_{\rm ionized}$', 												[0., 1.], 		False],					 
 					  'f_conden': [r'$f_{\rm condensation}$', 											[0., 1.], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
 						   'r25': [r'Radius [R$_{25}$]', 												[0.,1.1], 		False],
+						 'r_1/2': [r'R$_{1/2}$ [kpc]', 												[0.1,5], 		False],
 					 'sigma_gas': [r'$\Sigma_{\rm gas}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 					'sigma_star': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 			  'sigma_young_star': [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]',			[1E0,1E2], 		True],
