@@ -280,7 +280,7 @@ class Particle:
         return
 
 
-    # Centers coordinate_utilss given origin coordinate_utilss
+    # Centers coordinates given origin coordinates
     def center(self, origin):
 
         if self.centered: return
@@ -305,16 +305,14 @@ class Particle:
         if center_vel is not None and center_pos is not None:
             # convert to be relative to galaxy center [km / s]
             self.v = coordinate_utils.get_velocity_differences(
-                        self.v, center_vel, self.p, center_pos,
-                        self.boxsize, self.scale_factor, self.hubble)
+                        self.v, center_vel)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
                 self.v = coordinate_utils.get_coordinates_rotated(self.v, principal_vec)
 
         if center_pos is not None:
             # convert to be relative to galaxy center [kpc physical]
-            self.p = coordinate_utils.get_distances(self.p, center_pos,
-                self.boxsize, self.scale_factor)
+            self.p = coordinate_utils.get_distances(self.p, center_pos,self.boxsize)
             if principal_vec is not None:
                 # convert to be aligned with galaxy principal axes
                 self.p = coordinate_utils.get_coordinates_rotated(
@@ -329,7 +327,7 @@ class Particle:
     # Gets derived properties from particle data
     def get_property(self, property):
 
-        data = np.zeros(len(self.m))
+        data = np.full(len(self.m),-1,dtype=float)
         if property == 'M' or property == 'Mass':
             data = self.m * config.UnitMass_in_Msolar
         elif property == 'coords':
@@ -356,7 +354,7 @@ class Particle:
                 data = self.z[:,0]*self.m*config.UnitMass_in_Msolar
             elif property == 'nH':
                 data = self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS
-            elif property == 'nh':
+            elif property in ['nh','f_nh','fnh','f_neutral']:
                 data = self.nh
             elif property == 'nH_neutral':
                 data = (self.rho*config.UnitDensity_in_cgs * (1. - (self.z[:,0]+self.z[:,1])) / config.H_MASS)*self.nh
@@ -568,8 +566,9 @@ class Particle:
             elif property == 'age':
                 data = self.age
 
-        if np.all(data==0):
+        if np.all(data==-1):
             print("Property %s given to Particle with ptype %i is not supported. Returning zero array."%(property,self.ptype))
+            data = np.zeros(len(self.m))
             return data
         else:
             # Make sure to return a copy of the data
