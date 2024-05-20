@@ -327,6 +327,10 @@ class Particle:
     # Gets derived properties from particle data
     def get_property(self, property):
 
+        # Nothing to do here if there are no particles
+        if len(self.m) == 0:
+            return np.zeros(len(self.m))
+        
         data = np.full(len(self.m),-1,dtype=float)
         if property == 'M' or property == 'Mass':
             data = self.m * config.UnitMass_in_Msolar

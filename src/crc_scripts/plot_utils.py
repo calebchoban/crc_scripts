@@ -400,14 +400,18 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
         if axis.get_xaxis().get_scale()=='log':
             axis_2_name = 'redshift_plus_1'
             # Depending on the timespan may want more redshift tick labels
-            if time_limits[1] < 3:
+            if time_limits[1] < 1:
+                axis_2_tick_labels = ['13','12','11','10','9','8','7']
+            elif time_limits[1] < 3:
                 axis_2_tick_labels = ['11','9','8', '7', '6', '5', '4', '3', '2', '1.5', '1.2', '1']
             else:
                 axis_2_tick_labels = ['7', '5', '4', '3', '2', '1.5', '1.2', '1']
         else:
             axis_2_name = 'redshift'
             # Depending on the timespan may want more redshift tick labels
-            if time_limits[1] < 3:
+            if time_limits[1] < 1:
+                axis_2_tick_labels = ['12','11','10','9','8','7','6']
+            elif time_limits[1] < 3:
                 axis_2_tick_labels = ['10','8', '7', '6', '5', '4', '3', '2', '1', '0.5', '0.2', '0']
             else:
                 axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
@@ -417,7 +421,7 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
 
     elif time_name in ['redshift','redshift_plus_1']:
         axis_2_name = 'time_lookback'
-        axis_2_tick_labels = ['0', '2', '4','6', '8', '10', '11', '12', '12.5', '13']
+        axis_2_tick_labels = ['0', '2', '4', '6', '8', '10', '11', '12', '12.5', '13']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
         conv_func = math_utils.get_time_conversion_spline(time_name,'time_lookback',sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)

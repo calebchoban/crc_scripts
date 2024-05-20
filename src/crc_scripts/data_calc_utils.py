@@ -506,6 +506,8 @@ def calc_gal_int_params(property, snap, criteria='all', mask=None):
 	P = snap.loadpart(ptype)
 	if mask is None:
 		mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
+	if np.all(mask==False):
+		return np.nan
 	prop_vals = P.get_property(property)[mask]
 
 	# Galaxy-integrated masses are just total masses so just add them up

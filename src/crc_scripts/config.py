@@ -6,10 +6,6 @@ import os
 BASE_DIR = os.path.dirname(__file__)
 OBS_DIR = os.path.join(BASE_DIR, 'observations/data/')
 
-# # Allow plotting when run on command line
-# plt.switch_backend('agg')
-# Set style of plots
-#plt.style.use('seaborn-v0_8-talk')
 # Set base colors, linewidths, and styles for plotting
 BASE_COLOR = 'xkcd:black'
 BASE_CMAP = 'plasma'
@@ -144,8 +140,8 @@ cm_to_um					= 1E4
 Ergs_per_joule				= 1E7
 grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
-HUBBLE 						= 0.702
-OMEGA_MATTER 				= 0.272
+HUBBLE 						= 0.68 # =0.702
+OMEGA_MATTER				= 0.31 # =0.272
 L_solar 					= 3.828E26 # Watts
 
 AG89_SOLAR_Z = 0.02
@@ -199,6 +195,7 @@ PROP_INFO  				= {
 				 'sigma_stellar': [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E0,1E2], 		True],
 					 'sigma_sfr': [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-3,1E-1], 	True],
 						   'sfr': [r'SFR [M$_{\odot}/$yr]', 											[1E-3,5E1], 	True],
+						  'ssfr': [r'sSFR [Gyr$^{-1}$]', 												[1E-1,1E1], 	True],
 					 'sfr_10Myr': [r'SFR$_{\rm 10\;Myr}$ [M$_{\odot}/$yr]', 							[1E-3,5E1], 	True],
 					'sfr_100Myr': [r'SFR$_{\rm 100\;Myr}$ [M$_{\odot}/$yr]', 							[1E-3,5E1], 	True],						   						   
 			 'sigma_gas_neutral': [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', 				[2E0,1E2], 		True],
@@ -259,7 +256,7 @@ PROP_INFO  				= {
 **dict.fromkeys(['Fe/H', 'Fe/H_all'], ['12+log(Fe/H)', 													[6.5,8.5], 	    False]),
 				  	  'Fe/H_gas': [r'12+log(Fe/H)$_{\rm gas}$', 										[6.5,8.5], 	    False],
 					 'Fe/H_dust': [r'12+log(Fe/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
-						   'D/Z': ['D/Z', 																[0,1.05],   	False],
+						   'D/Z': ['D/Z', 																[1E-2,1.05],   	True],
 						   'D/H': ['D/H',																[7E-5,2E-2],	True],
 				   'D/H_neutral': [r'D/H$_{\rm neutral}$',												[7E-5,2E-2],	True],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
