@@ -2,15 +2,93 @@ import numpy as np
 import pandas as pd
 from astropy.io import ascii
 import os
-
+from ..utils.math_utils import quick_lookback_time
 from .. import config
 
-OBS_DIR = os.path.join(os.path.dirname(__file__), 'data/')
 
 
-def compiled_HiZ_dust(property1, property2):
+def load_HiZ_compilation():
+	df = pd.read_csv(config.OBS_DIR+"HiZ_dust/HiZ_dust.csv")
+	df['M_dust'] = np.power(10,df['M_dust (log M_sol)'])
+	df['M_dust_err_low'] = np.power(10,df['M_dust (log M_sol)'])-np.power(10,df['M_dust (log M_sol)']+df['M_dust_err_low'])
+	df['M_dust_err_high'] = np.power(10,df['M_dust (log M_sol)']+df['M_dust_err_up'])-np.power(10,df['M_dust (log M_sol)'])
+	df['M_star'] = np.power(10,df['M_star (log M_sol)'])
+	df['M_star_err_low'] =  np.power(10,df['M_star (log M_sol)'])-np.power(10,df['M_star (log M_sol)']+df['M_star_err_low'])
+	df['M_star_err_high'] = np.power(10,df['M_star (log M_sol)']+df['M_star_err_up'])- np.power(10,df['M_star (log M_sol)'])
+	df['M_gas_neutral'] = np.power(10,df['M_gas_neutral (log M_sol)'])
+	df['M_gas_neutral_err_low'] = np.power(10,df['M_gas_neutral (log M_sol)'])-np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_low'])
+	df['M_gas_neutral_err_high'] = np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_up'])-np.power(10,df['M_gas_neutral (log M_sol)'])
+	df['sfr'] = df['sfr (M_sol/yr)']
+	df['sfr_err_low'] = np.abs(df['sfr_err_low'])
+	df['sfr_err_high'] = np.abs(df['sfr_err_up'])
+
+	limit = np.full(len(df['M_dust']),False)
+	limit[~np.isnan(df['M_dust']) & np.isnan(df['M_dust_err_high'])] = True
+	df['M_dust_uplim'] = limit
+
+	return df
+
+def load_galactic_DZ_compilation():
+
+	# load Remy-Ruyer+14
+	df_r14 = pd.read_csv(config.OBS_DIR+"remyruyer/Remy-Ruyer_2014.csv")
+	df_r14['O/H'] = df_r14['12+log(O/H)']
+	# Convert from O/H to solar using Eq 9 from Chiang+21 which uses Loddars+03 solar abundances
+	df_r14['Z_all'] = 10**(df_r14['O/H'] - 12.0) * \
+		16.0 / 1.008 / 0.51 / 1.36
+	df_r14['Z'] = df_r14['Z_all'] / config.A09_SOLAR_Z
+	df_r14['M_gas'] = df_r14['MU_GAL'] * (df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+	df_r14['fH2'] = df_r14['MH2_Z_MSUN'] / (df_r14['MHI_MSUN'] + df_r14['MH2_Z_MSUN'])
+	df_r14['D/Z'] = df_r14['MDUST_MSUN'] / df_r14['Z_all'] / df_r14['gas']
+	df_r14['source'] = ['Rémy-Ruyer+14']*len(df_r14['D/Z'].values)
+
+	# load De Vis+19
+	path_dp = config.OBS_DIR+'dustpedia/'
+	df_d19 = pd.read_csv(path_dp + 'dustpedia_cigale_results_final_version.csv')
+	df_d19 = df_d19.rename(columns={'id': 'name'})
+	# dp O/H
+	df_d19_temp = pd.read_csv(path_dp + 'DP_metallicities_global.csv')
+	df_d19 = df_d19.merge(df_d19_temp, on='name')
+	# dp hi
+	df_d19_temp = pd.read_csv(path_dp + 'DP_HI.csv')
+	df_d19 = df_d19.merge(df_d19_temp, on='name')
+	# dp sigma_H2
+	df_d19_temp = pd.read_excel(path_dp + 'DP_H2.xlsx')
+	df_d19_temp = df_d19_temp.rename(columns={'Name': 'name'})
+	df_d19 = df_d19.merge(df_d19_temp, on='name')
+	# renames
+	del df_d19_temp
+	df_d19 = \
+		df_d19.rename(columns={'SFR__Msol_per_yr': 'sfr',
+								'Mstar__Msol': 'star',
+								'MHI': 'hi',
+								'12+logOH_PG16_S': 'O/H'})
+	df_d19['M_H2'] = df_d19['MH2-r25'] * 1.36
+	df_d19['gas'] = df_d19['hi'] * 1.36 + df_d19['sigma_H2']
+	df_d19['Z_all'] = 10**(df_d19['O/H'] - 12.0) * \
+		16.0 / 1.008 / 0.51 / 1.36
+	df_d19['D/Z'] = df_d19['Mdust__Msol'] / (df_d19['Z_all'] * df_d19['gas'])
+	df_d19['Z'] = df_d19['Z_all'] / config.A09_SOLAR_Z
+	df_d19['source'] = ['De Vis+19']*len(df_d19['D/Z'].values)
+
+	# load Howk's review (Peroux+20)
+	path_dp = config.OBS_DIR+'howk/tableSupplement_howk.csv'
+	df_p20 = pd.read_csv(path_dp, comment='#')
+	df_p20['O/H'] = 8.69 + df_p20['[M/H]']
+	df_p20['Z_all'] = 10**(df_p20['O/H'] - 12.0) * \
+		16.0 / 1.008 / 0.51 / 1.36
+	df_p20['Z'] = df_p20['Z_all'] / config.A09_SOLAR_Z
+	df_p20['D/Z'] = 10**df_p20['log_D/Z']
+	df_p20['limit'] = df_p20['log_D/Z'] <= -1.469
+	df_p20['source'] = ['Péroux & Howk 20']*len(df_p20['D/Z'].values)
+
+	df = pd.concat([df_r14,df_d19,df_p20])
+	return df
+
+
+def compiled_HiZ_dust(property):
 	"""
-	Read compiled literature data into pandas DataFrame
+	Reads compiled high redshift dust literature data into pandas DataFrame and returns given property
 
 	Parameters
 	----------
@@ -21,15 +99,31 @@ def compiled_HiZ_dust(property1, property2):
 	df : pandas.DataFrame
 		Loaded data
 	"""
-	df = pd.read_csv(OBS_DIR+"HiZ_dust/HiZ_dust.csv")
-	df['M_dust'] = np.power(10,df['Mdust (log M_sol)'])
-	df['M_dust_low'] = np.power(10,df['Mdust (log M_sol)']+df['Mdust_err_low'])
-	df['M_dust_high'] = np.power(10,df['Mdust (log M_sol)']+df['Mdust_err_up'])
-	df['M_stellar'] = np.power(10,df['Mstar (log M_sol)'])
-	df['M_stellar_low'] = np.power(10,df['Mstar (log M_sol)']+df['Mstar_err_low'])
-	df['M_stellar_high'] = np.power(10,df['Mstar (log M_sol)']+df['Mstar_err_up'])
+	df = pd.read_csv(config.OBS_DIR+"HiZ_dust/HiZ_dust.csv")
+	df['M_dust'] = np.power(10,df['M_dust (log M_sol)'])
+	df['M_dust_low'] = np.power(10,df['M_dust (log M_sol)']+df['M_dust_err_low'])
+	df['M_dust_high'] = np.power(10,df['M_dust (log M_sol)']+df['M_dust_err_up'])
+	df['M_star'] = np.power(10,df['M_star (log M_sol)'])
+	df['M_star_low'] = np.power(10,df['M_star (log M_sol)']+df['M_star_err_low'])
+	df['M_star_high'] = np.power(10,df['M_star (log M_sol)']+df['M_star_err_up'])
+	df['M_gas_neutral'] = np.power(10,df['M_gas_neutral (log M_sol)'])
+	df['M_gas_neutral_low'] = np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_low'])
+	df['M_gas_neutral_high'] = np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_up'])
+	df['sfr'] = df['sfr (M_sol/yr)']
+	df['sfr_low'] = df['sfr (M_sol/yr)']+df['sfr_err_low']
+	df['sfr_high'] = df['sfr (M_sol/yr)']+df['sfr_err_up']
 
-	return df
+	if property =='redshift':
+		prop_data = df['redshift'].values
+		prop_err = np.zeros(2,len(prop_data))
+	elif property =='time':
+		prop_data = quick_lookback_time(df['redshift'].values)
+		prop_err = np.zeros(2,len(prop_data))		
+	else:
+		prop_data = df[property].values
+		prop_err = np.array([df[property+'_low'].values,df[property+'_high'].values])
+
+	return prop_data,prop_err
 
 
 
@@ -49,7 +143,7 @@ def galaxy_integrated_DZ(paper):
 	"""
 	if paper == 'R14':
 		# load Remy-Ruyer+14
-		df_r14 = pd.read_csv(OBS_DIR+"remyruyer/Remy-Ruyer_2014.csv")
+		df_r14 = pd.read_csv(config.OBS_DIR+"remyruyer/Remy-Ruyer_2014.csv")
 		df_r14['metal'] = df_r14['12+log(O/H)']
 		# Convert from O/H to solar using Eq 9 from Chiang+21 which uses Loddars+03 solar abundances
 		df_r14['metal_z'] = 10**(df_r14['metal'] - 12.0) * \
@@ -62,7 +156,7 @@ def galaxy_integrated_DZ(paper):
 
 	elif paper == 'DV19':
 		# load De Vis+19
-		path_dp = OBS_DIR+'dustpedia/'
+		path_dp = config.OBS_DIR+'dustpedia/'
 		df_d19 = pd.read_csv(path_dp + 'dustpedia_cigale_results_final_version.csv')
 		df_d19 = df_d19.rename(columns={'id': 'name'})
 		# dp metal
@@ -93,7 +187,7 @@ def galaxy_integrated_DZ(paper):
 
 	elif paper == 'PH20':
 		# load Howk's review (Peroux+20)
-		path_dp = OBS_DIR+'howk/tableSupplement_howk.csv'
+		path_dp = config.OBS_DIR+'howk/tableSupplement_howk.csv'
 		df_p20 = pd.read_csv(path_dp, comment='#')
 		df_p20['metal'] = 8.69 + df_p20['[M/H]']
 		df_p20['metal_z'] = 10**(df_p20['metal'] - 12.0) * \
@@ -243,8 +337,8 @@ def Jenkins_2009_Elem_Depl(elem,density='NH'):
 		return None,None,None
 
 	# Get NElem data for the specified element and reference abundance
-	NElem_data = ascii.read(OBS_DIR+'Jenkins09/elem_depletions.txt')
-	fit_data = ascii.read(OBS_DIR+'Jenkins09/element_depletion_parameters.txt')
+	NElem_data = ascii.read(config.OBS_DIR+'Jenkins09/elem_depletions.txt')
+	fit_data = ascii.read(config.OBS_DIR+'Jenkins09/element_depletion_parameters.txt')
 	ref_abund = fit_data['X/H'][fit_data['El']==elem].data[0] # in 12+log(X/H) units
 	err_ref_abund = fit_data['e_X/H'][fit_data['El']==elem].data[0]
 
@@ -275,7 +369,7 @@ def Jenkins_2009_Elem_Depl(elem,density='NH'):
 	Elem_ID = np.char.add(Elem_ID1,Elem_ID2.astype(str))
 
 	# Get NHI and NH2 data
-	NH_data = ascii.read(OBS_DIR+'Jenkins09/sightline_NH.txt')
+	NH_data = ascii.read(config.OBS_DIR+'Jenkins09/sightline_NH.txt')
 	NH_data['logNHOb'].fill_value = np.nan; NH_data['VComp'].fill_value = 0;
 	NH_data['e_logNHOb'].fill_value = -np.inf; NH_data['E_logNHOb'].fill_value = np.inf;
 	NH_data = NH_data.filled()
@@ -336,7 +430,7 @@ def RomanDuval_2021_LMC_Elem_Depl(elem):
 		print("Element %s is not supported in RomanDuval_2021_LMC_Elem_Depl()" % elem)
 		return None, None, None
 
-	depl_data = ascii.read(OBS_DIR + 'RomanDuval21/LMC_depletion_sightlines.txt')
+	depl_data = ascii.read(config.OBS_DIR + 'RomanDuval21/LMC_depletion_sightlines.txt')
 	# First get all the elements since we want to sort by a given element
 	elements = depl_data['element'].data
 	elements = np.array([elem.replace('I', '') for elem in elements])
@@ -368,7 +462,7 @@ def RomanDuval_2021_LMC_Elem_Depl(elem):
 
 def Jenkins_Wallerstein_2017_SMC_Elem_Depl(elem):
 
-	depl_data = ascii.read(OBS_DIR + 'JenkinsWallerstein17/SMC.csv')
+	depl_data = ascii.read(config.OBS_DIR + 'JenkinsWallerstein17/SMC.csv')
 
 	elems = ['Mg', 'Si', 'Fe']
 	if elem not in elems:
@@ -457,7 +551,7 @@ def Clark_2023_DtH_vs_SigmaH(error_bars='unc'):
 		Dictionary with each local group galaxy's name as a key. Each galaxy has a Sigma H, median DtH, and uncertainties for each median DtH.
 	"""	
 
-	data_dirc = OBS_DIR + 'Clark23/'
+	data_dirc = config.OBS_DIR + 'Clark23/'
 	gal_names = ['M31','M33','LMC','SMC']
 	filenames = [data_dirc+gal_name+'_Bin_Dict.csv' for gal_name in gal_names]
 	gal_inclinations = {'M31': 77,'M33': 56,'LMC': 26,'SMC': 0}
@@ -561,7 +655,7 @@ def Jenkins_2009_DZ_vs_dens(phys_dens=False, elem='Z', C_corr=True):
 
 # Data from Chiang+2021. Includes D/Z vs various spatially-resolved gas properties. Note this data main observes H2 dominated regions
 def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=True, goodSNR=True,aggregate_data=False):
-	file_name = OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
+	file_name = config.OBS_DIR+'Chiang21/Chiang+20_dat_v0.1.'+CO_opt+'.csv'
 	data = np.genfromtxt(file_name,names=True,delimiter=',',dtype=None,encoding=None)
 	DZ = np.power(10,data['dtm'])
 	if param == 'sigma_gas' or param == 'sigma_gas_neutral':
@@ -648,11 +742,11 @@ def Chiang21_DZ_vs_param(param, bin_data=True, CO_opt='B13', bin_nums=10, log=Tr
 	return data
 
 
-# Similar to data from Chiang+21 but expanded to more galaxies and with varying spatial resolution. Currently unplublished.
-def Chiang22_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True, aggregate_data=False, dust_mask_sigma=1):
+# Similar to data from Chiang+21 but expanded to more galaxies and with varying spatial resolution.
+def Chiang23_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=True, only_PG16S=True, aggregate_data=False, dust_mask_sigma=1):
 	# Use just 2kpc resolution data set since this includes almost all galaxies in the sample with only a handful at
 	# the other resolutions
-	file_name = OBS_DIR+'Chiang22_unpub/DataAssembly_2kpc.csv'
+	file_name = config.OBS_DIR+'Chiang22_unpub/DataAssembly_2kpc.csv'
 	data = pd.read_csv(file_name)
 
 	gal_names = data['objname']
