@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pickle
-from ..math_utils import weighted_percentile
+from ..math_utils import weighted_percentile, quick_lookback_time
 from ..io.snapshot import Snapshot
 
 # This is a class that compiles the evolution data of a Snapshot/Halo/Disk
@@ -9,8 +9,8 @@ from ..io.snapshot import Snapshot
 
 class Dust_Evo(object):
 
-	def __init__(self, sdir, snap_lims, cosmological=0, periodic_bound_fix=False, totals=None, medians=None,
-				 median_subsamples=None, star_totals=None, dirc='./', name_prefix='', FIREver=2):
+	def __init__(self, sdir, snap_lims, cosmological=1, totals=None, medians=None,
+				 median_subsamples=None, star_totals=None, dirc='./', name_prefix=''):
 		# Set property totals and property medians you want from each snapshot. Also set median masks which will
 		# take subsampled medians based on gas properties
 		if totals is None:
@@ -31,7 +31,7 @@ class Dust_Evo(object):
 		else:
 			self.median_subsamples = median_subsamples
 		if star_totals is None:
-			self.star_totals = ['M_star','sfr']
+			self.star_totals = ['M_star','sfr','sfr_10Myr','sfr_100Myr']
 		else:
 			self.star_totals = star_totals
 
@@ -41,13 +41,7 @@ class Dust_Evo(object):
 		self.cosmological = cosmological
 		self.hubble=None
 		self.omega=None
-		self.FIREver = FIREver
 		self.dirc = dirc
-		# In case the sim was non-cosmological and used periodic BC which causes
-		# galaxy to be split between the 4 corners of the box
-		self.pb_fix = False
-		if periodic_bound_fix and cosmological==0:
-			self.pb_fix=True
 		# Determines if you want to look at the Snapshot/Halo/Disk
 		self.setHalo=False
 		self.setDisk=False
@@ -60,8 +54,7 @@ class Dust_Evo(object):
 		# Check if object file has already been created if so load that first instead of creating a new one
 		if not os.path.isfile(self.dirc + self.name + '.pickle'):
 			self.dust_evo_data = Dust_Evo_Data(sdir, snap_lims, self.totals, self.medians, self.median_subsamples,
-											   self.star_totals, cosmological=cosmological, pb_fix=periodic_bound_fix,
-											   FIREver=FIREver)
+											   self.star_totals, cosmological=cosmological)
 		else:
 			with open(self.dirc+self.name + '.pickle', 'rb') as handle:
 				self.dust_evo_data = pickle.load(handle)
@@ -278,25 +271,21 @@ class Dust_Evo(object):
 
 class Dust_Evo_Data(object):
 
-	def __init__(self, sdir, snap_lims, totals, medians, median_subsamples, star_totals, cosmological=0, pb_fix=False, FIREver=2):
+	def __init__(self, sdir, snap_lims, totals, medians, median_subsamples, star_totals, cosmological=1):
 		self.sdir = sdir
 		self.snap_lims = snap_lims
-		self.num_snaps = (snap_lims[1]+1)-snap_lims[0]
+		self.num_snaps = int((snap_lims[1]+1)-snap_lims[0])
 		self.snap_loaded = np.zeros(self.num_snaps,dtype=bool)
+		# Load first snap to get cosmological parameters
 		self.cosmological = cosmological
-		self.hubble=None
-		self.omega=None
-		self.FIREver= FIREver
+		sp = Snapshot(self.sdir, snap_lims[0], cosmological=self.cosmological)
+		self.hubble = sp.hubble
+		self.omega = sp.omega
 		self.time = np.zeros(self.num_snaps)
 		if self.cosmological:
 			self.redshift = np.zeros(self.num_snaps)
+			self.scale_factor = np.zeros(self.num_snaps)
 
-
-		# In case the sim was non-cosmological and used periodic BC which causes
-		# galaxy to be split between the 4 corners of the box
-		self.pb_fix = False
-		if pb_fix and cosmological==0:
-			self.pb_fix=True
 
 		# Populate the data dictionaries
 		self.total_data = {key : np.zeros(self.num_snaps) for key in totals}
@@ -439,12 +428,14 @@ class Dust_Evo_Data(object):
 				continue
 
 			print('Loading snap',snum,'...')
-			sp = Snapshot(self.sdir, snum, cosmological=self.cosmological, periodic_bound_fix=self.pb_fix)
+			sp = Snapshot(self.sdir, snum, cosmological=self.cosmological)
 			self.hubble = sp.hubble
 			self.omega = sp.omega
 			self.time[i] = sp.time
 			if self.cosmological:
 				self.redshift[i] = sp.redshift
+				self.scale_factor[i] = sp.scale_factor
+				self.time[i] = quick_lookback_time(sp.time, sp=sp)
 			# Calculate the data fields for either all particles in the halo and all particles in the disk
 			if self.setHalo:
 				if self.haloIDs is not None:
@@ -487,7 +478,7 @@ class Dust_Evo_Data(object):
 			# First do totals
 			for j, prop in enumerate(self.total_props):
 				if not self.totals_loaded[j]:
-					prop_mass = G.get_property(prop, FIREver=self.FIREver)
+					prop_mass = G.get_property(prop)
 					self.total_data[prop][i] = np.nansum(prop_mass)
 
 
@@ -495,7 +486,7 @@ class Dust_Evo_Data(object):
 			for j, subsample in enumerate(self.subsamples):
 				for k, prop in enumerate(self.median_props):
 					if not self.subsamples_loaded[j] or not self.median_loaded[k]:
-						prop_vals = G.get_property(prop, FIREver=self.FIREver)
+						prop_vals = G.get_property(prop)
 						mask = masks[subsample]
 						# Deal with properties that are more than one value
 						if len(prop_vals[mask]>0):
@@ -517,9 +508,13 @@ class Dust_Evo_Data(object):
 					if not self.star_totals_loaded[j]:
 						if prop == 'M_star':
 							self.star_total_data[prop][i] = np.nansum(S_mass)
-						elif prop == 'sfr':
+						elif prop == 'sfr' or prop == 'sfr_100Myr':
 							age = S.get_property('age')
 							self.star_total_data[prop][i] = np.nansum(S_mass[age<=0.1])/1E8 # M_sol/yr
+						elif prop == 'sfr_10Myr':
+							age = S.get_property('age')
+							self.star_total_data[prop][i] = np.nansum(S_mass[age<=0.01])/1E7 # M_sol/yr
+
 
 			# snap all loaded
 			self.snap_loaded[i]=True

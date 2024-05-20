@@ -266,8 +266,8 @@ def plot_depl_dust_obs(axis, property1, property2):
 					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
 					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
 		axis.errorbar(NH_vals[lower_lim], depl[lower_lim], yerr=depl_err[:,lower_lim], lolims=True, fmt='o', c='xkcd:medium grey',
-			  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
-			  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
+			  		  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+			  		  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
 		axis.errorbar(NH_vals[upper_lim], depl[upper_lim], yerr=depl_err[:,upper_lim], uplims=True, fmt='o', c='xkcd:medium grey',
 					  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
 					  mfc='xkcd:white', mec='xkcd:medium grey', zorder=-1, alpha=1)
@@ -375,16 +375,125 @@ def plot_depl_dust_obs(axis, property1, property2):
 	return
 
 
-def plot_galaxy_int_observational_data(axis, property):
+def plot_galaxy_int_dust_obs(axis, property1, property2):
 	"""
-	Plots galaxy integrated observational D/Z data vs the given property.
+	Plots galaxy integrated observational data for given property1 vs property2.
 
 	Parameters
 	----------
 	axis : Matplotlib axis
 		Axis on which to plot the data
-	property: string
-		Parameters to plot D/Z against (Z, O/H)
+	property1 : string
+		Name of first property (i.e. D/Z, Mstar, Mgas, etc.)
+	property2 : string
+		Name of second property
+	
+	Returns
+	-------
+	None
+
+	"""
+
+	# First check if axis scale is log or not. If so all zeros are converted to small numbers.
+	log=False
+	if axis.get_yaxis().get_scale()=='log':
+		log=True
+
+	
+	if property1 == 'D/Z':
+		if property2 == 'Z' or 'O/H' in property2:
+			if property2 == 'Z':
+				key_name = 'metal_z_solar'
+			else:
+				key_name = 'metal'
+			data = obs.galaxy_integrated_DZ('R14')
+			Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
+			if log:
+				DZ_vals[DZ_vals == 0] = config.EPSILON
+			axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[0],
+						facecolors='none', linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[0], zorder=2)
+			# Also plot broken power law in Table 1
+			a = 2.21; alpha1=1; b = 0.96; alpha2=3.1; xt = 8.1; xsol=8.69;
+			x_vals = np.linspace(7,9.5,100)
+			y_vals = np.zeros(len(x_vals))
+			y_vals[x_vals<=xt] = b+alpha2*(xsol-x_vals[x_vals<=xt]); y_vals[x_vals>xt] = a+alpha1*(xsol-x_vals[x_vals>xt]);
+			y_vals = 10**y_vals
+			# Convert from gas-to-dust ratio to dust-to-metals ratio
+			metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
+			y_vals = 1./y_vals/metal_vals
+			axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[0],linestyle='--')
+
+			data = obs.galaxy_integrated_DZ('DV19')
+			Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
+			if log:
+				DZ_vals[DZ_vals == 0] = config.EPSILON
+			axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[1], facecolors='none',
+						linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[1], zorder=2)
+			# Also plot power law in Table 1
+			a = 2.45; b = -23.3;
+			x_vals = np.linspace(7,9.5,100)
+			y_vals = 10**(a*x_vals+b)
+			# Convert from dust-to-gas ratio to dust-to-metals ratio
+			metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
+			y_vals /= metal_vals
+			axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[1],linestyle='--')
+
+			# data = obs.galaxy_integrated_DZ('PH20')
+			# Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
+			# lim_mask = data['limit'].values==1
+			# if log:
+			# 	DZ_vals[DZ_vals == 0] = config.EPSILON
+			# axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', s=(0.5*config.BASE_MARKERSIZE)**2,
+			# 			 marker=config.MARKER_STYLES[2], facecolors='none', linewidths=config.LINE_WIDTHS[1],
+			# 			 edgecolors=config.MARKER_COLORS[2], zorder=2)
+			# yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
+			# axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=(0.5*config.BASE_MARKERSIZE), mew=config.LINE_WIDTHS[1],
+			# 			  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
+			# 			  ecolor=config.MARKER_COLORS[2], zorder=2)
+
+		else:
+			print("D/Z vs %s galaxy-integrated observational data is not available."%property2)
+			return None
+	elif property1 == 'M_dust': 
+		data = obs.compiled_HiZ_dust(property1, property2)
+		dust_vals = data['M_dust'].values; prop_vals = data['M_stellar'].values
+		dust_errs = np.array([data['M_dust_low'].values,data['M_dust_high'].values])
+		prop_errs = np.array([data['M_stellar_low'].values,data['M_stellar_high'].values])
+		redshifts = data['redshift'].values
+
+		# Range of redshift values for colormap
+		norm = mpl.colors.Normalize(4.5, 11)
+		cmap = mpl.cm.inferno
+		# Have to plot these one by one to set color from colormap
+		for i in range(len(redshifts)):
+			axis.errorbar(prop_vals[i], dust_vals[i], xerr=prop_errs[:,i].reshape(2,1), yerr=dust_errs[:,i].reshape(2,1), fmt='s', c=cmap(norm(redshifts[i])),
+						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', zorder=3)
+		
+	else:
+		print("%s vs %s galaxy-integrated observational data is not available."%(property1,property2))
+		return None
+
+	return
+
+
+
+def plot_evolving_galaxy_dust_obs(axis, property1, property2, cmap=mpl.cm.inferno, cmap_norm=mpl.colors.Normalize(4.5, 11)):
+	"""
+	Plots galaxy integrated observational data for given property1 vs property2.
+
+	Parameters
+	----------
+	axis : Matplotlib axis
+		Axis on which to plot the data
+	property1 : string
+		Name of first property (i.e. D/Z, Mstar, Mgas, etc.)
+	property2 : string
+		Name of second property
+	cmap : matplotlib.cm.colormap
+		Specific color map to use for data
+	norm : matplotlib.colors.Normalize
+		Normalization for color map based on redshift
 
 	Returns
 	-------
@@ -397,58 +506,20 @@ def plot_galaxy_int_observational_data(axis, property):
 	if axis.get_yaxis().get_scale()=='log':
 		log=True
 
-	if property == 'Z' or 'O/H' in property:
-		if property == 'Z':
-			key_name = 'metal_z_solar'
-		else:
-			key_name = 'metal'
-		data = obs.galaxy_integrated_DZ('R14')
-		Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
-		if log:
-			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='Rémy-Ruyer+14', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[0],
-					 facecolors='none', linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[0], zorder=2)
-		# Also plot broken power law in Table 1
-		a = 2.21; alpha1=1; b = 0.96; alpha2=3.1; xt = 8.1; xsol=8.69;
-		x_vals = np.linspace(7,9.5,100)
-		y_vals = np.zeros(len(x_vals))
-		y_vals[x_vals<=xt] = b+alpha2*(xsol-x_vals[x_vals<=xt]); y_vals[x_vals>xt] = a+alpha1*(xsol-x_vals[x_vals>xt]);
-		y_vals = 10**y_vals
-		# Convert from gas-to-dust ratio to dust-to-metals ratio
-		metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
-		y_vals = 1./y_vals/metal_vals
-		axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[0],linestyle='--')
-
-		data = obs.galaxy_integrated_DZ('DV19')
-		Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
-		if log:
-			DZ_vals[DZ_vals == 0] = config.EPSILON
-		axis.scatter(Z_vals, DZ_vals, label='De Vis+19', s=(0.5*config.BASE_MARKERSIZE)**2, marker=config.MARKER_STYLES[1], facecolors='none',
-					 linewidths=config.LINE_WIDTHS[3], edgecolors=config.MARKER_COLORS[1], zorder=2)
-		# Also plot power law in Table 1
-		a = 2.45; b = -23.3;
-		x_vals = np.linspace(7,9.5,100)
-		y_vals = 10**(a*x_vals+b)
-		# Convert from dust-to-gas ratio to dust-to-metals ratio
-		metal_vals = 10**(x_vals - 12.0) * 16.0 / 1.008 / 0.51 / 1.36
-		y_vals /= metal_vals
-		axis.plot(x_vals, y_vals, color=config.MARKER_COLORS[1],linestyle='--')
-
-		# data = obs.galaxy_integrated_DZ('PH20')
-		# Z_vals = data[key_name].values; DZ_vals = data['dtm'].values
-		# lim_mask = data['limit'].values==1
-		# if log:
-		# 	DZ_vals[DZ_vals == 0] = config.EPSILON
-		# axis.scatter(Z_vals[~lim_mask], DZ_vals[~lim_mask], label='Péroux & Howk 19', s=(0.5*config.BASE_MARKERSIZE)**2,
-		# 			 marker=config.MARKER_STYLES[2], facecolors='none', linewidths=config.LINE_WIDTHS[1],
-		# 			 edgecolors=config.MARKER_COLORS[2], zorder=2)
-		# yerr = DZ_vals[lim_mask]*(1-10**-0.1) # Set limit bars to be the same size in log space
-		# axis.errorbar(Z_vals[lim_mask], DZ_vals[lim_mask], yerr=yerr, uplims=True, ms=(0.5*config.BASE_MARKERSIZE), mew=config.LINE_WIDTHS[1],
-		# 			  fmt=config.MARKER_STYLES[2], mfc='none', mec=config.MARKER_COLORS[2], elinewidth=config.LINE_WIDTHS[1],
-		# 			  ecolor=config.MARKER_COLORS[2], zorder=2)
-
+	if property1 == 'M_dust': 
+		data = obs.compiled_HiZ_dust(property1, property2)
+		dust_vals = data['M_dust'].values; prop_vals = data['M_stellar'].values
+		dust_errs = np.array([data['M_dust_low'].values,data['M_dust_high'].values])
+		prop_errs = np.array([data['M_stellar_low'].values,data['M_stellar_high'].values])
+		redshifts = data['redshift'].values
+		# Have to plot these one by one to set color from colormap
+		for i in range(len(redshifts)):
+			axis.errorbar(prop_vals[i], dust_vals[i], xerr=prop_errs[:,i].reshape(2,1), yerr=dust_errs[:,i].reshape(2,1), fmt='s', c=cmap(cmap_norm(redshifts[i])),
+						  elinewidth=0.5*config.BASE_ELINEWIDTH, ms=0.5*config.BASE_MARKERSIZE, mew=0.5*config.BASE_ELINEWIDTH,
+						  mfc='xkcd:white', zorder=3)
+		
 	else:
-		print("D/Z vs %s galaxy-integrated observational data is not available."%property)
+		print("%s vs %s galaxy-integrated observational data is not available."%(property1,property2))
 		return None
 
 	return
@@ -505,7 +576,7 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 		plt_set.setup_axis(axis, x_prop, y_prop, y_lim = [5E-3,5], y_log=True)
 
 		# First plot observational data if applicable
-		if include_obs: plot_galaxy_int_observational_data(axis, x_prop);
+		if include_obs: plot_galaxy_int_dust_obs(axis, x_prop, y_prop);
 
 		for j,snap in enumerate(snaps):
 			label = labels[j] if labels!=None else None
@@ -526,6 +597,107 @@ def galaxy_int_DZ_vs_prop(properties, snaps, labels=None, foutname='gal_int_DZ_v
 
 	plt.tight_layout()
 	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+def test_plot_galactic_prop_vs_prop_over_time(x_props, y_props, snaps, labels=None, x_criteria='all', y_criteria='all',
+										   foutname='prop_vs_prop_over_time.png', style='color-line', include_obs=True,
+										   connect_points=True, axes_args=None, time_cmap='inferno',time_range=[4,11], redshift=True):
+	"""
+    Plots the galactic property values between two properties for either a single simulation over time or multiple simulations over time.
+	The time for each snapshot is denoted via a given colormap and the colormap is normalized over the given range of time.
+
+    Parameters
+    ----------
+    xprops: list
+        List of x-axis properties to plot
+    yprops: list
+        List of y-axis properties to plot
+    snaps : list
+        2D list of snapshots were each row is multiple snapshots at different times for a single simulation
+    labels : list, optional
+        List of labels for each simulation
+    x_criteria : string or list
+        Mask or criteria used for calculating galaxy integrated x properties (i.e molecular, cold, warm, hot, neutral, ionized)
+    y_criteria : string or list
+        Mask or criteria used for calculating galaxy integrated y properties (i.e molecular, cold, warm, hot, neutral, ionized)
+    foutname: string, optional
+        Name of file to be saved
+    style : string
+        Plotting style when plotting multiple data sets
+        'color-line' - gives different color and linestyles to each data set
+        'size' - make all lines solid black but with varying line thickness
+    include_obs : boolean
+        Overplot observed data if available
+    connect_points: boolean
+    	Add connecting lines between points for each sim
+    axes_args : list
+    	List of dictionaries containing arguments to be passed to axis setup functions
+	time_cmap : string
+		Name of colormap to use to represent the time for each snapshot data point
+	time_range : list
+		Lower and upper bounds of time
+	redshift : bool
+		Set to true if you want time to be represented as redshift. Otherwise time will be in Gyr.
+
+    Returns
+    -------
+    None
+
+    """
+	snaps = np.array(snaps)
+	# Get plot stylization
+	linewidths, colors, linestyles = plt_set.setup_plot_style(np.shape(snaps)[0], style=style)
+	# Set up subplots based on number of parameters given
+	sharex = 'col' if len(set(x_props)) == 1 else False
+	sharey = 'row' if len(set(y_props)) == 1 else False
+	fig, axes, dims = plt_set.setup_figure(len(x_props), sharex=sharex, sharey=sharey)
+
+	labels_handles = {}
+	for i in range(len(x_props)):
+		x_prop = x_props[i]
+		x_crit = x_criteria[i] if isinstance(x_criteria, list) else x_criteria
+		y_prop = y_props[i]
+		y_crit = y_criteria[i] if isinstance(y_criteria, list) else y_criteria
+
+		# Set up for each plot
+		axis = axes[i]
+		axis_args = axes_args[i] if axes_args is not None else {}
+		plt_set.setup_axis(axis, x_prop, y_prop, **axis_args)
+
+		# First plot observational data if applicable
+		if include_obs: plot_galaxy_int_dust_obs(axis, y_prop, x_prop);
+
+		for j, snap_group in enumerate(snaps):
+			if i == 0 and labels is not None:
+				label = labels[j];
+			else:
+				label = None;
+			y_vals = []
+			x_vals = []
+			for k, snap in enumerate(snap_group):
+				y_vals += [calc.calc_gal_int_params(y_prop, snap, y_crit)]
+				x_vals += [calc.calc_gal_int_params(x_prop, snap, x_crit)]
+			axis.scatter(x_vals, y_vals, label=label, marker=config.MARKER_STYLES[j], color=colors[j],
+						 s=(1.25 * config.BASE_MARKERSIZE) ** 2,
+						 edgecolors=config.BASE_COLOR, linewidths=config.LINE_WIDTHS[2], zorder=3)
+			if connect_points:
+				axis.plot(x_vals, y_vals, linestyle='--', c='xkcd:grey', linewidth=config.LINE_WIDTHS[3], zorder=2)
+
+		# Check labels and handles between this and last axis. Any differences should be added to a new legend
+		hands, labs = axis.get_legend_handles_labels()
+		new_lh = dict(zip(labs, hands))
+		for key in labels_handles.keys(): new_lh.pop(key, 0);
+		if len(new_lh) > 0:
+			ncol = 2 if len(new_lh) > 4 else 1
+			axis.legend(new_lh.values(), new_lh.keys(), loc='upper left', fontsize=config.SMALL_FONT, frameon=False,
+						ncol=ncol)
+		labels_handles = dict(zip(labs, hands))
+
+	plt.tight_layout()
+	plt.savefig(foutname, bbox_inches="tight")
 	plt.close()
 
 	return
@@ -590,7 +762,7 @@ def plot_galaxy_int_prop_vs_prop_over_time(x_props, y_props, snaps, labels=None,
 		plt_set.setup_axis(axis, x_prop, y_prop, **axis_args)
 
 		# First plot observational data if applicable
-		if include_obs: plot_galaxy_int_observational_data(axis, x_prop);
+		if include_obs: plot_galaxy_int_dust_obs(axis, y_prop, x_prop);
 
 		for j, snap_group in enumerate(snaps):
 			if i == 0 and labels is not None:
@@ -1934,15 +2106,15 @@ def snap_projection(props, snap, L=None, Lz=None, pixel_res=0.1, labels=None, co
 			ax1.annotate(labels[i], (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
 
 		# Plot x-y projection on top
-		pixel_stats, xedges, yedges = calc.calc_projected_prop(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
+		pixel_stats, xedges, yedges, extent = calc.calc_projected_prop(param, snap, [L,L,L], pixel_res=pixel_res, proj='xy')
 		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
-		img = ax1.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+		img = ax1.imshow(pixel_stats, origin='lower', extent=extent,
            aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(cmap), norm=norm)
 
 		# Plot x-z projection below
-		pixel_stats, xedges, yedges = calc.calc_projected_prop(param, snap, [L,Lz,L], pixel_res=pixel_res, proj='xz')
+		pixel_stats, xedges, yedges, extent = calc.calc_projected_prop(param, snap, [L,Lz,L], pixel_res=pixel_res, proj='xz')
 		pixel_stats[np.logical_or(pixel_stats<=0,np.isnan(pixel_stats))] = config.EPSILON
-		ax2.imshow(pixel_stats.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+		ax2.imshow(pixel_stats, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
            aspect='equal', interpolation='bicubic', cmap=plt.get_cmap(cmap), norm=norm)
 
 		# Add color bar to the bottom of each set of x-y and x-z projections
@@ -2205,3 +2377,154 @@ def DZ_var_in_pixel(gas, header, center_list, r_max_list, Lz_list=None, \
 	axis.legend(loc=0, fontsize=config.SMALL_FONT, frameon=False)
 	plt.savefig(foutname)
 	plt.close()
+
+
+
+def plot_binned_grain_distribution(snaps, y_props='dn/da', mask_criterias=None, labels=None, foutname='binned_grain_size_dist.png', 
+						 std_bars=True, style='color-linestyle'):
+	"""
+	Plots grain size distribution binned across gas particles.
+
+	Parameters
+	----------
+	snaps : list
+	    List of snapshots to plot
+	y_prop: string
+		Choose whether to plot grain size probability or grain mass propability and which dust species
+	mask_criterias: list
+		Criterias for what particles to include (i.e. hot/warm/cold gas) for each snap
+	labels : list, optional
+		List of labels for each snapshot
+	foutname: string, optional
+		Name of file to be saved
+	std_bars : boolean
+		Include standard deviation bars for the data
+	style : string
+		Plotting style when plotting multiple data sets
+		'color-line' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	Returns
+	-------
+	None
+
+	"""
+
+	# Get plot stylization
+	linewidths,colors,linestyles = plt_set.setup_plot_style(len(snaps), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(1, sharey=True)
+	axis = axes[0]
+
+	x_prop='grain_size'
+	plt_set.setup_axis(axis, x_prop, y_props[0])
+
+
+	for j,snap in enumerate(snaps):
+			y_prop = y_props[j]
+			if mask_criterias is None: mask_criteria = 'all'
+			else: 					   mask_criteria=mask_criterias[j]
+			x_vals,y_mean,y_std = calc.calc_binned_grain_distribution(y_prop, mask_criteria, snap)
+
+			if labels is not None: label = labels[j];
+			else:    			   label = None;
+			axis.plot(x_vals, y_mean, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+			if std_bars:
+				axis.fill_between(x_vals, y_std[:,0], y_std[:,1], alpha = 0.3, color=colors[j], zorder=1)
+
+		
+	axis.legend(loc='best', fontsize=config.SMALL_FONT, frameon=False)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return
+
+
+
+def plot_grain_size_bins(snap, y_prop='dn/da', particle_ids=None, foutname='grain_size_dist.png', 
+						 style='color-linestyle'):
+	"""
+	Plots the full grain size distribution for a few select particles. Useful for testing.
+
+	Parameters
+	----------
+	snaps : list
+	    List of snapshots to plot
+	y_prop: string
+		Choose whether to plot grain size probability or grain mass propability and which dust species
+	particle_ids: list
+		List of particle ids to plot. If none are given then chose a particle from each of the ISM phases.
+	labels : list, optional
+		List of labels for each snapshot
+	foutname: string, optional
+		Name of file to be saved
+	style : string
+		Plotting style when plotting multiple data sets
+		'color-line' - gives different color and linestyles to each data set
+		'size' - make all lines solid black but with varying line thickness
+	Returns
+	-------
+	None
+
+	"""
+
+	G = snap.loadpart(0)
+	IDs = G.id
+
+	if particle_ids is None:
+		# Get plot stylization
+		linewidths,colors,linestyles = plt_set.setup_plot_style(3, style=style)
+		T = G.get_property('T')
+		ISM_phases = [0,1E3,1E4,1E7]
+		particle_ids = np.zeros(len(ISM_phases)-1, dtype='int')
+		for i in range(len(ISM_phases)-1):
+
+			mask = (T>ISM_phases[i]) & (T<ISM_phases[i+1])
+			if len(IDs[mask]) > 0:
+				particle_ids[i] = IDs[mask][0]
+		print("Particle IDs chosen (0 means no particles in that ISM phase):",particle_ids)
+	else:
+		linewidths,colors,linestyles = plt_set.setup_plot_style(len(particle_ids), style=style)
+
+	# Set up subplots based on number of parameters given
+	fig,axes,dims = plt_set.setup_figure(1, sharey=True)
+	axis = axes[0]
+
+	x_prop='grain_size'
+	plt_set.setup_axis(axis, x_prop, y_prop)
+
+	bin_nums = G.get_property('grain_bin_nums')
+	bin_slopes = G.get_property('grain_bin_slopes')
+	bin_edges = snap.Grain_Bin_Edges
+	bin_centers = snap.Grain_Bin_Centers
+
+	# default to silicates for now
+	spec_num=0
+	for j,id in enumerate(particle_ids):
+		index = np.where(IDs == id)[0][0]
+		for k in range(snap.Flag_GrainSizeBins):
+			bin_num = bin_nums[index][spec_num][k]; 
+			bin_slope = bin_slopes[index][spec_num][k]; 
+			# Since the grain bin number and slopes can be extremely large, rounding errors can cause negative values near the bin edges
+			# that seem large but are small compared to the number of grains. To avoid this when plotting we dont include the 1% around the bin edges.
+			grain_sizes = np.logspace(np.log10(bin_edges[k]*1.01),np.log10(bin_edges[k+1]*0.99))
+			if y_prop=='dn/da':
+				dist_vals = (bin_num/(bin_edges[k+1]-bin_edges[k])+bin_slope*(grain_sizes-bin_centers[k]))
+			else: 
+				dist_vals = np.power(grain_sizes,4)*(bin_num/(bin_edges[k+1]-bin_edges[k])+bin_slope*(grain_sizes-bin_centers[k]))
+
+			if k==0: label = 'id ' + str(particle_ids[j])
+			else: label = None
+
+			axis.plot(grain_sizes,dist_vals, label=label, linestyle=linestyles[j], color=colors[j], linewidth=linewidths[j], zorder=3)
+
+		
+	axis.legend(loc='best', fontsize=config.SMALL_FONT, frameon=False)
+
+	plt.tight_layout()
+	plt.savefig(foutname)
+	plt.close()
+
+	return

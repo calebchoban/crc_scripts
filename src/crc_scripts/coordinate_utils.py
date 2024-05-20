@@ -378,8 +378,7 @@ def get_position_differences(position_difs, periodic_length=None):
 
 
 def get_distances(
-    positions_1=None, positions_2=None, periodic_length=None, scalefactor=None,
-    total_distance=False):
+    positions_1=None, positions_2=None, periodic_length=None,total_distance=False):
     '''
     Get vector or total/scalar distance[s] between input position vectors.
 
@@ -388,7 +387,6 @@ def get_distances(
     positions_1 : array : position[s]
     positions_2 : array : position[s]
     periodic_length : float : periodic length (if none, not use periodic)
-    scalefactor : float or array : expansion scale-factor (to convert comoving to physical)
     total : boolean : whether to compute total/scalar (instead of vector) distance
 
     Returns
@@ -411,56 +409,14 @@ def get_distances(
     if total_distance:
         distances = np.sqrt(np.sum(distances ** 2, shape_pos))
 
-    if scalefactor is not None:
-        if scalefactor > 1 or scalefactor <= 0:
-            print('! got unusual scalefactor = {}'.format(scalefactor))
-        distances *= scalefactor
-
     return distances
-
-
-def get_distances_angular(positions_1=None, positions_2=None, sphere_angle=360):
-    '''
-    Get angular separation[s] between input positions, valid for small separations.
-
-    Parameters
-    ----------
-    positions_1, positions_2 : arrays : positions in [RA, dec]
-    sphere_angle : float : angular size of sphere 360 [degrees], 2 * pi [radians]
-
-    Returns
-    -------
-    angular distances : array (object number x angular dimension number)
-    '''
-    if sphere_angle == 360:
-        angle_scale = constant.radian_per_degree
-    elif sphere_angle == 2 * np.pi:
-        angle_scale = 1
-    else:
-        raise ValueError('angle of sphere = {} does not make sense'.format(sphere_angle))
-
-    if np.ndim(positions_1) == 1 and positions_1.size == 2:
-        ras_1, decs_1 = positions_1[0], positions_1[1]
-    else:
-        ras_1, decs_1 = positions_1[:, 0], positions_1[:, 1]
-
-    if np.ndim(positions_2) == 1 and positions_2.size == 2:
-        ras_2, decs_2 = positions_2[0], positions_2[1]
-    else:
-        ras_2, decs_2 = positions_2[:, 0], positions_2[:, 1]
-
-    return np.sqrt((get_position_differences(ras_1 - ras_2, sphere_angle) *
-                    np.cos(angle_scale * 0.5 * (decs_1 + decs_2))) ** 2 + (decs_1 - decs_2) ** 2)
 
 
 #===================================================================================================
 # velocity conversion
 #===================================================================================================
 def get_velocity_differences(
-    velocity_vectors_1=None, velocity_vectors_2=None,
-    position_vectors_1=None, position_vectors_2=None, periodic_length=None,
-    scalefactor=None, hubble_time=None,
-    total_velocity=False):
+    velocity_vectors_1=None, velocity_vectors_2=None,total_velocity=False):
     '''
     Get relative velocity[s] [km / s] between input velocity vectors.
     If input positions as well, add Hubble flow to velocities.
@@ -469,13 +425,6 @@ def get_velocity_differences(
     ----------
     velocity_vectors_1 : array : velocity[s] (object number x dimension number) [km / s]
     velocity_vectors_2 : array : velocity[s] (object number x dimension number) [km / s]
-    position_vectors_1 : array : position[s] associated with velocity_vector_1
-        (object number x dimension number) [kpc comoving]
-    position_vectors_2 : array : position[s] associated with velocity_vector_2
-        (object number x dimension number) [kpc comoving]
-    periodic_length : float : periodicity length [kpc comoving]
-    scalefactor : float : expansion scale-factor
-    hubble_time : float : 1 / H(z) [Gyr]
     total_velocity : boolean : whether to compute total/scalar (instead of vector) velocity
 
     Returns
@@ -489,14 +438,6 @@ def get_velocity_differences(
         dimension_shape = 1
 
     velocity_difs = velocity_vectors_1 - velocity_vectors_2  # [km / s]
-
-    if position_vectors_1 is not None and position_vectors_2 is not None:
-        # add hubble flow: dr/dt = a * dx/dt + da/dt * x = a(t) * dx/dt + r * H(t)
-        # [kpc / Gyr]
-        vels_hubble = (scalefactor / hubble_time *
-                       get_distances(position_vectors_1, position_vectors_2, periodic_length))
-        vels_hubble *= config.km_per_kpc / config.sec_per_Gyr  # [km / s]
-        velocity_difs += vels_hubble
 
     if total_velocity:
         velocity_difs = np.sqrt(np.sum(velocity_difs ** 2, dimension_shape))

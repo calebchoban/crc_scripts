@@ -7,9 +7,35 @@ from .. import config
 
 OBS_DIR = os.path.join(os.path.dirname(__file__), 'data/')
 
+
+def compiled_HiZ_dust(property1, property2):
+	"""
+	Read compiled literature data into pandas DataFrame
+
+	Parameters
+	----------
+	None
+
+	Returns
+	-------
+	df : pandas.DataFrame
+		Loaded data
+	"""
+	df = pd.read_csv(OBS_DIR+"HiZ_dust/HiZ_dust.csv")
+	df['M_dust'] = np.power(10,df['Mdust (log M_sol)'])
+	df['M_dust_low'] = np.power(10,df['Mdust (log M_sol)']+df['Mdust_err_low'])
+	df['M_dust_high'] = np.power(10,df['Mdust (log M_sol)']+df['Mdust_err_up'])
+	df['M_stellar'] = np.power(10,df['Mstar (log M_sol)'])
+	df['M_stellar_low'] = np.power(10,df['Mstar (log M_sol)']+df['Mstar_err_low'])
+	df['M_stellar_high'] = np.power(10,df['Mstar (log M_sol)']+df['Mstar_err_up'])
+
+	return df
+
+
+
 def galaxy_integrated_DZ(paper):
 	"""
-	Read literature data into DataFrame
+	Read literature data into pandas DataFrame
 
 	Parameters
 	----------

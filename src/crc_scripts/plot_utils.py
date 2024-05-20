@@ -1,5 +1,6 @@
 from copy import copy
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import matplotlib.lines as mlines
@@ -165,7 +166,8 @@ def setup_legend_handles(snap_nums, snap_labels=[], properties=[], style='color-
 
 
 
-def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False):
+def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False, yx_ratio=1, ncols=None, 
+                 sqeezespace=0.05):
     """
     Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
 
@@ -189,57 +191,40 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
     if orientation not in ['vertical', 'horizontal']:
         print("Orientation must be either vertical or horizontal for setup_figure(). Assuming horizontal for now.")
 
-    # add extra padding when there are axes labels
-    if (sharex and orientation=='vertical') or (sharey and orientation=='horizontal'):
-        label_pad = 0.
-    else:
-        label_pad = 0.
+    yx_ratio *= config.BASE_AXES_RATIO
 
     if num_plots == 1:
-        fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_XSIZE*config.FIG_XRATIO,config.BASE_FIG_YSIZE*config.FIG_YRATIO))
+        fig,axes = plt.subplots(1, 1, figsize=(config.BASE_FIG_SIZE,config.BASE_FIG_SIZE*yx_ratio))
         axes = np.array([axes])
         dims = np.array([1,1])
-    elif num_plots%2 == 0 and num_plots<5:
-        if orientation == 'vertical':
-            fig,axes = plt.subplots(2, num_plots//2, figsize=(num_plots/2*config.BASE_FIG_XSIZE*config.FIG_XRATIO,2*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
-                                    squeeze=True, sharex=sharex, sharey=sharey)
-            dims = np.array([2,num_plots//2])
-        else:
-            fig,axes = plt.subplots(num_plots//2, 2, figsize=(2*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/2*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
-                                    squeeze=True, sharex=sharex, sharey=sharey)
-            dims = np.array([num_plots//2,2])
-    elif num_plots%3 == 0:
-        if orientation == 'vertical':
-            fig,axes = plt.subplots(3, num_plots//3, figsize=(num_plots/3*config.BASE_FIG_XSIZE*config.FIG_XRATIO,3*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
-                                    squeeze=True, sharex=sharex, sharey=sharey)
-            dims = np.array([3,num_plots//3])
-        else:
-            fig,axes = plt.subplots(num_plots//3, 3, figsize=(3*(1+label_pad)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,num_plots/3*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
-                                    squeeze=True, sharex=sharex, sharey=sharey)
-            dims = np.array([num_plots//3,3])
     else:
-        dim_num = 3 # default number of plots in specified orientation
-        if orientation == 'vertical':
-            fig,axes = plt.subplots(dim_num, int(np.ceil(num_plots/dim_num)), figsize=(np.ceil(num_plots/dim_num)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,dim_num*(1+label_pad)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
-                        squeeze=True, sharex=sharex, sharey=sharey)
-            # Need to delete extra axes and reshow tick labels if axes were shared
-            axes[(dim_num-1)-(dim_num-num_plots%dim_num),num_plots//dim_num].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
-            for i in range(dim_num-num_plots%dim_num):
-                fig.delaxes(axes[dim_num-1-i, num_plots//dim_num])
-                axes[dim_num-1-i, num_plots//dim_num] = None
-            dims = np.array([dim_num,num_plots//dim_num])
-        else:
-            fig,axes = plt.subplots(int(np.ceil(num_plots/dim_num)), dim_num, figsize=(dim_num*(1)*config.BASE_FIG_XSIZE*config.FIG_XRATIO,np.ceil(num_plots/dim_num)*config.BASE_FIG_YSIZE*config.FIG_YRATIO),
+        # If number of columns specified there is only one thing to do
+        if ncols is None:
+            # Default 2 or 3
+            if num_plots%2 == 0 and num_plots<5:
+                if orientation == 'vertical': ncols = num_plots//2+1
+                else: ncols = 2
+            else:
+                if orientation == 'vertical': ncols = num_plots//3+1
+                else: ncols = 3
+        nrows = int(np.ceil(num_plots/ncols))
+        fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,np.ceil(num_plots/ncols)*config.BASE_FIG_SIZE*yx_ratio),
                                     squeeze=True, sharex=sharex, sharey=sharey)
-            # Need to delete extra axes and reshow tick labels if axes were shared
-            for i in range(dim_num-num_plots%dim_num):
-                axes[num_plots//dim_num-1,dim_num-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
-                fig.delaxes(axes[num_plots//dim_num,dim_num-1-i])
-                axes[num_plots//dim_num,dim_num-1-i] = None
-            dims = np.array([num_plots//dim_num,dim_num])
+        # Need to delete extra axes and reshow tick labels if axes were shared
+        for i in range(num_plots%ncols):
+            axes[num_plots//ncols-1,ncols-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
+            fig.delaxes(axes[num_plots//ncols,ncols-1-i])
+            axes[num_plots//ncols,ncols-1-i] = None
+        dims = np.array([num_plots//ncols,ncols])
 
     # Get rid of the axes we may have deleted
     axes = list(filter(None, axes.flat))
+
+    # Squish axes together if they are the same
+    if sharex:
+        fig.subplots_adjust(hspace=sqeezespace)
+    if sharey:
+        fig.subplots_adjust(wspace=sqeezespace)
 
     return fig,axes,dims
 
@@ -267,7 +252,8 @@ def add_artists(axis, artists):
     return
 
 
-def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, artists_to_add=None):
+def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, 
+               artists_to_add=None, face_color='xkcd:white'):
     """
     Sets up the axis plot given x and y properties and optional limits
 
@@ -309,22 +295,28 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         return
     if x_lim == None:
         x_lim = config.get_prop_limits(x_prop)
-    if config.get_prop_if_log(x_prop) or x_log:
+    if (x_log is not None and x_log) or (x_log is None and config.get_prop_if_log(x_prop)):
         axis.set_xscale('log')
+    else:
+        axis.ticklabel_format(axis='x',style='plain')
     axis.set_xlim(x_lim)
 
     # Setup y axis
     if y_prop not in config.PROP_INFO.keys() and (y_label is None and y_lim is None):
-        print("%s is not a supported property for plot_setup\n"%x_prop)
+        print("%s is not a supported property for plot_setup\n"%y_prop)
         print("Either give y_label and y_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
         print(config.PROP_INFO.keys())
         return
     if y_lim == None:
         y_lim = config.get_prop_limits(y_prop)
-    if config.get_prop_if_log(y_prop) or y_log:
+    if (y_log is not None and y_log) or (y_log is None and config.get_prop_if_log(y_prop)):
         axis.set_yscale('log')
+    else:
+        axis.ticklabel_format(axis='y',style='plain')
     axis.set_ylim(y_lim)
+
+    axis.set_facecolor(face_color)
 
     # Set axis labels and ticks
     setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label)
@@ -376,7 +368,7 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
         axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
         # Make sure not to put minor ticks on redshift axis
-        axis.tick_params(axis='y', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+        axis.tick_params(axis='x', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
     else:
         axis.minorticks_on()
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
@@ -404,25 +396,40 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
     '''
 
     if time_name == 'time':
+        time_limits = axis.get_xlim()
         if axis.get_xaxis().get_scale()=='log':
             axis_2_name = 'redshift_plus_1'
-            axis_2_tick_labels = ['7', '5', '4', '3', '2', '1.5', '1.2', '1']
+            # Depending on the timespan may want more redshift tick labels
+            if time_limits[1] < 1:
+                axis_2_tick_labels = ['13','12','11','10','9','8','7']
+            elif time_limits[1] < 3:
+                axis_2_tick_labels = ['11','9','8', '7', '6', '5', '4', '3', '2', '1.5', '1.2', '1']
+            else:
+                axis_2_tick_labels = ['7', '5', '4', '3', '2', '1.5', '1.2', '1']
         else:
             axis_2_name = 'redshift'
-            axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
+            # Depending on the timespan may want more redshift tick labels
+            if time_limits[1] < 1:
+                axis_2_tick_labels = ['12','11','10','9','8','7','6']
+            elif time_limits[1] < 3:
+                axis_2_tick_labels = ['10','8', '7', '6', '5', '4', '3', '2', '1', '0.5', '0.2', '0']
+            else:
+                axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
         conv_func = math_utils.get_time_conversion_spline('time',axis_2_name,sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
     elif time_name in ['redshift','redshift_plus_1']:
         axis_2_name = 'time_lookback'
-        axis_2_tick_labels = ['0', '2', '4','6', '8', '10', '11', '12', '12.5', '13']
+        axis_2_tick_labels = ['0', '2', '4', '6', '8', '10', '11', '12', '12.5', '13']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
         conv_func = math_utils.get_time_conversion_spline(time_name,'time_lookback',sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
 
     axis2 = axis.twiny()
+    # Need to turn on minor ticks so that y-axis will have them
+    axis2.minorticks_on()
     axis2.set_xscale(axis.get_xaxis().get_scale())
     axis2.get_xaxis().set_major_formatter(mticker.ScalarFormatter()) # Force scalar notation for labels
     axis2.set_xticks(axis_2_tick_locations,minor=False)
@@ -434,7 +441,7 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
     axis2.set_xlim(axis.get_xlim()) # Need to reset limits to twinned axis after making ticks
     axis2.xaxis.set_minor_locator(mticker.NullLocator()) # Turn off minor ticks which reappear when setting xlimits
     axis2.tick_params(axis='x', which='major',direction='in', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-
+    
 
 
 
@@ -602,6 +609,117 @@ def setup_projection(num_plots,L,Lz=None):
     
     return fig, np.array(axes)
 
+
+def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]):
+
+    axes = []
+    height_ratios = np.array(height_ratios)
+    cbar_height = 0.05*height_ratios[0]
+    width_space = 0.02*height_ratios[0]
+    height_space = 0.02*height_ratios[0]
+    # Check whether you want another projection below the first (usually edge-on with a disk)
+    if sub_projs:
+        if has_colorbars:
+            fig, axes = plt.subplots(nrows=3, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':np.append(height_ratios,[cbar_height])},
+                                    figsize=[num_plots*config.BASE_FIG_SIZE,
+                                            (height_ratios[0]+height_ratios[1]+cbar_height)/height_ratios[0]*config.BASE_FIG_SIZE])
+        else:
+            fig, axes = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':height_ratios},
+                                    figsize=[num_plots*config.BASE_FIG_SIZE,
+                                            (height_ratios[0]+height_ratios[1])/height_ratios[0]*config.BASE_FIG_SIZE])     
+        # Deal with only one projection being plotted
+        if num_plots==1:
+            axes = np.array([[axes[0],axes[1],axes[2]]])
+        else:
+            axes = np.array(axes).T
+        for axis_set in axes: 
+            axis_set[0].set_aspect('equal', adjustable='box')
+            axis_set[1].set_aspect('equal', adjustable='box')
+            # Just to give a preview of what the whole figure will look like
+            axis_set[1].set_ylim(0,height_ratios[1]/height_ratios[0])
+
+    # Only one projection
+    else:
+        nrows=1
+        if has_colorbars:
+            height_ratios=np.append(height_ratios,[cbar_height])
+            nrows=2
+        gs = gridspec.GridSpec(nrows,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
+        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if has_colorbars else 1
+        fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
+        for i in range(num_plots):
+            ax = plt.subplot(gs[0,i])
+            cbarax = plt.subplot(gs[1,i])
+            axes += [[ax,cbarax]]
+        axes = np.array(axes)
+    
+    return fig, axes
+
+
+def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
+
+        if sub_L is None:
+            ax1 = axes[0]
+            ax1.set_xlim([-main_L,main_L])
+            ax1.set_ylim([-main_L,main_L])
+            if not axes_visible:
+                ax1.xaxis.set_visible(False)
+                ax1.yaxis.set_visible(False)
+            for axe in ['top','bottom','left','right']:
+                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+        else:
+            ax1 = axes[0]
+            ax1.set_xlim([-main_L,main_L])
+            ax1.set_ylim([-main_L,main_L])
+            for axe in ['top','bottom','left','right']:
+                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+
+            ax2 = axes[1]
+            ax2.set_ylim([-sub_L, sub_L])
+            ax2.set_xlim([-main_L,main_L])
+            for axe in ['top','bottom','left','right']:
+                    ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+            
+            if not axes_visible:
+                ax1.xaxis.set_visible(False)
+                ax1.yaxis.set_visible(False) 
+                ax2.xaxis.set_visible(False)
+                ax2.yaxis.set_visible(False)
+
+        # Add scale bar
+        bar, label = find_scale_bar(main_L)
+        ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+        ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+
+
+def setup_proj_colorbar(property, fig, caxis, cmap='magma', label=None, limits=None, log=False, mappable=None):
+    # Setup x axis
+    if property not in config.PROP_INFO.keys() and (label is None and limits is None):
+        print("%s is not a supported property for setup_proj_colorbar"%property)
+        print("Either give label and limits to make your own or choose from supported properties.")
+        print("Valid properties are:")
+        print(config.PROP_INFO.keys())
+        return
+    label = config.get_prop_label(property)
+
+    if mappable is None:
+        if limits == None:
+            limits = config.get_prop_limits(property)
+        if config.get_prop_if_log(property) or log:
+            norm = mpl.colors.LogNorm(vmin=limits[0], vmax=limits[1], clip=True)
+        else:
+            norm = mpl.colors.Normalize(vmin=limits[0], vmax=limits[1], clip=True)
+        cbar = fig.colorbar(mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=caxis, orientation='horizontal')
+    else: 
+        cbar = fig.colorbar(mappable = mappable, cax=caxis, orientation='horizontal')
+    cbar.ax.set_xlabel(label, fontsize=config.LARGE_FONT)
+    cbar.ax.minorticks_on()
+    cbar.ax.tick_params(axis='both',which='both',direction='in')
+    cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+    cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+    cbar.outline.set_linewidth(config.AXIS_BORDER_WIDTH)
+
+    return cbar
 
 
 # find appropriate scale bar and label

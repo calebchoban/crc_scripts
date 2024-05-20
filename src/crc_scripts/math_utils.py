@@ -40,14 +40,13 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
             return np.zeros(len(percentiles))
 
     # Standardize and sort based on values in a
-    percentiles = percentiles
-
     idx = np.argsort(a)
     a_sort = a[idx]
     w_sort = weights[idx]
 
     # Get the percentiles for each data point in array
-    p=1.*w_sort.cumsum()/w_sort.sum()*100
+    p=w_sort.cumsum()
+    p=p/p[-1]*100
     # Get the value of a at the given percentiles
     values=np.interp(percentiles, p, a_sort)
     return values
@@ -308,3 +307,20 @@ def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='d
     if bulge_profile=='de_vauc':
         return curve_fit(de_vaucouleurs_and_exp_func, x_data, np.log10(y_data), p0=guess, bounds=bounds)
 
+
+# Returns the dust metallicity from the total mass of dust grains by summing the mass in each grain size bin
+def get_grain_mass(G):
+
+    # Use so numpy-fu to do this in one line
+    num_grains=G.get_property('grain_bin_nums')
+    slope = G.get_property('grain_bin_slopes')
+    alower = G.sp.Grain_Bin_Edges[:-1]
+    aupper = G.sp.Grain_Bin_Edges[1:]
+    acenter= G.sp.Grain_Bin_Centers
+    bulk_dens=config.DUST_BULK_DENS / np.power(config.cm_to_um,3)
+    bulk_dens=bulk_dens[np.newaxis,:,np.newaxis]
+    total_grain_mass = np.sum(4*np.pi*bulk_dens/3*((num_grains/(4*(aupper-alower))-slope*acenter/4)*(pow(aupper,4)-pow(alower,4))+slope/5*(pow(aupper,5)-pow(alower,5))),axis=2)
+    total_grain_mass *= config.grams_to_Msolar
+
+    # Return the dust metallicity
+    return total_grain_mass / G.get_property('m')[:,np.newaxis]

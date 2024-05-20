@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 from .. import math_utils
 from .. import coordinate_utils
+from .particle import Header,Particle
 
 # This is a class that manages a galaxy/halo in a given
 # snapshot, for either cosmological or isolated simulations.
@@ -193,14 +194,18 @@ class Halo(object):
 
         part = self.part[ptype]
 
-        part.load()
-        part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-        if self.zoom:
-            rmax = self.rout*self.rvir if not self.outkpc else self.rout
-        else:
-            rmax = self.rvir
-        in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
-        part.mask(in_halo)
+        # If the particles have previously been loaded and orientated we are done here
+        if not part.k or not part.orientate:
+            part.load()
+            part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
+            if self.zoom:
+                rmax = self.rout*self.rvir if not self.outkpc else self.rout
+            else:
+                rmax = self.rvir
+            in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
+            if np.all(in_halo==False):
+                print("WARNING: No particle of ptype %i in the zoom in region."%ptype)
+            part.mask(in_halo)
 
         return part
 
