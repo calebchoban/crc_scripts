@@ -40,7 +40,7 @@ class Buffer(object):
         self.star_subsamples = ['all']  if star_subsamples is None else star_subsamples
 
         self.sdir = sdir
-        self.snap_nums = snap_nums
+        self.snap_nums = np.sort(snap_nums)
         self.num_snaps = len(snap_nums)
         self.cosmological = cosmological
         self.halohist_file = halohist_file
@@ -142,6 +142,8 @@ class Buffer(object):
             data = reduced_data['M_star_10Myr_'+subsample]/1E7
         elif prop == 'sfr_100Myr':
             data = reduced_data['M_star_100Myr_'+subsample]/1E8
+        elif prop == 'ssfr':
+            data = (reduced_data['M_star_10Myr_'+subsample]/0.01)/reduced_data['M_star_'+subsample] # Gyr^-1
         elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral','f_coronal','f_ionized']:
             if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
             elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
@@ -336,17 +338,16 @@ class Reduced_Data(object):
                 print("%s halo history file does not exist."%halohist_file)
                 return
             self.haloIDs = np.zeros(self.num_snaps,dtype=int)
-            halo_IDs = np.loadtxt(self.halohist_file, usecols=(1,), unpack=True,dtype=int)
-            halo_redshifts = np.loadtxt(self.halohist_file, usecols=(0,), unpack=True,dtype=float)
-            ref_redshifts = 1/np.loadtxt(os.path.join(config.BASE_DIR,'FIRE'+str(self.FIRE_ver)+'_snapshot_scale-factors.txt'))-1
-            ref_redshifts = ref_redshifts[snap_nums] 
-            # Now find matching redshifts between snaps we have and redshifts listed in halo history
-            for i, z in enumerate(ref_redshifts):
-                idx = np.nanargmin(np.abs(z - halo_redshifts))
-                if np.abs(z-halo_redshifts[idx])/z > 0.1:
-                    print("WARNING: The requested snapshots aren't included in the provided halo history file! Either fix the file or dont specify a file.")
+            col_names = list(np.genfromtxt(self.halohist_file,skip_header=0,max_rows = 1,dtype=str,comments='@'))
+            halo_snums = np.loadtxt(halohist_file,skiprows=1,usecols=[col_names.index('snum')])
+            halo_IDs =   np.loadtxt(halohist_file,skiprows=1,usecols=[col_names.index('ID')])
+            for i,snap_num in enumerate(snap_nums):
+                if snap_num in halo_snums:
+                    self.haloIDs[i] = halo_IDs[halo_snums==snap_num]
+                else:
+                    print("WARNING: The requested snapshot %i is not included in the provided halo history file!"%snap_num +
+                          "Either fix the file or don't specify a file to assume the largest halo for every snap.")
                     return
-                self.haloIDs[i] = halo_IDs[idx]
 
         self.all_snaps_loaded=False
         
@@ -366,9 +367,9 @@ class Reduced_Data(object):
             if self.halohist_file is None:
                self.haloIDs = [-1]*self.num_snaps 
             else:
-                halo_IDs = np.loadtxt(self.halohist_file, usecols=(1,), unpack=True,dtype=int)
-                halo_redshifts = np.loadtxt(self.halohist_file, usecols=(0,), unpack=True,dtype=float)
-                ref_redshifts = 1/np.loadtxt(os.path.join(config.BASE_DIR,'FIRE'+str(self.FIRE_ver)+'_snapshot_scale-factors.txt'))-1
+                col_names = list(np.genfromtxt(self.halohist_file,skip_header=0,max_rows = 1,dtype=str,comments='@'))
+                halo_snums = np.loadtxt(self.halohist_file,skiprows=1,usecols=[col_names.index('snum')])
+                halo_IDs =   np.loadtxt(self.halohist_file,skiprows=1,usecols=[col_names.index('ID')])
 
             for i, n in enumerate(new_snaps):
                 # Find where we need to insert the new snap to be in order
@@ -381,12 +382,11 @@ class Reduced_Data(object):
                 self.scale_factor = np.insert(self.scale_factor,index,0)
                 for key in self.data.keys():
                     self.data[key] = np.insert(self.data[key],index,0)
-                # Now none of the data is fully loaded so reset this
+                # Now the data is not loaded so reset this
                 self.data_loaded = np.zeros(len(self.data.keys()))
                 # Add new halo ID for the new snap
                 if self.halohist_file is not None:
-                    ref_redshift = ref_redshifts[n] 
-                    idx = np.nanargmin(np.abs(ref_redshift - halo_redshifts))
+                    idx = np.searchsorted(halo_snums, n)
                     self.haloIDs = np.insert(self.haloIDs,index,halo_IDs[idx])
 
         # Add any new gas and star properties
