@@ -2,11 +2,11 @@ import numpy as np
 import h5py
 import os
 from .. import config
-from .. import math_utils
 from .particle import Header,Particle
 from .galaxy import Halo,Disk
 from .AHF import AHF
-from .snap_utils import check_snap_exist,get_snap_file_name
+from ..utils import math_utils
+from ..utils.snap_utils import check_snap_exist,get_snap_file_name
 
 class Snapshot:
 

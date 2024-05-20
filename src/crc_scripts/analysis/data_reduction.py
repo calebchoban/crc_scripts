@@ -2,10 +2,10 @@ import os
 import numpy as np
 import pickle
 from .. import config
-from ..math_utils import weighted_percentile, quick_lookback_time
 from ..io.snapshot import Snapshot
-from .. import data_calc_utils as calc_utils
-from ..io.snap_utils import check_snap_exist
+from ..utils import data_calc_utils as calc_utils
+from ..utils.math_utils import weighted_percentile, quick_lookback_time
+from ..utils.snap_utils import check_snap_exist
 import time
 
 

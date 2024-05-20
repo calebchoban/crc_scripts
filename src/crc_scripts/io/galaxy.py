@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .. import math_utils
-from .. import coordinate_utils
+from ..utils import math_utils
+from ..utils import coordinate_utils
 from .particle import Header,Particle
 
 # This is a class that manages a galaxy/halo in a given

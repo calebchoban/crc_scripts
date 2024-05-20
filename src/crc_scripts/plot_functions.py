@@ -9,10 +9,10 @@ import os
 from .observations import dust_obs as obs
 from .analytical_models import stellar_yields as st_yields
 from .analytical_models import dust_accretion as dust_acc
-from . import plot_utils as plt_set
 from . import config
-from . import math_utils
-from . import data_calc_utils as calc
+from .utils import plot_utils as plt_set
+from .utils import math_utils
+from .utils import data_calc_utils as calc
 
 # Check if Phil's visualization module is installed
 # import importlib

@@ -1,4 +1,4 @@
-from . import config
+from .. import config
 import numpy as np
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d

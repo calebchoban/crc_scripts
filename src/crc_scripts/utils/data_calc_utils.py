@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import binned_statistic_2d
 
-from . import config
+from .. import config
 from . import math_utils
 
 

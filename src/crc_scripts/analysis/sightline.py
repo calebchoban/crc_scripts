@@ -6,9 +6,9 @@ import pickle
 from shutil import copyfile
 import h5py
 
-from ..math_utils import weighted_percentile
 from .. import config
-from .. import coordinate_utils
+from ..utils import coordinate_utils
+from ..utils.math_utils import weighted_percentile
 
 # Need to add a bunch of derived fields for yt
 import yt
