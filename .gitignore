@@ -7,6 +7,7 @@ __pycache__/
 *.pyc
 *.e
 *.o
+*.so
 *.hdf5
 *.csv
 *.pickle
