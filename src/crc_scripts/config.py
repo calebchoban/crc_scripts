@@ -157,7 +157,7 @@ if FIRE_VERSION == 2:
 else:
 	# FIRE-3 uses Asplund+ 2009 for proto-solar
 	SOLAR_Z					= A09_SOLAR_Z
-	SOLAR_MASSFRAC 			= AG89_ABUNDANCES
+	SOLAR_MASSFRAC 			= A09_ABUNDANCES
 
 
 
@@ -174,7 +174,8 @@ DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusi
 DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
 DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 
-# Houses labels, limits, and if they should be plotted in log space for possible properties
+# Houses various property labels, limits, and if they should be plotted in log space. 
+# Each property is represented by one or multiple shorthand keys
 PROP_INFO  				= {
 **dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0., 1.], 		False]),
 **dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0., 1.], 		False]),
