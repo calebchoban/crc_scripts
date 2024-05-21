@@ -15,7 +15,7 @@ from setuptools.command.egg_info import egg_info
 #Can yield `setup.py install`, `setup.py egg_info`, or `setup.py develop`
 
 def custom_command(prepend=''):
-    C_routine_subdir = 'src/C_routines'
+    C_routine_subdir = 'src/crc_scripts/C_routines'
     C_routines = os.listdir(C_routine_subdir)
     for C_routine in C_routines:
         process = subprocess.Popen(
@@ -69,8 +69,7 @@ setup(
           'scipy',
           'matplotlib',
           'pandas',
-          'astropy',
-          'yt'
+          'astropy'
       ],
     include_package_data=True,
     ## to compile C code
