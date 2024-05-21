@@ -327,7 +327,7 @@ class Halo(object):
 
         # compute radii wrt galaxy center [kpc physical]
         radius_vectors = coordinate_utils.get_distances(
-            part.p[part_indices], center_position, self.sp.boxsize, self.sp.scale_factor)
+            part.p[part_indices], center_position, self.sp.boxsize)
 
         # keep only particles within radius_max
         radius2s = np.sum(radius_vectors ** 2, 1)
