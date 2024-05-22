@@ -193,9 +193,8 @@ class Halo(object):
     def loadpart(self, ptype):
 
         part = self.part[ptype]
-
         # If the particles have previously been loaded and orientated we are done here
-        if not part.k or not part.orientate:
+        if not part.k or not part.orientated:
             part.load()
             part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
             if self.zoom:
