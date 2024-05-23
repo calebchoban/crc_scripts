@@ -1,7 +1,13 @@
 # crc_scripts
 Personal routines for reading in FIRE snapshots with dust evolution modules from C. R. Choban et al. (2022). This includes function for plotting dust properties, dust observations included in my recent publications, and Jupyter notebook templates.
 
-To install git clone this repository and then use pip to install it to your Python/Conda environment using pip
+To install, first make a new folder in your home directory where you will store all of your codes. I usually just call mine codes. 
+Then, git clone this repository
+```console
+cd codes
+git clone https://github.com/calebchoban/crc_scripts.git
+```
+and then use pip to install it to your Python/Conda environment
 ```bash
  pip install -e .
 ```
