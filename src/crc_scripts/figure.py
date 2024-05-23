@@ -4,10 +4,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from . import plot_utils
 from . import config
-from . import math_utils
-from . import data_calc_utils as calc
+from .utils import plot_utils
+from .utils import math_utils
+from .utils import data_calc_utils as calc
 
 
 class Figure(object):
@@ -314,7 +314,7 @@ class Figure(object):
             if hasattr(artist, 'autoscale_None'):
                 mappable = artist; break;
         self.fig.subplots_adjust(right=0.9)
-        cax = self.fig.add_axes([0.95, 0.15, 0.05, 0.7])
+        cax = self.fig.add_axes([0.95, 0.1, 0.05, 0.8])
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
         cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)

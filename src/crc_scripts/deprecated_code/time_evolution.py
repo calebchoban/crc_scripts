@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pickle
-from ..math_utils import weighted_percentile, quick_lookback_time
+from ..utils.math_utils import weighted_percentile, quick_lookback_time
 from ..io.snapshot import Snapshot
 
 # This is a class that compiles the evolution data of a Snapshot/Halo/Disk

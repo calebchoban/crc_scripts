@@ -1,9 +1,9 @@
 import numpy as np
 import h5py
-from .. import math_utils
 from .. import config
-from .. import coordinate_utils
-from .snap_utils import get_snap_file_name
+from ..utils import math_utils
+from ..utils import coordinate_utils
+from ..utils.snap_utils import get_snap_file_name
 
 class Header:
 

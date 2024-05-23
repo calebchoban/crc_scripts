@@ -1,5 +1,6 @@
 import numpy as np
 import glob
+import os
 
 
 class AHF:
@@ -19,7 +20,8 @@ class AHF:
 
         # load AHF catalog
         sp = self.sp
-        if hdir is None: hdir = sp.sdir + "/AHF_halos"
+        if hdir is None: hdir = os.path.dirname(sp.sdir) + "/halo/ahf/output"
+        print("Looking for snapshot's corresponding AHF file")
         hfile = hdir + "/snap%03d*.AHF_halos" %sp.snum
         flist = glob.glob(hfile)
         # Check for different halo file name format

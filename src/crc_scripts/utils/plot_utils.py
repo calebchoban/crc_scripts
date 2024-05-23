@@ -7,7 +7,7 @@ import matplotlib.lines as mlines
 import matplotlib.ticker as mticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from . import config
+from .. import config
 from . import math_utils
 
 

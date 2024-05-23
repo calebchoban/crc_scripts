@@ -3,7 +3,7 @@ Utility functions for positions and velocities taken from Andrew Wetzel's analys
 '''
 
 import numpy as np
-from . import config
+from .. import config
 
 #===================================================================================================
 # coordinate transformation

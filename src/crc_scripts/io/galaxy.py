@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .. import math_utils
-from .. import coordinate_utils
+from ..utils import math_utils
+from ..utils import coordinate_utils
 from .particle import Header,Particle
 
 # This is a class that manages a galaxy/halo in a given
@@ -193,9 +193,8 @@ class Halo(object):
     def loadpart(self, ptype):
 
         part = self.part[ptype]
-
         # If the particles have previously been loaded and orientated we are done here
-        if not part.k or not part.orientate:
+        if not part.k or not part.orientated:
             part.load()
             part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
             if self.zoom:
@@ -327,7 +326,7 @@ class Halo(object):
 
         # compute radii wrt galaxy center [kpc physical]
         radius_vectors = coordinate_utils.get_distances(
-            part.p[part_indices], center_position, self.sp.boxsize, self.sp.scale_factor)
+            part.p[part_indices], center_position, self.sp.boxsize)
 
         # keep only particles within radius_max
         radius2s = np.sum(radius_vectors ** 2, 1)
