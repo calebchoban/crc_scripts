@@ -212,7 +212,7 @@ PROP_INFO  				= {
 					  'sigma_H2': [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-1,1E2], 	True],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
-						  'time': ['Time [Gyr]',														[1E-2,1E1],		False],
+						  'time': ['Time [Gyr]',														[1E-2,13.6],	False],
 				 'time_lookback': ['Lookback Time [Gyr]',												[1E-1,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],

@@ -73,22 +73,9 @@ class Halo(object):
         if (self.k!=0): return # already loaded
 
         sp = self.sp
-
-        # non-cosmological snapshots
-        if (sp.cosmological==0):
-
-            self.k = 1
-            self.time = sp.time
-            self.xc = sp.boxsize/2.
-            self.yc = sp.boxsize/2.
-            self.zc = sp.boxsize/2.
-            self.rvir = sp.boxsize*2.
-            self.Lhat = np.array([0,0,1.])
-
-            return
-
+ 
         # cosmological, use AHF
-        if mode=='AHF':
+        if mode=='AHF' and not self.cosmological:
             AHF = sp.loadAHF()
             # catalog exists
             if (AHF.k==1):
@@ -113,10 +100,8 @@ class Halo(object):
                 self.vmax = AHF.Vmax[self.id]
                 self.fhi = AHF.fMhires[self.id]
                 self.Lhat = AHF.Lhat[:,self.id]
-
             # no catalog so just chose center of snapshot box
             else:
-
                 print("AHF option chosen for halo but AHF catalog does not exist!")
                 print("Defaulting to center of snapshot box.")
                 self.k = 0 # so you can re-load it
@@ -126,16 +111,16 @@ class Halo(object):
                 self.zc = sp.boxsize/2.
                 self.rvir = sp.boxsize*2.
                 self.Lhat = np.array([0,0,1.])
-
-
-        # Default to chose center of snapshot box
+        # Default for non-cosmological and no AHF to center of star mass
         else:
-
-            self.k = 0 # so you can re-load it
+            self.k = 1 # so you can reload it
+            self.time = sp.time
             self.redshift = sp.redshift
-            self.xc = sp.boxsize/2.
-            self.yc = sp.boxsize/2.
-            self.zc = sp.boxsize/2.
+            # Get center from average of gas particles
+            part = self.sp.loadpart(0)
+            self.xc = np.average(part.p[:,0],weights=part.m)
+            self.yc = np.average(part.p[:,1],weights=part.m)
+            self.zc = np.average(part.p[:,2],weights=part.m)
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
 

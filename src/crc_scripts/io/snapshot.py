@@ -14,7 +14,6 @@ class Snapshot:
 
         self.sdir = sdir
         self.snum = snum
-        self.cosmological = cosmological
         self.nsnap = check_snap_exist(sdir,snum)
         self.k = -1 if self.nsnap==0 else 1
 
@@ -22,11 +21,18 @@ class Snapshot:
         if (self.k==-1): return
         snapfile = get_snap_file_name(sdir,snum,self.nsnap,0)
         f = h5py.File(snapfile, 'r')
+        if 'ComovingIntegrationOn' in f['Header'].attrs.keys():
+            self.cosmological=f['Header'].attrs['ComovingIntegrationOn']
+            if cosmological!=self.cosmological: 
+                print("WARNING: Snapshot is either cosmological and you specified it as non-cosmological or vice versa.")
+                print("Defaulting to snapshot.")
+        else:
+            self.cosmological=cosmological
         self.npart = f['Header'].attrs['NumPart_Total']
         self.time = f['Header'].attrs['Time']
         self.redshift = f['Header'].attrs['Redshift']
         self.boxsize = f['Header'].attrs['BoxSize']
-        if cosmological:
+        if self.cosmological:
             self.scale_factor = self.time
             self.omega = f['Header'].attrs.get('Omega_Matter',0)
             if self.omega==0: self.omega = f['Header'].attrs.get('Omega0',0)
