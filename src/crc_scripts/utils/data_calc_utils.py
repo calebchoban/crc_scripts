@@ -306,7 +306,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		P = snap.loadpart(ptype)
 		criteria = prop1_criteria if i == 1 else prop2_criteria
 		mask = get_particle_mask(ptype, snap, mask_criteria=criteria)
-		x = P.p[:,0][mask]; y = P.p[:,1][mask];
+		x = P.get_property('position')[:,0][mask]; y = P.get_property('position')[:,1][mask];
 
 		if property == 'sigma_dust':
 			bin_data = P.get_property('M_dust')[mask]
@@ -438,7 +438,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 
 	if mask_prop == 'fH2':
 		P = snap.loadpart(0)
-		x = P.p[:,0]; y = P.p[:,1];
+		x = P.get_property('position')[:,0]; y = P.get_property('position')[:,1];
 		mask_data = [P.get_property('M_H2'),P.get_property('M_gas')]
 		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		# Need to be a bit careful to not divide by zero here
@@ -448,7 +448,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		mask = fH2_pixel>0.05
 	elif mask_prop == 'neutral':		
 		P = snap.loadpart(0)
-		x = P.p[:,0]; y = P.p[:,1];
+		x = P.get_property('position')[:,0]; y = P.get_property('position')[:,1];
 		mask_data = [P.get_property('M_gas_neutral'),P.get_property('M_gas')]
 		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		# Need to be a bit careful to not divide by zero here
@@ -458,7 +458,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		mask = nh_pixel>0.5
 	elif mask_prop == 'no_low_dust':		
 		P = snap.loadpart(0)
-		x = P.p[:,0]; y = P.p[:,1];
+		x = P.get_property('position')[:,0]; y = P.get_property('position')[:,1];
 		mask_data = P.get_property('M_dust')
 		ret = binned_statistic_2d(x, y, mask_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 		dust_pixel = ret.flatten()/pixel_area
@@ -553,7 +553,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 
 	if 'star' in property or 'stellar' in property or 'sfr' in property: P = snap.loadpart(4)
 	else: 				   												 P = snap.loadpart(0)
-	x = P.p[:,0];y=P.p[:,1];z=P.p[:,2]
+	x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
 
 	# Set up coordinates to project
 	if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
@@ -664,7 +664,7 @@ def calc_radial_dens_projection(property, snap, rmax, rmin=0, proj='xy', bin_num
 
 	if 'star' in property or 'stellar' in property or 'sfr' in property: P = snap.loadpart(4)
 	else: 				   												 P = snap.loadpart(0)
-	x = P.p[:,0];y=P.p[:,1];z=P.p[:,2]
+	x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
 
 	# Set up coordinates to project
 	if   proj=='xy': coord1 = x; coord2 = y;

@@ -47,6 +47,20 @@ class Snapshot:
             self.FIRE_ver = 2
         else:
             self.FIRE_ver = 3
+
+        # Get code units in CGS if available. If not just assume usual FIRE units
+        if 'UnitLength_In_CGS' in f['Header'].attrs.keys():
+            # Note the saved header units have a factor of 1/h
+            self.UnitLength_In_CGS = f['Header'].attrs['UnitLength_In_CGS']*self.hubble
+            self.UnitMass_In_CGS = f['Header'].attrs['UnitMass_In_CGS']*self.hubble
+            self.UnitVelocity_In_CGS = f['Header'].attrs['UnitVelocity_In_CGS']
+        else:
+            self.UnitLength_In_CGS = config.UnitLength_in_cm
+            self.UnitMass_In_CGS = config.UnitMass_in_g
+            self.UnitVelocity_In_CGS = config.UnitVelocity_in_cm_per_s
+        self.UnitMass_in_Msolar = self.UnitMass_In_CGS / config.Msolar_to_g
+        self.UnitDensity_in_CGS = self.UnitMass_In_CGS / np.power(self.UnitLength_In_CGS, 3)
+
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
         self.Flag_Cooling = f['Header'].attrs['Flag_Cooling']
         self.Flag_StellarAge = f['Header'].attrs['Flag_StellarAge']
@@ -200,7 +214,7 @@ class Snapshot:
         part = self.star; part.load()
         if (part.k==-1): return None, None
 
-        sft, m = part.sft, part.m
+        sft, m = part.data['sft'], part.data['mass']
         t, sfr = math_utils.SFH(sft, m, dt=dt, cum=cum, sp=self)
 
         return t, sfr

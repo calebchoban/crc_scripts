@@ -176,6 +176,10 @@ def get_stellar_ages(sft, sp):
 
 
 # calculate star formation history
+# Assuming following units
+# sft [ascale/Gyr for cosmological/non-cosmological]
+# mass [M_solar]
+# dt [Gyr]
 def SFH(sft, m, sp, dt=0.01, cum=0):
     
     if (sp.cosmological==1):
@@ -192,11 +196,11 @@ def SFH(sft, m, sp, dt=0.01, cum=0):
     tmin, tmax = np.min(tform), np.max(tform)
     t = np.linspace(tmin, tmax, 1000)
     if (cum==1):
-        sfr = 1.0e10*np.interp(t, tform_sorted, m_cum) # cumulative SFH, in Msun
+        sfr = np.interp(t, tform_sorted, m_cum) # cumulative SFH, in Msun
     else:
         sfh_later = np.interp(t, tform_sorted, m_cum)
         sfh_former = np.interp(t-dt, tform_sorted, m_cum)
-        sfr = 10.0*(sfh_later-sfh_former)/dt # in Msun per yr
+        sfr = (sfh_later-sfh_former)/dt/1E9 # in Msun per yr
     
     return t, sfr
 
@@ -218,7 +222,7 @@ def approx_gas_temperature(u, ne, keV=0):
     g_minus_1= g_gamma-1.0
     mu = gas_mu(ne);
     MeanWeight= mu*config.PROTONMASS
-    T= MeanWeight/config.BoltzMann_ergs * g_minus_1 * u * config.UnitVelocity_in_cm_per_s**2
+    T = MeanWeight/config.BoltzMann_ergs * g_minus_1 * u
 
     # do we want units of keV?  (0.001 factor converts from eV to keV)
     if (keV==1):
@@ -324,3 +328,9 @@ def get_grain_mass(G):
 
     # Return the dust metallicity
     return total_grain_mass / G.get_property('m')[:,np.newaxis]
+
+# Check if string is same as other string or in list of other strings in a case insensitive manner
+def case_insen_compare(item1, item2):
+    if type(item2) is str:
+        item2=[item2]
+    return item1.casefold() in map(str.casefold, item2)

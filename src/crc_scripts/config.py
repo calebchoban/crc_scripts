@@ -118,9 +118,10 @@ mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
 
 
 # Conversion factors for code to cgs units
+Msolar_to_g					= 1.989E33
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
-UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
+UnitMass_in_Msolar			= UnitMass_in_g / Msolar_to_g
 UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
 UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s # 0.978 Gyr/h
 UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
@@ -170,6 +171,7 @@ SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
 DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
 
+# Order for species and sources chosen in terms of fraction of total mass useful for plotting
 DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusions']
 DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
 DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
@@ -212,7 +214,7 @@ PROP_INFO  				= {
 					  'sigma_H2': [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-1,1E2], 	True],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
-						  'time': ['Time [Gyr]',														[1E-2,13.6],	False],
+						  'time': ['Time [Gyr]',														[1E-2,13.7],	False],
 				 'time_lookback': ['Lookback Time [Gyr]',												[1E-1,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],

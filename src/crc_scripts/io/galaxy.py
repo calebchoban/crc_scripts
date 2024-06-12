@@ -118,9 +118,9 @@ class Halo(object):
             self.redshift = sp.redshift
             # Get center from average of gas particles
             part = self.sp.loadpart(0)
-            self.xc = np.average(part.p[:,0],weights=part.m)
-            self.yc = np.average(part.p[:,1],weights=part.m)
-            self.zc = np.average(part.p[:,2],weights=part.m)
+            self.xc = np.average(part.get_property('position')[:,0],weights=part.get_property('mass'))
+            self.yc = np.average(part.get_property('position')[:,1],weights=part.get_property('mass'))
+            self.zc = np.average(part.get_property('position')[:,2],weights=part.get_property('mass'))
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
 
@@ -186,7 +186,7 @@ class Halo(object):
                 rmax = self.rout*self.rvir if not self.outkpc else self.rout
             else:
                 rmax = self.rvir
-            in_halo = np.sum(np.power(part.p,2),axis=1) <= np.power(rmax,2.)
+            in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
             if np.all(in_halo==False):
                 print("WARNING: No particle of ptype %i in the zoom in region."%ptype)
             part.mask(in_halo)
@@ -212,20 +212,15 @@ class Halo(object):
 
 
     # get star formation history using all stars in Rvir
-    def get_SFH(self, dt=0.01, cum=0, cen=None, rout=1.0, kpc=0):
+    def get_SFH(self, dt=0.01, cum=0, rout=1.0, kpc=0):
 
         self.load()
         if (self.k==-1): return 0., 0.
 
-        try:
-            xc, yc, zc = cen[0], cen[1], cen[2]
-        except (TypeError,IndexError):
-            xc, yc, zc = self.xc, self.yc, self.zc
-
         part = self.loadpart(4)
         if (part.k==-1): return 0., 0.
 
-        p, sft, m = part.p, part.sft, part.m
+        p, sft, m = part.get_property('position'), part.get_property('sft'), part.get_property('mass')
         r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
         rmax = rout*self.rvir if kpc==0 else rout
         t, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=self.sp)
@@ -242,13 +237,13 @@ class Halo(object):
         print('assigning center of galaxy:')
         part = self.part[ptype]
         part.load()
-        if len(part.m) < 0:
+        if len(part.get_property('mass')) < 0:
             print("""There are no particles of ptype %i to use for assigning center of galaxy. You should use another
                   type of particle such as gas or dark matter."""%ptype)
             return
 
         # calculate center position
-        self.center_position = coordinate_utils.get_center_position_zoom(part.p, part.m, self.sp.boxsize,
+        self.center_position = coordinate_utils.get_center_position_zoom(part.get_property('position'), part.get_property('mass'), self.sp.boxsize,
             center_position=np.array([self.xc,self.yc,self.zc]), distance_max=mass_radius_max)
         self.xc = self.center_position[0]
         self.yc = self.center_position[1]
@@ -259,7 +254,7 @@ class Halo(object):
 
         # calculate center velocity
         self.center_velocity = coordinate_utils.get_center_velocity(
-            part.v, part.m, part.p, self.center_position, velocity_radius_max, self.sp.boxsize)
+            part.get_property('velocity'), part.get_property('mass'), part.get_property('position'), self.center_position, velocity_radius_max, self.sp.boxsize)
         self.vx = self.center_velocity[0]
         self.vy = self.center_velocity[1]
         self.vz = self.center_velocity[2]
@@ -283,7 +278,7 @@ class Halo(object):
         '''
         part = self.part[ptype] # particle types to use to compute MOI tensor and principal axes
         part.load()
-        if len(part.m) < 0:
+        if len(part.get_property('mass')) < 0:
             print("""There are no particles of ptype %i to use for assigning principle axes of galaxy. You should use another
                   type of particle such as gas or dark matter."""%ptype)
             return
@@ -299,11 +294,11 @@ class Halo(object):
 
         # get particles within age limits
         if age_limits is not None and len(age_limits):
-            ages = part.age
+            ages = part.get_property('age')
             part_indices = np.where(
                 (ages >= min(age_limits)) * (ages < max(age_limits)))[0]
         else:
-            part_indices = np.arange(len(part.m))
+            part_indices = np.arange(len(part.get_property('mass')))
 
         # store galaxy center
         center_position = self.center_position
@@ -311,7 +306,7 @@ class Halo(object):
 
         # compute radii wrt galaxy center [kpc physical]
         radius_vectors = coordinate_utils.get_distances(
-            part.p[part_indices], center_position, self.sp.boxsize)
+            part.get_property('position')[part_indices], center_position, self.sp.boxsize)
 
         # keep only particles within radius_max
         radius2s = np.sum(radius_vectors ** 2, 1)
@@ -322,11 +317,11 @@ class Halo(object):
 
         # compute rotation vectors for principal axes (defined via moment of inertia tensor)
         rotation_vectors, _eigen_values, axes_ratios = coordinate_utils.get_principal_axes(
-            radius_vectors, part.m[part_indices], print_results=False)
+            radius_vectors, part.get_property('mass')[part_indices], print_results=False)
 
         # test if need to flip principal axis to ensure that v_phi is defined as moving
         # clockwise as seen from + Z (silly Galactocentric convention)
-        velocity_vectors = coordinate_utils.get_velocity_differences(part.v[part_indices], center_velocity)
+        velocity_vectors = coordinate_utils.get_velocity_differences(part.get_property('velocity')[part_indices], center_velocity)
         velocity_vectors_rot = coordinate_utils.get_coordinates_rotated(velocity_vectors, rotation_vectors)
         radius_vectors_rot = coordinate_utils.get_coordinates_rotated(radius_vectors, rotation_vectors)
         velocity_vectors_cyl = coordinate_utils.get_velocities_in_coordinate_system(
@@ -438,9 +433,9 @@ class Disk(Halo):
             self.time = sp.time
             # Get center from average of gas particles
             part = self.sp.loadpart(0)
-            self.xc = np.average(part.p[:,0],weights=part.m)
-            self.yc = np.average(part.p[:,1],weights=part.m)
-            self.zc = np.average(part.p[:,2],weights=part.m)
+            self.xc = np.average(part.get_property('position')[:,0],weights=part.get_property('mass'))
+            self.yc = np.average(part.get_property('position')[:,1],weights=part.get_property('mass'))
+            self.zc = np.average(part.get_property('position')[:,2],weights=part.get_property('mass'))
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
         
@@ -503,8 +498,8 @@ class Disk(Halo):
         part.load()
         if part.npart>0:
             part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-            zmag = part.p[:,2]
-            smag = np.sqrt(np.sum(np.power(part.p[:,:2],2),axis=1))
+            zmag = part.get_property('position')[:,2]
+            smag = np.sqrt(np.sum(np.power(part.get_property('position')[:,:2],2),axis=1))
             in_disk = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
             part.mask(in_disk)
 
