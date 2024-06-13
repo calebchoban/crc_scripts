@@ -2,6 +2,7 @@ from copy import copy
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import config
@@ -162,6 +163,23 @@ class Figure(object):
         axis = self.axes[axis_num]
         fb = axis.fill_between(x_data, y1_data, y2_data, **kwargs)
         self.axis_artists[axis_num] += [fb]
+    
+
+    def plot_polygon(self, axis_num, x_data, y_data, **kwargs):
+        default_kwargs = {
+            'color': config.BASE_COLOR, 
+            'alpha': 0.3, 
+            'zorder': 1}
+        
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]
+
+        axis = self.axes[axis_num]
+        fill = axis.fill(x_data, y_data, **kwargs)
+        self.axis_artists[axis_num] += [fill]
+        return fill
+    
 
 
 
@@ -322,20 +340,31 @@ class Figure(object):
             cbar.ax.invert_yaxis()
         if no_minor_ticks:
             cbar.ax.minorticks_off()
-
+ 
+    # This is a wrapper for the matplotlib annotate function which is more versatile than the text function
     def add_text(self, axis_num, x, y, text, **kwargs):
         default_kwargs = {
             'color': config.BASE_COLOR,
             'fontsize': config.EXTRA_LARGE_FONT,
             'ha': 'center',
-            "va": 'center'} 
-        
+            "va": 'center',
+            'xycoords': 'axes fraction'} 
+
+        # Adding outlines to text is not simple so lets make it similar to edges 
+        if 'ec' in kwargs:
+            if 'ew' not in kwargs:
+                kwargs['ew']=0.5*config.BASE_ELINEWIDTH
+            kwargs['path_effects']=[patheffects.withStroke(linewidth= kwargs['ew'],
+                                                        foreground= kwargs['ec'])]
+            kwargs.pop('ec',0);kwargs.pop('ew',0)
+
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
                  
         axis=self.axes[axis_num]
-        axis.text(x, y, text, transform=axis.transAxes, **kwargs)
+        axis.annotate(text,xy=[x,y], **kwargs)
+
 
     def add_artist(self, axis_num, artist, **kwargs):
 
