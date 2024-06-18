@@ -287,7 +287,17 @@ PROP_INFO  				= {
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
 								  [r'$\frac{\partial n}{\partial a}$',									[1E-10,1E4],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
-								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E-10,1E-4],	True])
+								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E-10,1E-4],	True]),
+					 'cool_rate': [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+					 'heat_rate': [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+					'net_heat_Q': [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'hydro_heat_rate': [r'$\Lambda_{\rm hydro}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'metal_cool_rate': [r'$\Lambda_{\rm metal}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+				'dust_cool_rate': [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'photo_heat_rate': [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',		[2E-25,2E-22],	True],
+			   			'T_dust': [r'$T_{\rm dust}$ [K]',												[0,100],		False],
+			 'electron_fraction': [r'$f_{\rm electron}$',												[1E-3,1],		True],
+			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0,10],			False],
 							}
 
 

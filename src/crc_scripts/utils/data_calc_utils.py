@@ -64,7 +64,7 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 
 
 
-def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None):
+def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None, func_override=None):
 	"""
 	Calculate the 2D histogram for the given property and data from gas particle
 
@@ -100,10 +100,14 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	else:
 		T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)
 
-	if 'M_' in property:
-		func = np.sum
+	if func_override is None:
+		if 'M_' in property:
+			func = np.sum
+		else:
+			func = np.mean
 	else:
-		func = np.mean
+		func = func_override
+		
 	bin_data = G.get_property(property)
 	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
 	# Need to catch case were np.sum is given empty array which will return zero

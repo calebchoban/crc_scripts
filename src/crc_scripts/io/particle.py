@@ -107,6 +107,7 @@ class Particle:
             'HydroHeatingRate': 'hydro_heat_rate', # [M_sun / yr]
             'MetalCoolingRate': 'metal_cool_rate', # [M_sun / yr]
             'DustCoolingRate': 'dust_cool_rate', # [M_sun / yr]
+            'PElecHeatingRate': 'photo_heat_rate', # [M_sun / yr]
             'StarFormationRate': 'sfr',  # [M_sun / yr]
             # 'MagneticField': 'magnetic_field',  # 3-D magnetic field [Gauss]
             # star/gas ----------
@@ -140,6 +141,8 @@ class Particle:
             'DustSpeciesAbundance': 'dust_spec',
             # dense H2 gas mass fraction and fraction of gas=phase C locked in CO
             'DustMolecularSpeciesFractions': ['dense_H2_frac','C_in_CO'],
+            # clumping factor (C_2) from unresolved turbulent mixing
+            'ClumpingFactor': 'clumping_factor',
             # temperature of dust grains from FIRE-3
             'DustTemperature': 'dust_temp',
             # parameters for grain size bins with linear slopes. Each species has N grain size bins specified at sim runtime
