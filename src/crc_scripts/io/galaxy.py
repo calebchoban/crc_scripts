@@ -188,7 +188,7 @@ class Halo(object):
                 rmax = self.rvir
             in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
             if np.all(in_halo==False):
-                print("WARNING: No particle of ptype %i in the zoom in region."%ptype)
+                print("WARNING: No particle of ptype %i in the zoom in region when loading particle data."%ptype)
             part.mask(in_halo)
 
         return part

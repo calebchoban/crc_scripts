@@ -292,6 +292,9 @@ class Particle:
 
         for prop in self.data.keys():
             self.data[prop] = self.data[prop][mask]
+
+        self.npart = len(self.data['mass'])
+        
         return
 
     def orientate(self, center_pos=None, center_vel=None, principal_vec=None):
