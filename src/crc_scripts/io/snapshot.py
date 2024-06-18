@@ -92,7 +92,7 @@ class Snapshot:
         f.close()
 
         # correct for cosmological runs
-        if (self.cosmological==1): self.boxsize *= (self.time/self.hubble)
+        if (self.cosmological==1): self.boxsize *= (self.scale_factor/self.hubble)
 
         # initialize particle types
         self.header = Header(self)

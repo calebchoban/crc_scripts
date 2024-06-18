@@ -75,7 +75,7 @@ class Halo(object):
         sp = self.sp
  
         # cosmological, use AHF
-        if mode=='AHF' and not self.cosmological:
+        if mode=='AHF' and self.cosmological:
             AHF = sp.loadAHF()
             # catalog exists
             if (AHF.k==1):
@@ -314,6 +314,9 @@ class Halo(object):
 
         radius_vectors = radius_vectors[masks]
         part_indices = part_indices[masks]
+        if (len(radius_vectors) <=0):
+            print("WARNING: No particles of pytpe",ptype," within max_radius ",radius_max," and within age limits ",age_limits, "found when determining principle axes!")
+            return 
 
         # compute rotation vectors for principal axes (defined via moment of inertia tensor)
         rotation_vectors, _eigen_values, axes_ratios = coordinate_utils.get_principal_axes(
