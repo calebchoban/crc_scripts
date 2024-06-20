@@ -2,8 +2,24 @@ import os
 import h5py
 import numpy as np
 
-# check if snap exists and return number of files
 def check_snap_exist(sdir, snum):
+    """
+    Check if the snapshot with the given number exists in the given directory and returns the number of files
+    it comprises if it exists.
+
+    Parameters
+    ----------
+    sdir : string
+        Directory of snapshot
+    snum : int
+        Number of snapshot
+
+    Returns
+    -------
+    nsnap : int
+        Number of files that make up snapshot or 0 if no snapshot exists
+
+    """
     
     # single file case
     snapfile = sdir + "/snapshot_%03d.hdf5" %snum
@@ -27,8 +43,26 @@ def check_snap_exist(sdir, snum):
     return nsnap
 
 
-# this function returns snapshot file name
 def get_snap_file_name(sdir, snum, nsnap, i):
+    """
+    Get name of file for snapshot. If snapshot is multiple files it will return the name of the specified subfile.
+    Parameters
+    ----------
+    sdir : string
+        Directory of snapshot
+    snum : int
+        Number of snapshot
+    nsnap : int
+        Number of subfiles making up snapshot
+    i : int
+        Number of subfile
+
+    Returns
+    -------
+    snapfile : string
+        Full name of snapshot in specified directory.
+        
+    """
     if (nsnap==1):
         snapfile = sdir + "/snapshot_%03d.hdf5" %snum
     else:

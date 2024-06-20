@@ -110,6 +110,23 @@ def bin_values(bin_data, data_vals, bin_lims, bin_nums=50, weight_vals=None, log
 
 # cosmic time in a flat cosmology
 def quick_lookback_time(a, sp=None, redshift=False):
+    """
+    Quick calculation for the physical lookback time given a scale length or redshift.
+
+    Parameters
+    ----------
+    a : float
+        Scale length or redshift you want the look back time for.
+    sp : Snapshot, optional
+        Snapshot to pull cosmological constants from. If none is given these uses default values.
+    redshift : bool, optional
+        Set whether tou are giving a redshift or scale length.
+
+    Returns
+    -------
+    time : float
+        Calculated look back time.
+    """
 
     if redshift:
         a = 1/(1+a)
@@ -123,13 +140,30 @@ def quick_lookback_time(a, sp=None, redshift=False):
         omega = sp.omega
     
     x = omega / (1.0-omega) / (a*a*a)
-    t = (2.0/(3.0*np.sqrt(1.0-omega))) * np.log(np.sqrt(x)/(-1.0+np.sqrt(1.+x)))
-    t *= (13.777*(0.71/h)) # in Gyr
+    time = (2.0/(3.0*np.sqrt(1.0-omega))) * np.log(np.sqrt(x)/(-1.0+np.sqrt(1.+x)))
+    time *= (13.777*(0.71/h)) # in Gyr
     
-    return t
+    return time
 
 def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
-    # Returns interpolation from time_name_input to time_name_get
+    """
+    Calculates an interpolation spline from one time measure to the other. 
+    Accepted time measures are 'time','time_lookback','redshift','reshift_plus_1'.
+
+    Parameters
+    ----------
+    time_name_get : string
+        Time measure you want to get the conversion for.
+    time_name_input : string
+        Time measure you are converting from.
+    sp : Snapshot, optional
+        Snapshot to pull cosmological constants from. If none is given these uses default values.
+
+    Returns
+    -------
+    conv_func : function
+        Conversion spline function.
+    """
 
     a_vals = np.logspace(np.log10(0.01),np.log10(1),100)
     t_vals = quick_lookback_time(a_vals, sp=sp, redshift=False)
@@ -162,8 +196,23 @@ def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
     return conv_func
 
 
-# calculate stellar ages
+
 def get_stellar_ages(sft, sp):
+    """
+    Calculates age of star particles given their formation time.
+
+    Parameters
+    ----------
+    sft : string
+        Formation time of star particle.
+    sp : Snapshot
+        Snapshot to pull cosmological constants from or to determine this isn't cosmological.
+
+    Returns
+    -------
+    age : ndarray
+        Age of star particle
+    """
 
     if (sp.cosmological==1):
         t_form = quick_lookback_time(sft, sp=sp)
@@ -180,7 +229,31 @@ def get_stellar_ages(sft, sp):
 # sft [ascale/Gyr for cosmological/non-cosmological]
 # mass [M_solar]
 # dt [Gyr]
-def SFH(sft, m, sp, dt=0.01, cum=0):
+def SFH(sft, m, sp, dt=0.01, cum=False):
+    """
+    Calculates the archeological star formation history from the given star particles formation times and masses.
+
+    Parameters
+    ----------
+    sft : ndarray
+        Formation times for star particles
+    m : ndarray
+        Masses of star particles
+    sp : Snapshot
+        Snapshot to pull cosmological constants from or to determine this isn't cosmological.
+    dt : float, optional
+        Time bin sizes in Gyr
+    cum : bool, optional
+        Make a cumulative SFH, i.e. archeological stellar mass evolution
+    
+    Returns
+    -------
+    time : ndarray
+        Time array starting at first star formed and ending at last star formed.
+    sfr : ndarray
+        Star formation rate or cumulative stellar mass at each time.
+    """
+
     
     if (sp.cosmological==1):
         tform = quick_lookback_time(sft, sp=sp)
@@ -194,90 +267,74 @@ def SFH(sft, m, sp, dt=0.01, cum=0):
 
     # get a time grid
     tmin, tmax = np.min(tform), np.max(tform)
-    t = np.linspace(tmin, tmax, 1000)
-    if (cum==1):
-        sfr = np.interp(t, tform_sorted, m_cum) # cumulative SFH, in Msun
+    time = np.linspace(tmin, tmax, 1000)
+    if (cum):
+        sfr = np.interp(time, tform_sorted, m_cum) # cumulative SFH, in Msun
     else:
-        sfh_later = np.interp(t, tform_sorted, m_cum)
-        sfh_former = np.interp(t-dt, tform_sorted, m_cum)
+        sfh_later = np.interp(time, tform_sorted, m_cum)
+        sfh_former = np.interp(time-dt, tform_sorted, m_cum)
         sfr = (sfh_later-sfh_former)/dt/1E9 # in Msun per yr
     
-    return t, sfr
-
-
-# gas mean molecular weight
-def gas_mu(ne):
-    
-    XH = 0.76
-    YHe = (1.0-XH) / (4.0*XH)
-
-    #return 1. / (XH*0.5 + (1-XH)/4. + 1./(16.+12.)) # This is now used in FIRE for the temperature floor
-    return (1.0+4.0*YHe) / (1.0+YHe+ne)
+    return time, sfr
 
 
 # returns gas particles temperature in Kelvin assuming fully-atomic with no metal correction
 def approx_gas_temperature(u, ne, keV=0):
+    """
+    Calculates the approximate temperature of gas particle given their internal energy and electron density.
+
+    Parameters
+    ----------
+    u : ndarray
+        Internal energy for gas particles
+    ne : ndarray
+        Electrong density for gas particles
+    keV : bool, optional
+        Output in keV instead of Kelvin
+    
+    Returns
+    -------
+    T : ndarray
+        Temperature of gas particles
+    """
 
     g_gamma= 5.0/3.0
     g_minus_1= g_gamma-1.0
-    mu = gas_mu(ne);
+
+    XH = 0.76
+    YHe = (1.0-XH) / (4.0*XH)
+
+    #return 1. / (XH*0.5 + (1-XH)/4. + 1./(16.+12.)) # This is now used in FIRE for the temperature floor
+    mu = (1.0+4.0*YHe) / (1.0+YHe+ne)
+
     MeanWeight= mu*config.PROTONMASS
     T = MeanWeight/config.BoltzMann_ergs * g_minus_1 * u
 
-    # do we want units of keV?  (0.001 factor converts from eV to keV)
+    # do we want units of keV? 
     if (keV==1):
         T *= config.T_to_keV;
 
     return T
 
-# Taken from Phil Hopkins' routines for more accruate temperature
-def gas_temperature(internal_egy_code, helium_mass_fraction, electron_abundance, total_metallicity, mass_density, f_neutral=np.zeros(0), f_molec=np.zeros(0), key='Temperature'):
-    ''' Return estimated gas temperature, given code-units internal energy, helium
-         mass fraction, and electron abundance (number of free electrons per H nucleus).
-         this will use a simply approximation to the iterative in-code solution for
-         molecular gas, total metallicity, etc. so does not perfectly agree
-         (but it is a few lines, as opposed to hundreds) '''
-    internal_egy_cgs=internal_egy_code*1.e10; gamma_EOS=5./3.; kB=config.BoltzMann_ergs; m_proton=config.PROTONMASS; X0=0.76;
-    total_metallicity[(total_metallicity>0.25)] = 0.25;
-    helium_mass_fraction[(helium_mass_fraction>0.35)] = 0.35;
-    y_helium = helium_mass_fraction / (4.*(1.-helium_mass_fraction));
-    X_hydrogen = 1. - (helium_mass_fraction+total_metallicity);
-    T_mol = 100. * (mass_density*4.04621);
-    T_mol[(T_mol>8000.)] = 8000.;
-    A0 = m_proton * (gamma_EOS-1.) * internal_egy_cgs / kB;
-    mu = (1. + 4.*y_helium) / (1.+y_helium+electron_abundance);
-    X=X_hydrogen; Y=helium_mass_fraction; Z=total_metallicity; nel=electron_abundance;
-
-    if(np.array(f_molec).size > 0):
-        print("fmol")
-        fmol = 1.*f_molec;
-        fH=X_hydrogen; f=fmol; xe=nel;
-        f_mono = fH*(xe + 1.-f) + (1.-fH)/4.; f_di = fH*f/2.; gamma_mono=5./3.; gamma_di=7./5.;
-        gamma_eff = 1. + (f_mono + f_di) / (f_mono/(gamma_mono-1.) + f_di/(gamma_di-1.));
-        A0 = m_proton * (gamma_eff-1.) * internal_egy_cgs / kB;
-    else:
-        print("no fmol")
-        fmol=0;
-        if(2==2):
-            for i in range(3):
-                mu = 1. / ( X*(1.-0.5*fmol) + Y/4. + nel*X0 + Z/(16.+12.*fmol));
-                T = mu * A0 / T_mol;
-                fmol = 1. / (1. + T*T);
-    mu = 1. / ( X*(1.-0.5*fmol) + Y/4. + nel*X0 + Z/(16.+12.*fmol));
-    T = mu * A0;
-    print(mu)
-
-    if('Temp' in key or 'temp' in key): return T;
-    if('Weight' in key or 'weight' in key): return mu;
-    if('Number' in key or 'number' in key): return mass_density * 404.621 / mu;
-    return T;
-
 
 # returns the rotation matrix between two vectors. To be used to rotate galaxies
 def calc_rotate_matrix(vec1, vec2):
     """"
-    Gives the rotation matrix between two unit vectors
+    Calculates the rotation matrix between two unit vectors.
+
+    Parameters
+    ----------
+    vec1 : ndarray
+        First unit vector
+    vec2 : ndarray
+        Second unit vector you want to rotate vec1 to.
+
+    Returns
+    -------
+    rotation_matrix : ndarray
+        Rotation matrix between the two vectors
     """
+
     a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
     v = np.cross(a, b)
     c = np.dot(a, b)
@@ -287,8 +344,26 @@ def calc_rotate_matrix(vec1, vec2):
     return rotation_matrix
 
 
-# Fits exponential disk to galactocentric vs sufrace density data
 def fit_exponential(x_data, y_data, guess=None, bounds=None):
+    """"
+    Fits exponential disk to galactocentric vs sufrace density data
+
+    Parameters
+    ----------
+    x_data : ndarray
+        Galactocentric radius data
+    y_data : ndarray
+        Surface density data
+    guess : list, optional
+        Inital guesses for curve_fit
+    bouds : list, optional
+        Bounds for values curve_fit can use
+
+    Returns
+    -------
+    curve_fit : ndarray
+        Parameters for fitted exponential
+    """
     def exp_func(x, coeff, scale_l, offset):
         return coeff*np.exp(-x/scale_l)+offset
 
@@ -296,6 +371,28 @@ def fit_exponential(x_data, y_data, guess=None, bounds=None):
 
 # This fits a sersic+exponential disk profile to galactocentric vs sufrace density data
 def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='de_vauc', no_exp=False):
+    """"
+    Fits a sersic+exponential disk profile to galactocentric vs sufrace density data
+
+    Parameters
+    ----------
+    x_data : ndarray
+        Galactocentric radius data
+    y_data : ndarray
+        Surface density data
+    guess : list, optional
+        Inital guesses for curve_fit
+    bouds : list, optional
+        Bounds for values curve_fit can use
+    bulge_profile : string, optional
+        Type of function you want to fit ('sersic', de_vauc') for the bulge
+    no_exp : bool, optional
+        Set to not fit an exponential
+    Returns
+    -------
+    curve_fit : ndarray
+        Parameters for fitted profile
+    """
     def sersic_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l, sersic_index):
         return np.log10(coeff1*np.exp(-np.power(x/sersic_l,1./sersic_index))+coeff2*np.exp(-x/disk_l))
     def de_vaucouleurs_and_exp_func(x, coeff1,coeff2,sersic_l,disk_l):
@@ -314,6 +411,20 @@ def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='d
 
 # Returns the dust metallicity from the total mass of dust grains by summing the mass in each grain size bin
 def get_grain_mass(G):
+    """"
+    Returns the dust metallicity from the total mass of dust grains by summing the mass in each grain size bin
+
+    Parameters
+    ----------
+    G : Particle
+        Gas particle you want to check the grain metallicity for.
+
+    Returns
+    -------
+    dust_z : ndarray
+        Dust metallicty given by grain size bins
+    """
+
 
     # Use so numpy-fu to do this in one line
     num_grains=G.get_property('grain_bin_nums')
@@ -331,6 +442,21 @@ def get_grain_mass(G):
 
 # Check if string is same as other string or in list of other strings in a case insensitive manner
 def case_insen_compare(item1, item2):
+    """"
+    Check if string is same as other string or in list of other strings in a case insensitive manner
+
+    Parameters
+    ----------
+    item1 : string
+        String to look for
+    item2 : list, string
+        String or list of strings to check for item1
+
+    Returns
+    -------
+    compare : bool
+        Whether item1 is in item2
+    """
     if type(item2) is str:
         item2=[item2]
     return item1.casefold() in map(str.casefold, item2)

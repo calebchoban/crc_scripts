@@ -20,7 +20,7 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		Name of property for property1 to be binned over
 	snap : snapshot/galaxy
 		Snapshot or Galaxy object from which particle data can be loaded
-	bin_nums : int
+	bin_nums : int, optional
 		Number of bins to use for property2
 	prop_lims : ndarray, optional
 		Limits for property2 binning
@@ -66,7 +66,7 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 
 def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None, func_override=None):
 	"""
-	Calculate the 2D histogram for the given property and data from gas particle
+	Calculate the 2D histogram for the given property and data from snapshot particle
 
 	Parameters
 	----------
@@ -76,10 +76,16 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 		Snapshot or Galaxy object from which particle data can be loaded
 	bin_nums: int, optional
 		Number of bins to use
+	nH_lims : list, optional
+		Shape (2) limits for nH density axis
+	T_lims : list, optional
+		Shape (2) limits for temperature axis
+	func_override: function, optional
+		Specify function to use for calculating values in each pixel instead of default sum/mean function usuually used.
 
 	Returns
 	-------
-	ret : tuple
+	phase_data : tuple
 		Binned 2D data with bin edges and bin numbers
 
 	"""
@@ -89,6 +95,7 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	nH_data = G.get_property('nH')
 	T_data = G.get_property('T')
 
+	# Get bins for each axis
 	nH_bin_lims = config.get_prop_limits('nH') if nH_lims is None else nH_lims
 	T_bin_lims = config.get_prop_limits('T') if T_lims is None else T_lims
 	if config.get_prop_if_log('nH'):
@@ -109,15 +116,15 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 		func = func_override
 		
 	bin_data = G.get_property(property)
-	ret = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
+	phase_data = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
 	# Need to catch case were np.sum is given empty array which will return zero
 	if 'M_' in property:
-		ret.statistic[ret.statistic<=0] = np.nan
+		phase_data.statistic[ret.statistic<=0] = np.nan
 
-	return ret
+	return phase_data
 
 
-def get_particle_mask(ptype, snap, mask_criteria='all',verbose=False):
+def get_particle_mask(ptype, snap, mask_criteria='all'):
 	"""
 	Creates a boolean array for the given particle type in the given 
 	snapshot to mask particles which meet the mask_criteria.
@@ -267,11 +274,11 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 		Number of bins for property2
 	prop_lims : ndarray, optional
 		Limits for property2 binning
-	mask_prop : string
+	mask_prop : string, optional
 		Will mask pixels which do not meet a gas property criteria (for now only fH2>0.1)
-	prop1_criteria : string
+	prop1_criteria : string, optional
 		A masking criteria for property1 to include only data which meets the criteria (e.g cold/warm/hot/neutral/molecular/ionized gas or young/old stars)
-	prop2_criteria : string
+	prop2_criteria : string, optional
 		A masking criteria for property2 to include only data which meets the criteria (e.g cold/warm/hot/neutral/molecular/ionized gas or young/old stars)
 		
 	Returns
