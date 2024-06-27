@@ -545,8 +545,8 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
     width_space = 0.02*height_ratios[0]
     height_space = 0.02*height_ratios[0]
     # Check whether you want another projection below the first (usually edge-on with a disk)
-    if sub_projs:
-        if has_colorbars:
+    if add_sub_projs:
+        if add_colorbars:
             fig, axes = plt.subplots(nrows=3, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':np.append(height_ratios,[cbar_height])},
                                     figsize=[num_plots*config.BASE_FIG_SIZE,
                                             (height_ratios[0]+height_ratios[1]+cbar_height)/height_ratios[0]*config.BASE_FIG_SIZE])
@@ -568,11 +568,11 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
     # Only one projection
     else:
         nrows=1
-        if has_colorbars:
+        if add_colorbars:
             height_ratios=np.append(height_ratios,[cbar_height])
             nrows=2
         gs = gridspec.GridSpec(nrows,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
-        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if has_colorbars else 1
+        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if add_colorbars else 1
         fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
         for i in range(num_plots):
             ax = plt.subplot(gs[0,i])
@@ -600,38 +600,39 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
 
     """
 
-        if sub_L is None:
-            ax1 = axes[0]
-            ax1.set_xlim([-main_L,main_L])
-            ax1.set_ylim([-main_L,main_L])
-            if not axes_visible:
-                ax1.xaxis.set_visible(False)
-                ax1.yaxis.set_visible(False)
-            for axe in ['top','bottom','left','right']:
-                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-        else:
-            ax1 = axes[0]
-            ax1.set_xlim([-main_L,main_L])
-            ax1.set_ylim([-main_L,main_L])
-            for axe in ['top','bottom','left','right']:
-                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+    if sub_L is None:
+        ax1 = axes[0]
+        ax1.set_xlim([-main_L,main_L])
+        ax1.set_ylim([-main_L,main_L])
+        if not axes_visible:
+            ax1.xaxis.set_visible(False)
+            ax1.yaxis.set_visible(False)
+        for axe in ['top','bottom','left','right']:
+            ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+    # If there is a subprojection set that up as well
+    else:
+        ax1 = axes[0]
+        ax1.set_xlim([-main_L,main_L])
+        ax1.set_ylim([-main_L,main_L])
+        for axe in ['top','bottom','left','right']:
+            ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
-            ax2 = axes[1]
-            ax2.set_ylim([-sub_L, sub_L])
-            ax2.set_xlim([-main_L,main_L])
-            for axe in ['top','bottom','left','right']:
-                    ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-            
-            if not axes_visible:
-                ax1.xaxis.set_visible(False)
-                ax1.yaxis.set_visible(False) 
-                ax2.xaxis.set_visible(False)
-                ax2.yaxis.set_visible(False)
+        ax2 = axes[1]
+        ax2.set_ylim([-sub_L, sub_L])
+        ax2.set_xlim([-main_L,main_L])
+        for axe in ['top','bottom','left','right']:
+                ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+        
+        if not axes_visible:
+            ax1.xaxis.set_visible(False)
+            ax1.yaxis.set_visible(False) 
+            ax2.xaxis.set_visible(False)
+            ax2.yaxis.set_visible(False)
 
-        # Add scale bar
-        bar, label = find_scale_bar(main_L)
-        ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-        ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+    # Add scale bar to main projection
+    bar, label = find_scale_bar(main_L)
+    ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+    ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
 
 
 def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False):

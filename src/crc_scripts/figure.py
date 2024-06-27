@@ -385,29 +385,29 @@ class Figure(object):
 
 class Projection(Figure):
 
-    def __init__(self, plot_num, sub_proj=True, has_colorbars=True, height_ratios=[5,1]):
+    def __init__(self, plot_num, add_sub_proj=True, add_colorbars=True, height_ratios=[5,1]):
         """
         Parameters
         ----------
         plot_num : int
             Number of plots in this figure.
-        sub_proj: bool
+        add_sub_proj : bool
             Toggle wether each projection has a sub projection along a different axis which is plotted right below it.
-        has_colorbars: bool
+        add_colorbars : bool
             Toggle wether each projection has a colorbar.
-        height_ratios: list
+        height_ratios : list
             Ratio between heights of projection, sub_projection, and colorbar. Only need to include ratio for each option selected.
         """
         self.plot_num = plot_num
-        self.sub_proj = sub_proj
-        self.has_colorbars = has_colorbars
+        self.sub_proj = add_sub_proj
+        self.has_colorbars = add_colorbars
         if self.sub_proj: self.height_ratios = height_ratios
         else: height_ratios = [1]
         # Set up subplots based on number of parameters given
-        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, sub_proj, has_colorbars=has_colorbars,height_ratios=height_ratios)
+        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, add_sub_proj, add_colorbars=add_colorbars,height_ratios=height_ratios)
 
         self.axis_artists = [[] for i in range(self.plot_num)]
-        if has_colorbars:
+        if add_colorbars:
             self.axis_colorbar = [None for i in range(self.plot_num)]
         self.axis_properties = ['' for i in range(self.plot_num)]
 

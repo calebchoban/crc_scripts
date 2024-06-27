@@ -144,7 +144,7 @@ class Particle:
             # clumping factor (C_2) from unresolved turbulent mixing
             'ClumpingFactor': 'clumping_factor',
             # temperature of dust grains from FIRE-3
-            'DustTemperature': 'dust_temp',
+            'Dust_Temperature': 'dust_temp',
             # parameters for grain size bins with linear slopes. Each species has N grain size bins specified at sim runtime
             # total number of dust grains in grain size bin
             'DustBinNumbers': 'grain_bin_num',
@@ -512,11 +512,13 @@ class Particle:
                     elem_indx = config.ELEMENTS.index(elem)
                     prop_data =  data['dust_Z'][:,elem_indx]/data['Z'][:,elem_indx]
                     prop_data[prop_data > 1] = 1.
+                elif case_insen_compare(property,['T_dust']):
+                    prop_data = data['dust_temp']
                 elif self.sp.Flag_GrainSizeBins:
                     if case_insen_compare(property,'grain_bin_num'):
                         prop_data = data['grain_bin_num'];
                     elif case_insen_compare(property,'grain_bin_slope'):
-                        prop_data = data[grain_bin_slope];
+                        prop_data = data['grain_bin_slope'];
                     # Note all dust grain size distribution data is normalized by the total grain number
                     elif case_insen_compare(property,'dn/da'):
                         # Gives normalized dn/da at the center of the grain bins 

@@ -114,12 +114,11 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 			func = np.mean
 	else:
 		func = func_override
-		
 	bin_data = G.get_property(property)
 	phase_data = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
 	# Need to catch case were np.sum is given empty array which will return zero
 	if 'M_' in property:
-		phase_data.statistic[ret.statistic<=0] = np.nan
+		phase_data.statistic[phase_data.statistic<=0] = np.nan
 
 	return phase_data
 
@@ -200,7 +199,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 		if not mask_identified and mask_criteria not in ['all','']:
 			print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
 
-	if verbose and np.all(mask == False):
+	if np.all(mask == False):
 		print(f"Warning: no particles match the mask criteria ({mask_criteria})!")
 
 	return mask
