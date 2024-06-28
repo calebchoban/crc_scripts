@@ -113,7 +113,8 @@ class Halo(object):
                 self.Lhat = np.array([0,0,1.])
         # Default for non-cosmological and no AHF to center of star mass
         else:
-            self.k = 1 # so you can reload it
+            print("Centering galaxy based on average position of gas")
+            self.k = 1
             self.time = sp.time
             self.redshift = sp.redshift
             # Get center from average of gas particles

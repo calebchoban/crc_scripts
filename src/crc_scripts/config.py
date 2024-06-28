@@ -179,14 +179,14 @@ DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 # Houses various property labels, limits, and if they should be plotted in log space. 
 # Each property is represented by one or multiple shorthand keys
 PROP_INFO  				= {
-**dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0., 1.], 		False]),
-**dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0., 1.], 		False]),
-						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
-						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
-						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
-					 'f_coronal': [r'$f_{\rm coronal}$', 												[0., 1.], 		False],
-					 'f_ionized': [r'$f_{\rm ionized}$', 												[0., 1.], 		False],					 
-					  'f_conden': [r'$f_{\rm condensation}$', 											[0., 1.], 		False],
+**dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0.,1.05], 		False]),
+**dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0.,1.05], 		False]),
+						'f_cold': [r'$f_{\rm cold}$', 													[0.,1.05], 		False],
+						'f_warm': [r'$f_{\rm warm}$', 													[0.,1.05], 		False],
+						 'f_hot': [r'$f_{\rm hot}$', 													[0.,1.05], 		False],
+					 'f_coronal': [r'$f_{\rm coronal}$', 												[0.,1.05], 		False],
+					 'f_ionized': [r'$f_{\rm ionized}$', 												[0.,1.05], 		False],					 
+					  'f_conden': [r'$f_{\rm condensation}$', 											[0.,1.05], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
@@ -295,9 +295,9 @@ PROP_INFO  				= {
 			   'metal_cool_rate': [r'$\Lambda_{\rm metal}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 				'dust_cool_rate': [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 			   'photo_heat_rate': [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',		[2E-25,2E-22],	True],
-			   			'T_dust': [r'$T_{\rm dust}$ [K]',												[0,100],		False],
+**dict.fromkeys(['T_dust','dust_temp'], [r'$T_{\rm dust}$ [K]',											[0,60],			False]),
 			 'electron_fraction': [r'$f_{\rm electron}$',												[1E-3,1],		True],
-			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0,10],			False],
+			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0.8,100],		True],
 							}
 
 
