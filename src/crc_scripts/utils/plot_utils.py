@@ -220,10 +220,11 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
         fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,np.ceil(num_plots/ncols)*config.BASE_FIG_SIZE*yx_ratio),
                                     squeeze=True, sharex=sharex, sharey=sharey)
         # Need to delete extra axes and reshow tick labels if axes were shared
-        for i in range(num_plots%ncols):
-            axes[num_plots//ncols-1,ncols-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
-            fig.delaxes(axes[num_plots//ncols,ncols-1-i])
-            axes[num_plots//ncols,ncols-1-i] = None
+        if num_plots%ncols > 0:
+            for i in range(ncols-num_plots%ncols):
+                axes[num_plots//ncols-1,ncols-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
+                fig.delaxes(axes[num_plots//ncols,ncols-1-i])
+                axes[num_plots//ncols,ncols-1-i] = None
         dims = np.array([num_plots//ncols,ncols])
 
     # Get rid of the axes we may have deleted
@@ -299,7 +300,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     """
 
     # Setup x axis
-    if x_prop not in config.PROP_INFO.keys() and (x_label is None and x_lim is None):
+    if x_prop not in config.PROP_INFO.keys() and (x_label is None or x_lim is None):
         print("%s is not a supported property for plot_setup\n"%x_prop)
         print("Either give x_label and x_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
@@ -314,7 +315,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     axis.set_xlim(x_lim)
 
     # Setup y axis
-    if y_prop not in config.PROP_INFO.keys() and (y_label is None and y_lim is None):
+    if y_prop not in config.PROP_INFO.keys() and (y_label is None or y_lim is None):
         print("%s is not a supported property for plot_setup\n"%y_prop)
         print("Either give y_label and y_lim to make your own or choose from supported properties.")
         print("Valid properties are:")

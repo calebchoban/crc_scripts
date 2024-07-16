@@ -149,7 +149,7 @@ class Particle:
             # total number of dust grains in grain size bin
             'DustBinNumbers': 'grain_bin_num',
             # slope of grain size bin
-            'DustBinSlope': 'grain_bin_slope'
+            'DustBinSlopes': 'grain_bin_slope'
         }
 
         # First initialize all the arrays
@@ -422,13 +422,15 @@ class Particle:
                 elif case_insen_compare(property,'M_carb'):
                     prop_data = data['dust_spec'][:,1]*data['mass']
                 elif case_insen_compare(property,'M_SiC'):
-                    if self.sp.Flag_DustSpecies>2:
+                    if self.sp.Flag_DustSpecies>2 and not self.sp.Flag_GrainSizeBins:
                         prop_data = data['dust_spec'][:,2]*data['mass']
                 elif case_insen_compare(property,'M_iron'):
                     if self.sp.Flag_DustSpecies>5:
                         prop_data = (data['dust_spec'][:,3]+data['dust_spec'][:,5])*data['mass']
-                    elif self.sp.Flag_DustSpecies>2:
+                    elif self.sp.Flag_DustSpecies>2 and not self.sp.Flag_GrainSizeBins:
                         prop_data = data['dust_spec'][:,3]*data['mass']
+                    elif self.sp.Flag_DustSpecies>2 and self.sp.Flag_GrainSizeBins:
+                        prop_data = data['dust_spec'][:,2]*data['mass']
                 elif case_insen_compare(property,'M_ORes'):
                     if self.sp.Flag_DustSpecies>=5:
                         prop_data = data['dust_spec'][:,4]*data['mass']

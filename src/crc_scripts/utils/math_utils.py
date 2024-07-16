@@ -427,8 +427,8 @@ def get_grain_mass(G):
 
 
     # Use so numpy-fu to do this in one line
-    num_grains=G.get_property('grain_bin_nums')
-    slope = G.get_property('grain_bin_slopes')
+    num_grains=G.get_property('grain_bin_num')
+    slope = G.get_property('grain_bin_slope')
     alower = G.sp.Grain_Bin_Edges[:-1]
     aupper = G.sp.Grain_Bin_Edges[1:]
     acenter= G.sp.Grain_Bin_Centers

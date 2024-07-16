@@ -20,20 +20,21 @@ class AHF:
 
         # load AHF catalog
         sp = self.sp
-        if hdir is None: hdir = os.path.dirname(sp.sdir) + "/halo/ahf/output"
+        if hdir is None: hdir = os.path.dirname(os.path.normpath(sp.sdir)) + "/halo/ahf/output"
         print("Looking for snapshot's corresponding AHF file")
-        hfile = hdir + "/snap%03d*.AHF_halos" %sp.snum
-        flist = glob.glob(hfile)
-        # Check for different halo file name format
-        if len(flist) == 0:
-            hfile = hdir + "/snapshot_%03d*.AHF_halos" %sp.snum
+        hfile_formats = [hdir + "/snap%03d*.AHF_halos" %sp.snum, hdir + "/snapshot_%03d*.AHF_halos" %sp.snum]
+        for hfile in hfile_formats:
             flist = glob.glob(hfile)
+            if (len(flist)) != 0:
+                break
 
         # no valid file, leave self.k=0
         if (len(flist)==0): 
             print("No valid AHF halo file.")
             return
-        hfile = flist[0]
+        else:
+            hfile = flist[0]
+            print("AHF file found" + hfile)
 	    
         # read the blocks
         hinv = 1.0/sp.hubble 
