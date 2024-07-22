@@ -18,7 +18,7 @@ LARGE_MARKERSIZE = 15**2
 SMALL_MARKERSIZE = 7.5**2
 
 # Set personal color, linewidths, and styles cycle
-LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna","xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
+LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna","xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:lilac","xkcd:goldenrod","xkcd:peach"]
 SECOND_LINE_COLORS = ["xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
 MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sienna","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
@@ -285,9 +285,9 @@ PROP_INFO  				= {
 			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True],
 					'grain_size': [r'a ($\mu m$)',														[7E-4,10],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
-								  [r'$\frac{\partial n}{\partial a}$',									[1E-10,1E4],	True]),
+								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
-								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E-10,1E-4],	True]),
+								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E20,1E55],	True]),
 					 'cool_rate': [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 					 'heat_rate': [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 					'net_heat_Q': [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
