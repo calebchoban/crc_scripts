@@ -129,6 +129,7 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.674E-24 # grams
 PROTONMASS					= H_MASS
+SPEED_OF_LIGHT				= 3E8 # m/s
 BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 U_to_temp					=  ((PROTONMASS/BoltzMann_ergs)*(UnitVelocity_in_cm_per_s**2))
@@ -143,6 +144,7 @@ grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
 HUBBLE 						= 0.68 # =0.702
 OMEGA_MATTER				= 0.31 # =0.272
+OMEGA_LAMBDA				= 0.69
 L_solar 					= 3.828E26 # Watts
 
 AG89_SOLAR_Z = 0.02
@@ -282,7 +284,7 @@ PROP_INFO  				= {
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
-			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True],
+**dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
 					'grain_size': [r'a ($\mu m$)',														[7E-4,10],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
 								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),

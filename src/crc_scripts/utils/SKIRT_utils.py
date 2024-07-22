@@ -1,6 +1,7 @@
 from astropy.io import ascii
 import numpy as np
 
+from .math_utils import quick_redshift_to_distance
 from .stellar_hsml_utils import get_particle_hsml
 from ..io.gizmo import load_halo
 from .. import config
@@ -118,7 +119,7 @@ def create_SKIRT_input_files(snap_dir, snap_num, output_dir, importDust=True, fi
     print("Gas/Dust data written to " + filename)
 
 
-def get_SKIRT_SED_data(dirc, inst_file, distance=10E6):
+def get_SKIRT_SED_data(dirc, inst_file, distance=10E6, redshift=0):
     '''
     This function extracts and reduces the star and gas particle data from the specified simulation snapshot 
     into SKIRT input file. When extracting dust data it only uses the dust-to-metals (D/Z) ratio.
@@ -129,8 +130,10 @@ def get_SKIRT_SED_data(dirc, inst_file, distance=10E6):
         Name of instrument directory
     inst_file : string
         Name of instrument SED file
-    distance : double
+    distance : double, optional
         Instrument distance (set in SKIRT) in units of pc
+    redshfit : double, optional
+        Redshift of observation for determining instrument distance. Override distance argument
 
     Returns
     -------
@@ -138,7 +141,10 @@ def get_SKIRT_SED_data(dirc, inst_file, distance=10E6):
         Dictionary with wavelength and flux information for each source component
     '''
     # These are the typical columns for the SKIRT simulations I run
-    camera_dist = distance*config.pc_to_m
+    if redshift <=0:
+        camera_dist = distance*config.pc_to_m
+    else:
+        camera_dist = quick_redshift_to_distance(redshift) *config.pc_to_m
     flux_to_L = 4*np.pi*np.power(camera_dist,2)/config.L_solar # Flux to Solar Luminosity
     
     sed_data={}

@@ -35,6 +35,8 @@ class Snapshot:
         if self.cosmological:
             self.scale_factor = self.time
             self.omega = f['Header'].attrs.get('Omega_Matter',0)
+            self.omega_lambda = f['Header'].attrs.get('Omega_Lambda',0)
+            # For old FIRE snapshots
             if self.omega==0: self.omega = f['Header'].attrs.get('Omega0',0)
         else:
             self.scale_factor = 1.

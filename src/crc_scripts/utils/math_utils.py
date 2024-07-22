@@ -196,6 +196,71 @@ def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
     return conv_func
 
 
+def quick_redshift_to_distance(redshift, sp=None):
+    '''
+    Quick calculation for the luminosity distance given a redshift assuming a flat universe.
+    Taken from https://github.com/coolastro/pyCOSMOCAL
+
+    Parameters
+    ----------
+    redshift : double
+        The redshift you want the distance for
+    sp : Snapshot, optional
+        Snapshot you want to pull cosmological paramters from. Assume default values otherwise.
+
+    Returns
+    ----------
+        distance : double
+            Distance in pc to given redshift.
+    '''
+
+    if sp == None:
+        h = config.HUBBLE
+        omega_matter = config.OMEGA_MATTER
+        omega_lambda = config.OMEGA_LAMBDA
+    else:
+        h = sp.hubble
+        omega_matter = sp.omega
+        omega_lambda = sp.omega_lambda
+    omega_rad = 0
+    omega_curvature = 1-omega_matter-omega_lambda
+
+    c = config.SPEED_OF_LIGHT/1E3 # velocity of light in km/sec
+    Tyr = 977.8    # coefficent for converting 1/H into Gyr
+    H0 = h*100
+    az = 1.0/(1+1.0*redshift)
+    age = 0.
+    n=1000         # number of points in integrals
+    for i in range(n):
+        a = az*(i+0.5)/n
+        adot = np.sqrt(omega_curvature+(omega_matter/a)+(omega_rad/(a*a))+(omega_lambda*a*a))
+        age = age + 1./adot
+    
+    zage = az*age/n
+    zage_Gyr = (Tyr/H0)*zage
+    DTT = 0.0 # time from z to now in units of 1/H0
+    DCMR = 0.0 # comoving radial distance in units of c/H0
+    
+    # do integral over a=1/(1+z) from az to 1 in n steps, midpoint rule
+    for i in range(n):
+        a = az+(1-az)*(i+0.5)/n
+        adot = np.sqrt(omega_curvature+(omega_matter/a)+(omega_rad/(a*a))+(omega_lambda*a*a))
+        DTT = DTT + 1./adot
+        DCMR = DCMR + 1./(a*adot)
+
+    DTT = (1.-az)*DTT/n
+    DCMR = (1.-az)*DCMR/n
+    DA = az*DCMR
+    DL = DA/(az*az) # luminosity distance
+    DL_Mpc = (c/H0)*DL # luminosity distance in Mpc
+    print(zage_Gyr,DL_Mpc)
+
+    distance = DL_Mpc*1E6
+
+    return distance
+
+
+
 
 def get_stellar_ages(sft, sp):
     """
