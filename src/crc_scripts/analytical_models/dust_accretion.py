@@ -176,8 +176,8 @@ def calc_elem_acc_timescale(G, t_ref_factor=1.):
 	t_ref = 0.2E9*t_ref_factor 	# yr
 	T_ref = 20					# K
 	dens_ref = config.H_MASS	# g cm^-3
-	T = G.T
-	dens = G.rho*config.UnitDensity_in_cgs
+	T = G.get_property('T')
+	dens = G.get_property('density')
 	growth_time = t_ref * (dens_ref/dens) * np.power(T_ref/T,0.5)
 
 	timescales = dict.fromkeys(['Silicates', 'Carbon', 'Iron'], None) 
@@ -189,7 +189,7 @@ def calc_elem_acc_timescale(G, t_ref_factor=1.):
 
 # Calculates the key element for silicates for the Species implementation
 def calc_spec_key_elem(G, nano_iron=False):
-	elem_num_dens = np.multiply(G.z[:,:len(config.ATOMIC_MASS)], G.rho[:, np.newaxis]*config.UnitDensity_in_cgs) / (config.ATOMIC_MASS*config.H_MASS)
+	elem_num_dens = np.multiply(G.get_property('Z_all')[:,:len(config.ATOMIC_MASS)], G.get_property('density')[:, np.newaxis]) / (config.ATOMIC_MASS*config.H_MASS)
 	# If snapshot was run with nano-iron dust species, Fe from nano-iron inclusions are assumed to contribute to
 	# the Fe needed in silicates
 	if nano_iron:
@@ -216,7 +216,7 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fdense=None):
 	ref_cond_dens = 3	# reference condensed dust species density g cm^-3
 	T_cut = 300 		# K cutoff temperature for step func. sticking efficiency
 
-	T = G.T
+	T = G.get_property('T')
 	if set_fdense != None:
 		fdense = np.full(len(T),set_fdense)
 	else:
@@ -232,7 +232,7 @@ def calc_spec_acc_timescale(G, nano_iron=False,set_fdense=None):
 	t_ref = (t_ref_CNM * t_ref_MC) / (fdense * t_ref_CNM + (1.-fdense) * t_ref_MC)
 
 	dust_formula_mass = 0.0
-	elem_num_dens = np.multiply(G.z[:,:len(config.ATOMIC_MASS)], G.rho[:, np.newaxis]*config.UnitDensity_in_cgs) / (config.ATOMIC_MASS*config.H_MASS)
+	elem_num_dens = np.multiply(G.get_property('Z_all')[:,:len(config.ATOMIC_MASS)], G.get_property('density')[:, np.newaxis]) / (config.ATOMIC_MASS*config.H_MASS)
 
 
 	for k in range(4): dust_formula_mass += config.SIL_NUM_ATOMS[k] * config.ATOMIC_MASS[config.SIL_ELEM_INDEX[k]];
@@ -293,15 +293,15 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 
 	iron_incl = 0.7
 
-	M = G.m*1E10
-	fH2 = G.fH2
+	M = G.get_property('mass')
+	fH2 = G.get_property('fH2')
 	if set_fdense == None:
 		fdense = G.get_property('fdense')
 	else:
-		fdense = np.fill(set_fdense, len(G.m))
+		fdense = np.fill(set_fdense, len(M))
 
-	C_in_CO = G.CinCO
-	O_in_CO = C_in_CO * G.z[:,2] * config.ATOMIC_MASS[4] / config.ATOMIC_MASS[2] / G.z[:,4]
+	C_in_CO = G.get_property('C_in_CO')
+	O_in_CO = C_in_CO * G.get_property('Z_all')[:,2] * config.ATOMIC_MASS[4] / config.ATOMIC_MASS[2] / G.get_property('Z_all')[:,4]
 
 	# Needed to select arbitrary elements from each row for 2D numpy arrays
 	farg = np.arange(len(M))
@@ -309,17 +309,17 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 	if implementation == 'elemental':
 		timescales = calc_elem_acc_timescale(G)
 		growth_timescale = timescales['Silicates']
-		sil_DZ = G.dz[:,[4,6,7,10]]/G.z[:,[4,6,7,10]]
+		sil_DZ = G.get_property('dust_Z')[:,[4,6,7,10]]/G.get_property('Z_all')[:,[4,6,7,10]]
 		# Account for O locked in CO which reduces the max amount of O in dust
 		sil_DZ[:,0] = np.multiply(sil_DZ[:,0], 1./(1.-O_in_CO))
 		sil_DZ[np.logical_or(sil_DZ <= 0,sil_DZ >= 1)] = 1.
-		sil_dust_mass = np.multiply(G.dz[:,[4,6,7,10]],M[:,np.newaxis])
+		sil_dust_mass = np.multiply(G.get_property('dust_Z')[:,[4,6,7,10]],M[:,np.newaxis])
 		sil_dust_prod = np.sum((1.-sil_DZ)*sil_dust_mass/growth_timescale[:,np.newaxis],axis=1)
 		
 
 		growth_timescale = timescales['Carbon']
-		C_DZ = G.dz[:,2]/((1-C_in_CO)*G.z[:,2])
-		C_dust_mass = G.dz[:,2]*M
+		C_DZ = G.get_property('dust_Z')[:,2]/((1-C_in_CO)*G.get_property('Z_all')[:,2])
+		C_dust_mass = G.get_property('dust_Z')[:,2]*M
 		carbon_dust_prod = (1.-C_DZ)*C_dust_mass/growth_timescale
 		carbon_dust_prod[np.logical_or(C_DZ <= 0,C_DZ >= 1)] = 0.
 
@@ -337,11 +337,11 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 
 		sil_dust_formula_mass = 0.0
 		for k in range(4): sil_dust_formula_mass += config.SIL_NUM_ATOMS[k] * config.ATOMIC_MASS[config.SIL_ELEM_INDEX[k]];
-		key_DZ = G.dz[farg,key_elem]/G.z[farg,key_elem]
+		key_DZ = G.get_property('dust_Z')[farg,key_elem]/G.get_property('Z_all')[farg,key_elem]
 		# Deal with nan data
 		key_DZ[np.isnan(key_DZ)] = 0.
 
-		key_M_dust = G.spec[farg,0]*M
+		key_M_dust = G.get_property('dust_spec')[farg,0]*M
 		sil_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
 		sil_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
 		sil_dust_prod /= key_in_dust*config.ATOMIC_MASS[key_elem]/sil_dust_formula_mass
@@ -351,11 +351,11 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 		####################
 		growth_timescale = timescales['Carbon']
 		key_elem = 2
-		key_DZ = G.dz[:,key_elem]/((1-C_in_CO)*G.z[:,key_elem])
+		key_DZ = G.get_property('dust_Z')[:,key_elem]/((1-C_in_CO)*G.get_property('Z_all')[:,key_elem])
 		# Deal with nan data
 		key_DZ[np.isnan(key_DZ)] = 0.
 
-		key_M_dust = G.spec[:,1]*M
+		key_M_dust = G.get_property('dust_spec')[:,1]*M
 		carbon_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
 		carbon_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
 
@@ -365,15 +365,15 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 		####################
 		growth_timescale = timescales['Iron']
 		key_elem = 10
-		key_DZ = G.dz[:,key_elem]/G.z[:,key_elem]
+		key_DZ = G.get_property('dust_Z')[:,key_elem]/G.get_property('Z_all')[:,key_elem]
 		# Deal with nan data
 		key_DZ[np.isnan(key_DZ)] = 0.
 
 		# Need to specifically use only the free-flying iron since there rest is locked in silicates and cannot accrete
 		if nano_iron:
-			key_M_dust = G.spec[:,4]*M
+			key_M_dust = G.get_property('dust_spec')[:,4]*M
 		else:
-			key_M_dust = G.dz[:,key_elem]*M
+			key_M_dust = G.get_property('dust_Z')[:,key_elem]*M
 		iron_dust_prod = (1.-key_DZ)*key_M_dust/growth_timescale
 		iron_dust_prod[np.logical_or(key_DZ <= 0,key_DZ >= 1)] = 0.
 
@@ -383,7 +383,7 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 		####################
 		# Check if sim was run with optional O reservoir
 		if O_res:
-			nH = G.rho*config.UnitDensity_in_cgs * ( 1. - (G.z[:,0]+G.z[:,1])) / config.H_MASS
+			nH = G.get_property('nH')
 			# expected fractional O depletion
 			D_O = 1. - 0.65441 / np.power(nH,0.103725)
 			D_O[D_O<0] = 0
@@ -391,21 +391,21 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 			key_mass = config.ATOMIC_MASS[key_elem]
 
 			# fraction of maximum possible silicate dust present
-			frac_of_sil = (G.spec[:,0]) / ((G.z[farg,key_elem]) * sil_dust_formula_mass/(key_in_dust * key_mass))
-			max_O_in_sil = G.z[farg,key_elem] * ((config.SIL_NUM_ATOMS[0] * config.ATOMIC_MASS[4])/(key_in_dust * key_mass))
-			extra_O = frac_of_sil * D_O * G.z[:,4] - max_O_in_sil - G.spec[:,4] - O_in_CO*G.z[:,4]
+			frac_of_sil = (G.get_property('dust_spec')[:,0]) / ((G.get_property('Z_all')[farg,key_elem]) * sil_dust_formula_mass/(key_in_dust * key_mass))
+			max_O_in_sil = G.get_property('Z_all')[farg,key_elem] * ((config.SIL_NUM_ATOMS[0] * config.ATOMIC_MASS[4])/(key_in_dust * key_mass))
+			extra_O = frac_of_sil * D_O * G.get_property('Z_all')[:,4] - max_O_in_sil - G.get_property('dust_spec')[:,4] - O_in_CO*G.get_property('Z_all')[:,4]
 
 			print(frac_of_sil)
 			print(D_O)
-			print(np.max(G.spec[:,4]))
+			print(np.max(G.get_property('dust_spec')[:,4]))
 
 			mask = extra_O > 0.
 			print('n_H = ', nH[mask])
-			print('Z_O = ',G.z[:,4][mask])
+			print('Z_O = ',G.get_property('Z_all')[:,4][mask])
 			print('f_sil = ',frac_of_sil[mask])
-			print('f_(max O in sil) =' ,max_O_in_sil[mask]/G.z[:,4][mask])
+			print('f_(max O in sil) =' ,max_O_in_sil[mask]/G.get_property('Z_all')[:,4][mask])
 			print('D_O = ',D_O[mask])
-			print('f_(O res) = ', G.spec[:,4][mask]/G.z[:,4][mask])
+			print('f_(O res) = ', G.get_property('dust_spec')[:,4][mask]/G.get_property('Z_all')[:,4][mask])
 			print('O_in_CO = ',O_in_CO[mask])
 			print(frac_of_sil[mask] * D_O[mask])
 			print(extra_O[mask])
@@ -415,7 +415,7 @@ def calc_dust_acc(G, implementation='species', nano_iron=False, O_res=False, set
 			extra_O[extra_O < 0] = 0
 			extra_O[sil_dust_prod <= 0] = 0
 			# If needed O depletion can't be attributed to silicate dust and what's already in the oxygen reservoir throw more oxygen into the reservoir
-			O_dust_prod = extra_O*G.z[:,4]
+			O_dust_prod = extra_O*G.get_property('Z_all')[:,4]
 
 		else:
 			O_dust_prod = np.zeros(len(sil_dust_prod))

@@ -2,6 +2,7 @@ from copy import copy
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import config
@@ -11,7 +12,8 @@ from .utils import data_calc_utils as calc
 
 
 class Figure(object):
-
+    """ Wrapper for matplotlib figures to have them fit my personal tastes. """
+    
     def __init__(self, plot_num, **kwargs):
         """
         Parameters
@@ -162,6 +164,23 @@ class Figure(object):
         axis = self.axes[axis_num]
         fb = axis.fill_between(x_data, y1_data, y2_data, **kwargs)
         self.axis_artists[axis_num] += [fb]
+    
+
+    def plot_polygon(self, axis_num, x_data, y_data, **kwargs):
+        default_kwargs = {
+            'color': config.BASE_COLOR, 
+            'alpha': 0.3, 
+            'zorder': 1}
+        
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]
+
+        axis = self.axes[axis_num]
+        fill = axis.fill(x_data, y_data, **kwargs)
+        self.axis_artists[axis_num] += [fill]
+        return fill
+    
 
 
 
@@ -322,20 +341,31 @@ class Figure(object):
             cbar.ax.invert_yaxis()
         if no_minor_ticks:
             cbar.ax.minorticks_off()
-
+ 
+    # This is a wrapper for the matplotlib annotate function which is more versatile than the text function
     def add_text(self, axis_num, x, y, text, **kwargs):
         default_kwargs = {
             'color': config.BASE_COLOR,
             'fontsize': config.EXTRA_LARGE_FONT,
             'ha': 'center',
-            "va": 'center'} 
-        
+            "va": 'center',
+            'xycoords': 'axes fraction'} 
+
+        # Adding outlines to text is not simple so lets make it similar to edges 
+        if 'ec' in kwargs:
+            if 'ew' not in kwargs:
+                kwargs['ew']=0.5*config.BASE_ELINEWIDTH
+            kwargs['path_effects']=[patheffects.withStroke(linewidth= kwargs['ew'],
+                                                        foreground= kwargs['ec'])]
+            kwargs.pop('ec',0);kwargs.pop('ew',0)
+
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
                  
         axis=self.axes[axis_num]
-        axis.text(x, y, text, transform=axis.transAxes, **kwargs)
+        axis.annotate(text,xy=[x,y], **kwargs)
+
 
     def add_artist(self, axis_num, artist, **kwargs):
 
@@ -356,29 +386,29 @@ class Figure(object):
 
 class Projection(Figure):
 
-    def __init__(self, plot_num, sub_proj=True, has_colorbars=True, height_ratios=[5,1]):
+    def __init__(self, plot_num, add_sub_proj=True, add_colorbars=True, height_ratios=[5,1]):
         """
         Parameters
         ----------
         plot_num : int
             Number of plots in this figure.
-        sub_proj: bool
+        add_sub_proj : bool
             Toggle wether each projection has a sub projection along a different axis which is plotted right below it.
-        has_colorbars: bool
+        add_colorbars : bool
             Toggle wether each projection has a colorbar.
-        height_ratios: list
+        height_ratios : list
             Ratio between heights of projection, sub_projection, and colorbar. Only need to include ratio for each option selected.
         """
         self.plot_num = plot_num
-        self.sub_proj = sub_proj
-        self.has_colorbars = has_colorbars
+        self.sub_proj = add_sub_proj
+        self.has_colorbars = add_colorbars
         if self.sub_proj: self.height_ratios = height_ratios
         else: height_ratios = [1]
         # Set up subplots based on number of parameters given
-        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, sub_proj, has_colorbars=has_colorbars,height_ratios=height_ratios)
+        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, add_sub_proj, add_colorbars=add_colorbars,height_ratios=height_ratios)
 
         self.axis_artists = [[] for i in range(self.plot_num)]
-        if has_colorbars:
+        if add_colorbars:
             self.axis_colorbar = [None for i in range(self.plot_num)]
         self.axis_properties = ['' for i in range(self.plot_num)]
 

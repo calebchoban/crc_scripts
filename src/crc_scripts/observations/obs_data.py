@@ -2,7 +2,7 @@ from . import dust_obs
 import numpy as np
 
 # This is the list of observations which have a file that can be loaded by a corresponding function.
-# Each function will read a file, rename columns and create data produce, and then return a Pandas DataFrame with the file data.
+# Each function will read a file, rename columns and create data products, and then return a Pandas DataFrame with the file data.
 # Update this as more files are added
 SUPPORTED_FILES = {'HiZ_compilation': dust_obs.load_HiZ_compilation,
 				   'galactic_DZ_compilation': dust_obs.load_galactic_DZ_compilation}

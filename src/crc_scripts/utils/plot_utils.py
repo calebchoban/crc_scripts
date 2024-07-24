@@ -11,22 +11,24 @@ from .. import config
 from . import math_utils
 
 
-def setup_plot_style(snap_nums, properties=[], style='color-linestyle'):
+def setup_plot_style(num_datasets, num_sub_datasets=1, style='color-linestyle'):
     """
-    Sets up the handles for plot legend with specified style and parameters being plotted.
+    This will give you lists of linestyles, colors, and linewidths to be used when plotting the specified number of datasets.
+    Depending on the style specified each dataset will have a unique linestyles, colors, and/or linewidths.
+    If you are plotting sub
 
     Parameters
     ----------
-    snap_nums : int
-        Number of snapshots you will be plotting
-    properties: list
-        List of properties that will also be plotted on the same plot if applicable
+    num_datasets : int
+        Number of datasets you will be plotting. As an example this could be the number of individual snapshots or masks for particles.
+    num_sub_datasets: int
+        Number of sub datasets you will have on each plot. For example you are plotting multiple snapshots with different particle masks on the same plot.
     style : string
-        The style which will be used to differentiate the data sets.
-        'color': each snapshot has different color
-        'size': each snapshot has different line width
-        'linestyle': each snapshot had different line style
-        'color-linestyle': each snapshot had different color and line style
+        The style which will be used to differentiate the datasets.
+        'color': each dataset has a different color
+        'size': each dataset has a different line width
+        'linestyle': each dataset has a different line style
+        These can be combined by passing one string such as 'color-linestyle'.
 
     Returns
     -------
@@ -40,133 +42,132 @@ def setup_plot_style(snap_nums, properties=[], style='color-linestyle'):
     """
 
     # First case just plotting one snapshot so no need for legend handles
-    if snap_nums == 1 and len(properties)<=1:
+    if num_datasets == 1 and num_sub_datasets<=1:
         linewidths = np.full(1,config.BASE_LINEWIDTH)
         colors = [config.BASE_COLOR]
         linestyles = [config.BASE_LINESTYLE]
     # In case we are plotting one snapshot with multiple properties on one plot follow the style choice to differentiate properties
-    elif snap_nums == 1:
-        colors = [config.BASE_COLOR]*len(properties)
-        linestyles = [config.BASE_LINESTYLE]*len(properties)
-        linewidths = [config.BASE_LINEWIDTH]*len(properties)
+    elif num_datasets == 1:
+        colors = [config.BASE_COLOR]*num_sub_datasets
+        linestyles = [config.BASE_LINESTYLE]*num_sub_datasets
+        linewidths = [config.BASE_LINEWIDTH]*num_sub_datasets
         if 'color' in style:
-            colors = config.LINE_COLORS[:len(properties)]
+            colors = config.LINE_COLORS[:num_sub_datasets]
         if 'linestyle' in style:
-            linestyles = config.LINE_STYLES[:len(properties)]
+            linestyles = config.LINE_STYLES[:num_sub_datasets]
         if 'size' in style:
-            linewidths = config.LINE_WIDTHS[:len(properties)]
+            linewidths = config.LINE_WIDTHS[:num_sub_datasets]
     # If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
-    elif len(properties) <= 1:
-        colors = [config.BASE_COLOR]*snap_nums
-        linestyles = [config.BASE_LINESTYLE]*snap_nums
-        linewidths = [config.BASE_LINEWIDTH]*snap_nums
+    elif num_sub_datasets <= 1:
+        colors = [config.BASE_COLOR]*num_datasets
+        linestyles = [config.BASE_LINESTYLE]*num_datasets
+        linewidths = [config.BASE_LINEWIDTH]*num_datasets
         if 'color' in style:
-            colors = config.LINE_COLORS[:snap_nums]
+            colors = config.LINE_COLORS[:num_datasets]
         if 'linestyle' in style:
-            linestyles = config.LINE_STYLES[:snap_nums]
+            linestyles = config.LINE_STYLES[:num_datasets]
         if 'size' in style:
-            linewidths = config.LINE_WIDTHS[:snap_nums]
+            linewidths = config.LINE_WIDTHS[:num_datasets]
     # If there are multiple snapshots and properties then need to force each snapshot as a different linestyle and each parameter as a different color
     else:
         colors = []; linewidths = []; linestyles = [];
-        for i in range(snap_nums):
-            colors += [config.LINE_COLORS[i]]*len(properties)
-            linewidths += [config.BASE_LINEWIDTH]*len(properties)
-            linestyles += config.LINE_STYLES[:len(properties)]
+        for i in range(num_datasets):
+            colors += [config.LINE_COLORS[i]]*num_sub_datasets
+            linewidths += [config.BASE_LINEWIDTH]*num_sub_datasets
+            linestyles += config.LINE_STYLES[:num_sub_datasets]
 
     return linewidths, colors, linestyles
 
 
 
 
+# def setup_legend_handles(snap_nums, snap_labels=[], properties=[], style='color-line'):
+#     """
+#     Sets up the handles for plot legend with specified style and parameters being plotted.
 
-def setup_legend_handles(snap_nums, snap_labels=[], properties=[], style='color-line'):
-    """
-    Sets up the handles for plot legend with specified style and parameters being plotted.
+#     Parameters
+#     ----------
+#     snap_nums : int
+#         Number of snapshots you will be plotting
+#     snap_labels : list
+#         List of labels for snapshots to be plotted. Only need to provide if you want legend handles.
+#     properties: list
+#         List of properties that will also be plotted on the same plot if applicable
+#     style : string
+#         The style which will be used to differentiate the data sets.
+#         'color': each snapshot has different color
+#         'size': each snapshot has different line width
+#         'line': each snapshot had different line style
+#         'color-line': each snapshot had different color and line style
 
-    Parameters
-    ----------
-    snap_nums : int
-        Number of snapshots you will be plotting
-    snap_labels : list
-        List of labels for snapshots to be plotted. Only need to provide if you want legend handles.
-    properties: list
-        List of properties that will also be plotted on the same plot if applicable
-    style : string
-        The style which will be used to differentiate the data sets.
-        'color': each snapshot has different color
-        'size': each snapshot has different line width
-        'line': each snapshot had different line style
-        'color-line': each snapshot had different color and line style
+#     Returns
+#     -------
+#     label_handles : dict
+#         Dictionary with labels and their corresponding handles to be given to plot legend
+#     linewidths : list
+#         List of linewidths for each data set.
+#     colors : list
+#         List of colors for each data set.
+#     linestyles : list
+#         List of linestyles for each data set.
 
-    Returns
-    -------
-    label_handles : dict
-        Dictionary with labels and their corresponding handles to be given to plot legend
-    linewidths : list
-        List of linewidths for each data set.
-    colors : list
-        List of colors for each data set.
-    linestyles : list
-        List of linestyles for each data set.
+#     """
 
-    """
+#     handles = []
+#     labels = []
+#     # First case just plotting one snapshot so no need for legend handles
+#     if snap_nums == 1 and len(properties)<=1:
+#         linewidths = np.full(1,config.BASE_LINEWIDTH)
+#         colors = [config.BASE_COLOR]
+#         linestyles = [config.BASE_LINESTYLE]
+#     # In case we are plotting one snapshot with multiple properties on one plot follow the style choice to differentiate properties
+#     elif snap_nums == 1:
+#         colors = [config.BASE_COLOR]*len(properties)
+#         linestyles = [config.BASE_LINESTYLE]*len(properties)
+#         linewidths = [config.BASE_LINEWIDTH]*len(properties)
+#         if 'color' in style:
+#             colors = config.LINE_COLORS[:len(properties)]
+#         if 'line' in style:
+#             linestyles = config.LINE_STYLES[:len(properties)]
+#         if 'size' in style:
+#             linewidths = config.LINE_WIDTHS[:len(properties)]
+#         for i, prop in enumerate(properties):
+#             handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=config.PROP_INFO[prop][0])]
+#             labels += [config.PROP_INFO[prop][0]]
+#     # If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
+#     elif len(properties) <= 1:
+#         colors = [config.BASE_COLOR]*snap_nums
+#         linestyles = [config.BASE_LINESTYLE]*snap_nums
+#         linewidths = [config.BASE_LINEWIDTH]*snap_nums
+#         if 'color' in style:
+#             colors = config.LINE_COLORS[:snap_nums]
+#         if 'line' in style:
+#             linestyles = config.LINE_STYLES[:snap_nums]
+#         if 'size' in style:
+#             linewidths = config.LINE_WIDTHS[:snap_nums]
+#         for i, label in enumerate(snap_labels):
+#             handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=label)]
+#             labels += [label]
+#     # If there are multiple snapshots and properties then need to force each snapshot as a different linestyle and each parameter as a different color
+#     else:
+#         colors = []; linewidths = []; linestyles = [];
+#         for i, label in enumerate(snap_labels):
+#             colors += [config.LINE_COLORS[i]]*len(properties)
+#             linewidths += [config.BASE_LINEWIDTH]*len(properties)
+#             linestyles += config.LINE_STYLES[:len(properties)]
+#         for i, prop in enumerate(properties):
+#             handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=config.LINE_STYLES[i], label=config.PROP_INFO[prop][0])]
+#             labels += [config.PROP_INFO[prop][0]]
+#         for i, label in enumerate(snap_labels):
+#             handles += [mlines.Line2D([], [], color=config.LINE_COLORS[i], linestyle=config.BASE_LINESTYLE,label=label)]
+#             labels += [label]
 
-    handles = []
-    labels = []
-    # First case just plotting one snapshot so no need for legend handles
-    if snap_nums == 1 and len(properties)<=1:
-        linewidths = np.full(1,config.BASE_LINEWIDTH)
-        colors = [config.BASE_COLOR]
-        linestyles = [config.BASE_LINESTYLE]
-    # In case we are plotting one snapshot with multiple properties on one plot follow the style choice to differentiate properties
-    elif snap_nums == 1:
-        colors = [config.BASE_COLOR]*len(properties)
-        linestyles = [config.BASE_LINESTYLE]*len(properties)
-        linewidths = [config.BASE_LINEWIDTH]*len(properties)
-        if 'color' in style:
-            colors = config.LINE_COLORS[:len(properties)]
-        if 'line' in style:
-            linestyles = config.LINE_STYLES[:len(properties)]
-        if 'size' in style:
-            linewidths = config.LINE_WIDTHS[:len(properties)]
-        for i, prop in enumerate(properties):
-            handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=config.PROP_INFO[prop][0])]
-            labels += [config.PROP_INFO[prop][0]]
-    # If we are just dealing with multiple snapshots follow the style choice to differentiate each of the snapshots
-    elif len(properties) <= 1:
-        colors = [config.BASE_COLOR]*snap_nums
-        linestyles = [config.BASE_LINESTYLE]*snap_nums
-        linewidths = [config.BASE_LINEWIDTH]*snap_nums
-        if 'color' in style:
-            colors = config.LINE_COLORS[:snap_nums]
-        if 'line' in style:
-            linestyles = config.LINE_STYLES[:snap_nums]
-        if 'size' in style:
-            linewidths = config.LINE_WIDTHS[:snap_nums]
-        for i, label in enumerate(snap_labels):
-            handles += [mlines.Line2D([], [], color=colors[i], linestyle=linestyles[i], linewidth=linewidths[i], label=label)]
-            labels += [label]
-    # If there are multiple snapshots and properties then need to force each snapshot as a different linestyle and each parameter as a different color
-    else:
-        colors = []; linewidths = []; linestyles = [];
-        for i, label in enumerate(snap_labels):
-            colors += [config.LINE_COLORS[i]]*len(properties)
-            linewidths += [config.BASE_LINEWIDTH]*len(properties)
-            linestyles += config.LINE_STYLES[:len(properties)]
-        for i, prop in enumerate(properties):
-            handles += [mlines.Line2D([], [], color=config.BASE_COLOR, linestyle=config.LINE_STYLES[i], label=config.PROP_INFO[prop][0])]
-            labels += [config.PROP_INFO[prop][0]]
-        for i, label in enumerate(snap_labels):
-            handles += [mlines.Line2D([], [], color=config.LINE_COLORS[i], linestyle=config.BASE_LINESTYLE,label=label)]
-            labels += [label]
-
-    label_handles = dict(zip(labels, handles))
-    return label_handles, linewidths, colors, linestyles
-
+#     label_handles = dict(zip(labels, handles))
+#     return label_handles, linewidths, colors, linestyles
 
 
-def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False, yx_ratio=1, ncols=None, 
+
+def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False, yx_ratio=1., ncols=None, 
                  sqeezespace=0.05):
     """
     Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
@@ -176,16 +177,24 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
     num_plots : int
         Number of plots to be plotted
     orientation : string, optional
-        Choose horizontal or vertical orientation when there are multiple subplots
-    sharex,sharey : bool or {'none', 'all', 'row', 'col'}, default: False
+        Choose 'horizontal' or 'vertical' orientation when there are multiple subplots
+    sharex,sharey : bool or {'none', 'all', 'row', 'col'}, optional
         Same as sharex, sharey for matplotlib.pyplot.subplots
+    yx_ratio: float, optional
+        Scale relative size between y and x axis. Default is 1:1.
+    ncols: int, optional
+        Force number of columns given multiple plots. This overrids orientation.
+    sqeezespace: float, optional
+        The space between plots whcih are sharing axis as given by sharex and sharey.
 
     Returns
     -------
     fig : Figure
         Matplotlib figure which houses plots
-    axes: list
+    axes : list
         List of axes for each plot
+    dims : list
+        Number of plot rows and columns of figure.
     """
 
     if orientation not in ['vertical', 'horizontal']:
@@ -211,10 +220,11 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
         fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,np.ceil(num_plots/ncols)*config.BASE_FIG_SIZE*yx_ratio),
                                     squeeze=True, sharex=sharex, sharey=sharey)
         # Need to delete extra axes and reshow tick labels if axes were shared
-        for i in range(num_plots%ncols):
-            axes[num_plots//ncols-1,ncols-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
-            fig.delaxes(axes[num_plots//ncols,ncols-1-i])
-            axes[num_plots//ncols,ncols-1-i] = None
+        if num_plots%ncols > 0:
+            for i in range(ncols-num_plots%ncols):
+                axes[num_plots//ncols-1,ncols-1-i].xaxis.set_tick_params(which='both', labelbottom=True, labeltop=False)
+                fig.delaxes(axes[num_plots//ncols,ncols-1-i])
+                axes[num_plots//ncols,ncols-1-i] = None
         dims = np.array([num_plots//ncols,ncols])
 
     # Get rid of the axes we may have deleted
@@ -235,8 +245,8 @@ def add_artists(axis, artists):
 
     Parameters
     ----------
-    axis : Matplotlib axis
-        Axis to add artists to
+    axis : Axis
+        Matplotlib axis to add artists to
     artists : list
         List of Matplotlib artists to be added
 
@@ -255,30 +265,33 @@ def add_artists(axis, artists):
 def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, 
                artists_to_add=None, face_color='xkcd:white'):
     """
-    Sets up the axis plot given x and y properties and optional limits
+    Sets up the axis plot given x and y properties. Supported properties are listed in config.PROP_INFO and unless given, this
+    is where the limits for each axis and log/linear scale are determined. 
 
     Parameters
     ----------
-    axis : Matplotlib axis
+    axis : Axis
         Axis of plot
     x_prop : string
         Property to be plotted on x axis
     y_prop : string
         Property to be plotted on y axis
-    x_label : string
+    x_label : string, optional
         Label for x axis (will override default label for give x_prop)
-    y_label : string
+    y_label : string, optional
         Label for y axis (will override default label for give y_prop)
-    x_lim : list
+    x_lim : list, optional
         Limits for x axis
-    x_log : boolean
+    x_log : boolean, optional
         Explicitly set x axis to linear or log space, otherwise go with default for x_param
-    y_lim : list
+    y_lim : list, optional
         Limits for y axis
-    y_log : boolean
+    y_log : boolean, optional
         Explicitly set y axis to linear or log space, otherwise go with default for y_param
-    artitst_to_add : list
+    artitst_to_add : list, optional
         List of matplotlib artists objects to be added to axis
+    face_color : string, optional
+        Axis background color
 
     Returns
     -------
@@ -287,7 +300,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     """
 
     # Setup x axis
-    if x_prop not in config.PROP_INFO.keys() and (x_label is None and x_lim is None):
+    if x_prop not in config.PROP_INFO.keys() and (x_label is None or x_lim is None):
         print("%s is not a supported property for plot_setup\n"%x_prop)
         print("Either give x_label and x_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
@@ -302,7 +315,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     axis.set_xlim(x_lim)
 
     # Setup y axis
-    if y_prop not in config.PROP_INFO.keys() and (y_label is None and y_lim is None):
+    if y_prop not in config.PROP_INFO.keys() and (y_label is None or y_lim is None):
         print("%s is not a supported property for plot_setup\n"%y_prop)
         print("Either give y_label and y_lim to make your own or choose from supported properties.")
         print("Valid properties are:")
@@ -328,19 +341,20 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
 
 def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
     """
-    Sets the labels and ticks for the given axis.
+    Sets the axis labels based on the given properties. Ticks are set so they face inwards and have minor and major ticks.
+    Special ticks are given for redshift only.
 
     Parameters
     ----------
     axis : Matplotlib axis
         Axis of plot
-    x_prop :
+    x_prop : string
         Name of property on x axis
-    y_prop :
+    y_prop : string
         Name of property on y axis
-    x_label : string
+    x_label : string, optional
         X axis label (overrides default label for x_prop)
-    y_label : string
+    y_label : string, optional
         Y axis label (overrides default label for y_prop)
 
     Returns
@@ -382,21 +396,33 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
 
 def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
     '''
-    Make secondary axis for time, look-back time, redshift, or scale-factor.
+    Make secondary x-axis for time. The secondary time parameter is chosen based on what time is already plotted and the scale
+    of the x-axis. If physical time (e.g. Gyr) is plotted then redshift/redshift+1 if plotted on the second axis if the x-axis 
+    scale is linear/log. If redshift/redshift+1 is plotted then lookback time is plotted on secondary axis.
+
 
     Parameters
     ----------
-    subplot : plot object
+    axis : Axis
+        Pyplot axis you want to add the secondary time axis to. This axis must already have the primary x-axis time limits set.
     time_name : str
-        kind of time for existing (primary) axis: 'time', 'time.lookback', 'redshift', 'scalefactor'
-    snapshot : Object
-        One of the snapshots to be plotted which hold cosmological constants used for time conversion
+        The type of time on existing (primary) axis: 'time', 'time_lookback', 'redshift', 'redshift_plus_1'. 
+    snapshot : Snapshot
+        One of the snapshots to be plotted which hold cosmological constants used for time conversion. If set to None then
+        cosmological constants are assumed.
     tick_labels : boolean
-        Whether the seconday axis should include tick labels
+        Set whether the seconday axis should include tick labels
+    
+    Returns
+    -------
+    None
+
     '''
 
-    if time_name == 'time':
+    # If physical time then we want redshift for secondary axis
+    if time_name in ['time', 'time_lookback']:
         time_limits = axis.get_xlim()
+        # If axis is log scale need to plot z+1
         if axis.get_xaxis().get_scale()=='log':
             axis_2_name = 'redshift_plus_1'
             # Depending on the timespan may want more redshift tick labels
@@ -416,22 +442,27 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
             else:
                 axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
-        conv_func = math_utils.get_time_conversion_spline('time',axis_2_name,sp=snapshot)
+        # get an interpolation function to covert from physical time to redshift
+        conv_func = math_utils.get_time_conversion_spline(time_name,axis_2_name,sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
 
     elif time_name in ['redshift','redshift_plus_1']:
         axis_2_name = 'time_lookback'
         axis_2_tick_labels = ['0', '2', '4', '6', '8', '10', '11', '12', '12.5', '13']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])
-        conv_func = math_utils.get_time_conversion_spline(time_name,'time_lookback',sp=snapshot)
+        conv_func = math_utils.get_time_conversion_spline(time_name,'timelookback_',sp=snapshot)
         axis_2_tick_locations = conv_func(axis_2_tick_values)
+    
+    else:
+        print("make_axis_secondary_time() failed because %s is not a supported time property."%time_name)
 
 
     axis2 = axis.twiny()
     # Need to turn on minor ticks so that y-axis will have them
     axis2.minorticks_on()
     axis2.set_xscale(axis.get_xaxis().get_scale())
-    axis2.get_xaxis().set_major_formatter(mticker.ScalarFormatter()) # Force scalar notation for labels
+    # Force scalar notation for labels or else scientific notation might pop up
+    axis2.get_xaxis().set_major_formatter(mticker.ScalarFormatter()) 
     axis2.set_xticks(axis_2_tick_locations,minor=False)
     if tick_labels:
         axis2.set_xticklabels(axis_2_tick_labels)
@@ -451,10 +482,10 @@ def setup_colorbar(image, axis, label):
 
     Parameters
     ----------
-    image : mappable
+    image : Matplotlib mappable
         The image this colorbar is associated with
-    axis : Matplotlib axis
-        Axis of plot
+    axis : Axis
+        Axis of plot to have color bar added
     label : string
         Color bar label
 
@@ -464,11 +495,14 @@ def setup_colorbar(image, axis, label):
     None
 
     """
-
+    
+    # Added another axis for the colorbar to existing axis
     divider = make_axes_locatable(axis)
     cax = divider.append_axes("right", size="5%", pad=0.0)
+    # Add colobar to new axis and give it a mappable image so it knows what color map to use
     cbar = plt.colorbar(image, cax=cax)
     cbar.ax.set_ylabel(label, fontsize=config.LARGE_FONT)
+    # Set ticks to the way I like them
     cbar.ax.minorticks_on()
     cbar.ax.tick_params(axis='both',which='both',direction='in',right=True)
     cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
@@ -478,148 +512,42 @@ def setup_colorbar(image, axis, label):
     return
 
 
+def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[5,1]):
+    """
+    Sets up figure for projection plots given the number of plots you want and if they are going to include sub-projections. 
+
+    Parameters
+    ----------
+    num_plots : int
+        The number of projections you want.
+    add_sub_projs : bool
+        Do you want secondary projections for each projection (use this if you want an additional edge-on projection)  
+    add_colorbars : bool
+        Toggle whether each projection has a colorbar.
+    height_ratios : list, optional
+        Shape (2) ratio between height of projection and sub_projection if set. Default 5 to 1.
+        
 
 
-def setup_2D_hist_fig(hist_proj = True):
+    Returns
+    -------
+    fig: Figure
+        Matplotlib Figure with projection plots.
+    axes: list
+        List of axes for each plot in figure.
 
-    if not hist_proj:
-        fig,axes = plt.subplots(1, 1, figsize=(14/1.2,10/1.2))
-        axes = np.array([axes])
+    """
 
-    else:
-        fig = plt.figure(1, figsize=(14/1.2,10/1.2))
-        # definitions for the axes
-        left, width = 0.1, 0.65
-        bottom, height = 0.1, 0.65
-        bottom_h = left_h = left + width + 0.02
-
-        rect_scatter = [left, bottom, width, height]
-        rect_histx = [left, bottom_h, width, 0.2]
-        rect_histy = [left_h, bottom, 0.2, height]
-
-        # start with a rectangular Figure
-        plt.figure(1, figsize=(8, 8))
-
-        axHist2D = plt.axes(rect_scatter)
-        axHistx = plt.axes(rect_histx)
-        axHisty = plt.axes(rect_histy)
-
-        # no labels
-        axHistx.xaxis.set_major_formatter(nullfmt)
-        axHisty.yaxis.set_major_formatter(nullfmt)
-
-        axes = np.array([axHist2D,axHistx,axHisty])
-
-    return fig,axes
-
-
-
-def setup_projection(num_plots,L,Lz=None):
-
-    axes = []
-    base_size = 10
-    # Ratio of color bar size to projection plot
-    cbar_ratio = 0.05
-
-    # X-Y and X-Z Projection
-    if Lz != None:
-        # gs = gridspec.GridSpec(3,num_plots,height_ratios=[L,Lz,cbar_ratio*L])
-        # #gs.update(hspace=0.025,wspace=0.025,top=0.99, bottom=0.075, left=0.025, right=0.975)
-        # ratio = 1+1.0*Lz/L + 2*cbar_ratio
-        # fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
-        # for i in range(num_plots):
-        #     ax1 = plt.subplot(gs[0,i])
-        #     #ax1.xaxis.set_visible(False)
-        #     #ax1.yaxis.set_visible(False)
-        #     ax1.set_aspect('equal', adjustable='box')
-        #     ax2 = plt.subplot(gs[1,i])
-        #     #ax2.xaxis.set_visible(False)
-        #     #ax2.yaxis.set_visible(False)
-        #     ax2.set_aspect('equal', adjustable='box')
-        #     cbarax = plt.subplot(gs[2,i])
-        #     axes += [[ax1,ax2,cbarax]]
-
-        # fig, axs = plt.subplots(nrows=3, ncols=1, gridspec_kw={'hspace':0.1, 'height_ratios':[L,Lz,cbar_ratio*L]},
-        #                         figsize=(12*1.1, 12*(1+cbar_ratio+Lz/L)))
-        # ax1 = axs[0]
-        # ax1.set_xlim([-L,L])
-        # ax1.set_ylim([-L,L])
-        # ax1.xaxis.set_visible(False)
-        # ax1.yaxis.set_visible(False)
-        # ax1.set_aspect('equal', adjustable='box')
-        # ax2 = axs[1]
-        # ax2.set_ylim([-Lz,Lz])
-        # ax2.set_xlim([-L,L])
-        # ax2.xaxis.set_visible(False)
-        # ax2.yaxis.set_visible(False)
-        # ax2.set_aspect('equal', adjustable='box')
-        #
-        #
-        # ax3 = axs[2]
-        # ax3.set_ylim([-cbar_ratio*L,cbar_ratio*L])
-        # ax3.set_xlim([-L,L])
-        #
-        # axes += [axs]
-        #plt.tight_layout()
-
-        fig, axs = plt.subplots(nrows=2, ncols=num_plots, gridspec_kw={'hspace':0.01,'wspace':0.1,'height_ratios':[L,Lz]},
-                                figsize=[num_plots*config.BASE_FIG_SIZE,(L+Lz)/L*(1+2*cbar_ratio)*config.BASE_FIG_SIZE])
-        # Deal with only one projection being plotted
-        if num_plots==1:
-            axs = np.array([[axs[0]],[axs[1]]])
-
-        for i in range(num_plots):
-            ax1 = axs[0,i]
-            ax1.set_xlim([-L,L])
-            ax1.set_ylim([-L,L])
-            ax1.xaxis.set_visible(False)
-            ax1.yaxis.set_visible(False)
-            ax1.set_aspect('equal', adjustable='box')
-            for axe in ['top','bottom','left','right']:
-                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-            ax2 = axs[1,i]
-            ax2.set_ylim([-Lz,Lz])
-            ax2.set_xlim([-L,L])
-            ax2.xaxis.set_visible(False)
-            ax2.yaxis.set_visible(False)
-            ax2.set_aspect('equal', adjustable='box')
-            for axe in ['top','bottom','left','right']:
-                    ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-
-            # Add scale bar
-            bar, label = find_scale_bar(L)
-            ax1.plot([-0.7*L-bar/2,-0.7*L+bar/2], [-0.87*L,-0.87*L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-            ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
-
-        axes = axs
-
-    # Only X-Y Projection
-    else:
-        gs = gridspec.GridSpec(2,num_plots,height_ratios=[L,cbar_ratio*L],hspace=0.0,wspace=0.025,top=0.975, bottom=0.025, left=0.025, right=0.975)
-        ratio = 1.+cbar_ratio
-        fig=plt.figure(figsize=(num_plots*base_size,ratio*base_size))
-        for i in range(num_plots):
-            ax = plt.subplot(gs[0,i])
-            ax1.xaxis.set_visible(False)
-            ax1.yaxis.set_visible(False)
-            cbarax = plt.subplot(gs[1,i])
-            axes += [[ax,cbarax]]
-
-
-    
-    return fig, np.array(axes)
-
-
-def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]):
 
     axes = []
     height_ratios = np.array(height_ratios)
+    # Default height of color bar to 1/10th of main projection
     cbar_height = 0.05*height_ratios[0]
     width_space = 0.02*height_ratios[0]
     height_space = 0.02*height_ratios[0]
     # Check whether you want another projection below the first (usually edge-on with a disk)
-    if sub_projs:
-        if has_colorbars:
+    if add_sub_projs:
+        if add_colorbars:
             fig, axes = plt.subplots(nrows=3, ncols=num_plots, gridspec_kw={'hspace':height_space,'wspace':width_space,'height_ratios':np.append(height_ratios,[cbar_height])},
                                     figsize=[num_plots*config.BASE_FIG_SIZE,
                                             (height_ratios[0]+height_ratios[1]+cbar_height)/height_ratios[0]*config.BASE_FIG_SIZE])
@@ -641,11 +569,11 @@ def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]
     # Only one projection
     else:
         nrows=1
-        if has_colorbars:
+        if add_colorbars:
             height_ratios=np.append(height_ratios,[cbar_height])
             nrows=2
         gs = gridspec.GridSpec(nrows,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
-        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if has_colorbars else 1
+        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if add_colorbars else 1
         fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
         for i in range(num_plots):
             ax = plt.subplot(gs[0,i])
@@ -657,42 +585,84 @@ def setup_proj_figure(num_plots,sub_projs,has_colorbars=True,height_ratios=[5,1]
 
 
 def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
+    """
+    Sets up axis, ticks, and scale bar for specified projection size. 
 
-        if sub_L is None:
-            ax1 = axes[0]
-            ax1.set_xlim([-main_L,main_L])
-            ax1.set_ylim([-main_L,main_L])
-            if not axes_visible:
-                ax1.xaxis.set_visible(False)
-                ax1.yaxis.set_visible(False)
-            for axe in ['top','bottom','left','right']:
-                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-        else:
-            ax1 = axes[0]
-            ax1.set_xlim([-main_L,main_L])
-            ax1.set_ylim([-main_L,main_L])
-            for axe in ['top','bottom','left','right']:
-                ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+    Parameters
+    ----------
+    axes : list
+        List with projection axes you want to setup. Expects one/two axes if sub_projection is true/false.
+    main_L : float
+        Size of main projection (L x L)
+    su_L : float, optional
+        Size of subprojection (L x sub_L)
+    axes_visible : bool, optional
+        Set whether you want axes with ticks visible along projections.
 
-            ax2 = axes[1]
-            ax2.set_ylim([-sub_L, sub_L])
-            ax2.set_xlim([-main_L,main_L])
-            for axe in ['top','bottom','left','right']:
-                    ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
-            
-            if not axes_visible:
-                ax1.xaxis.set_visible(False)
-                ax1.yaxis.set_visible(False) 
-                ax2.xaxis.set_visible(False)
-                ax2.yaxis.set_visible(False)
+    """
 
-        # Add scale bar
-        bar, label = find_scale_bar(main_L)
-        ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-        ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+    if sub_L is None:
+        ax1 = axes[0]
+        ax1.set_xlim([-main_L,main_L])
+        ax1.set_ylim([-main_L,main_L])
+        if not axes_visible:
+            ax1.xaxis.set_visible(False)
+            ax1.yaxis.set_visible(False)
+        for axe in ['top','bottom','left','right']:
+            ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+    # If there is a subprojection set that up as well
+    else:
+        ax1 = axes[0]
+        ax1.set_xlim([-main_L,main_L])
+        ax1.set_ylim([-main_L,main_L])
+        for axe in ['top','bottom','left','right']:
+            ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+
+        ax2 = axes[1]
+        ax2.set_ylim([-sub_L, sub_L])
+        ax2.set_xlim([-main_L,main_L])
+        for axe in ['top','bottom','left','right']:
+                ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
+        
+        if not axes_visible:
+            ax1.xaxis.set_visible(False)
+            ax1.yaxis.set_visible(False) 
+            ax2.xaxis.set_visible(False)
+            ax2.yaxis.set_visible(False)
+
+    # Add scale bar to main projection
+    bar, label = find_scale_bar(main_L)
+    ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+    ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
 
 
-def setup_proj_colorbar(property, fig, caxis, cmap='magma', label=None, limits=None, log=False, mappable=None):
+def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False):
+    """
+    Sets up colorbar for given projection. 
+
+    Parameters
+    ----------
+    property : string
+        Name of property displayed by colorbar. Supported properties are listed in config.PROP_INFO and unless given, this
+    is where the limits for each axis and log/linear scale are determined. 
+    fig : Figure
+        Figure housing projection we are making colorbar for.
+    caxis : Axis
+        Axis where colorbar will be put.
+    mappable : mappable, optional
+        Mappable image to get colorbar data from. 
+    cmap : string, optional
+        Name of colormap to use.
+    label : string, optional
+        Name of label for colorbar. Will override default in config.PROP_INFO.
+    limits : list, optional
+        Shape (2) list with limits for colorbar. Will override default in config.PROP_INFO.
+    log : bool, optional
+        Set whether to be in log or linear scale. Will override default in config.PROP_INFO.
+
+    """
+
+
     # Setup x axis
     if property not in config.PROP_INFO.keys() and (label is None and limits is None):
         print("%s is not a supported property for setup_proj_colorbar"%property)
@@ -722,8 +692,23 @@ def setup_proj_colorbar(property, fig, caxis, cmap='magma', label=None, limits=N
     return cbar
 
 
-# find appropriate scale bar and label
 def find_scale_bar(L):
+    """
+    Determines the appropriate scale bar to use in a projection given the size of the projection.
+
+    Parameters
+    ----------
+    L : float
+        Physical size of projection space
+
+    Returns
+    -------
+    bar : float
+        Size of scale bar
+    label : string
+        Label for scale bar
+
+    """
 
     if (L>=10000):
         bar = 1000.; label = '1 Mpc'

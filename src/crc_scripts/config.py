@@ -3,6 +3,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import os
 
+"""
+This houses global variables generall used for plotting and unit conversion
+"""
+
 BASE_DIR = os.path.dirname(__file__)
 OBS_DIR = os.path.join(BASE_DIR, 'observations/data/')
 
@@ -18,7 +22,7 @@ LARGE_MARKERSIZE = 15**2
 SMALL_MARKERSIZE = 7.5**2
 
 # Set personal color, linewidths, and styles cycle
-LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna","xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
+LINE_COLORS = ["xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid","xkcd:orange","xkcd:teal","xkcd:magenta","xkcd:gold","xkcd:sienna","xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:lilac","xkcd:goldenrod","xkcd:peach"]
 SECOND_LINE_COLORS = ["xkcd:dark royal blue","xkcd:indian red","xkcd:dark grass green","xkcd:light eggplant","xkcd:apricot","xkcd:goldenrod","xkcd:peach"]
 MARKER_COLORS = ["xkcd:orange","xkcd:gold","xkcd:magenta","xkcd:teal","xkcd:sienna","xkcd:azure","xkcd:tomato","xkcd:green","xkcd:orchid",
 				 "xkcd:apricot","xkcd:pale lime","xkcd:dark royal blue","xkcd:indian red","xkcd:cinnamon","xkcd:light eggplant",
@@ -118,9 +122,10 @@ mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
 
 
 # Conversion factors for code to cgs units
+Msolar_to_g					= 1.989E33
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
-UnitMass_in_Msolar			= UnitMass_in_g / 1.989E33
+UnitMass_in_Msolar			= UnitMass_in_g / Msolar_to_g
 UnitVelocity_in_cm_per_s    = 1.0e5   	    # 1 km/sec
 UnitTime_in_s 				= UnitLength_in_cm / UnitVelocity_in_cm_per_s # 0.978 Gyr/h
 UnitTime_in_Gyr 			= UnitTime_in_s /1e9/365./24./3600.
@@ -128,6 +133,7 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.674E-24 # grams
 PROTONMASS					= H_MASS
+SPEED_OF_LIGHT				= 3E8 # m/s
 BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 U_to_temp					=  ((PROTONMASS/BoltzMann_ergs)*(UnitVelocity_in_cm_per_s**2))
@@ -142,6 +148,7 @@ grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
 HUBBLE 						= 0.68 # =0.702
 OMEGA_MATTER				= 0.31 # =0.272
+OMEGA_LAMBDA				= 0.69
 L_solar 					= 3.828E26 # Watts
 
 AG89_SOLAR_Z = 0.02
@@ -170,6 +177,7 @@ SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
 DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
 
+# Order for species and sources chosen in terms of fraction of total mass useful for plotting
 DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusions']
 DUST_SPECIES_SIL_CARB		= ['Silicates+','Carbon']
 DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
@@ -177,14 +185,14 @@ DUST_SOURCES				= ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 # Houses various property labels, limits, and if they should be plotted in log space. 
 # Each property is represented by one or multiple shorthand keys
 PROP_INFO  				= {
-**dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0., 1.], 		False]),
-**dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0., 1.], 		False]),
-						'f_cold': [r'$f_{\rm cold}$', 													[0., 1.], 		False],
-						'f_warm': [r'$f_{\rm warm}$', 													[0., 1.], 		False],
-						 'f_hot': [r'$f_{\rm hot}$', 													[0., 1.], 		False],
-					 'f_coronal': [r'$f_{\rm coronal}$', 												[0., 1.], 		False],
-					 'f_ionized': [r'$f_{\rm ionized}$', 												[0., 1.], 		False],					 
-					  'f_conden': [r'$f_{\rm condensation}$', 											[0., 1.], 		False],
+**dict.fromkeys(['fH2','f_H2'], [r'$f_{\rm H_2}$', 														[0.,1.05], 		False]),
+**dict.fromkeys(['fHn','f_neutral'], [r'$f_{\rm neutral}$', 											[0.,1.05], 		False]),
+						'f_cold': [r'$f_{\rm cold}$', 													[0.,1.05], 		False],
+						'f_warm': [r'$f_{\rm warm}$', 													[0.,1.05], 		False],
+						 'f_hot': [r'$f_{\rm hot}$', 													[0.,1.05], 		False],
+					 'f_coronal': [r'$f_{\rm coronal}$', 												[0.,1.05], 		False],
+					 'f_ionized': [r'$f_{\rm ionized}$', 												[0.,1.05], 		False],					 
+					  'f_conden': [r'$f_{\rm condensation}$', 											[0.,1.05], 		False],
 						'fdense': [r'$f_{\rm dense}$', 													[0,1.05], 		False],
 						 'CinCO': [r'$f_{\rm C\;in\;CO}$', 												[0,1.05], 		False],
 							 'r': ['Radius [kpc]', 														[0.1,20], 		False],
@@ -212,7 +220,7 @@ PROP_INFO  				= {
 					  'sigma_H2': [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', 						[1E-1,1E2], 	True],
 					'NH_neutral': [r'$N_{\rm H,neutral}$ [cm$^{-2}$]',									[1.1E18,0.9E22],True],
 							'NX': [r'$N_{\rm X}$ [cm$^{-2}$]',											[1E16,1E19],	True],
-						  'time': ['Time [Gyr]',														[1E-2,1E1],		False],
+						  'time': ['Time [Gyr]',														[1E-2,13.7],	False],
 				 'time_lookback': ['Lookback Time [Gyr]',												[1E-1,1E1],		True],
 					  'star_age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
 						   'age': ['Stellar Population Age [Gyr]',										[3E-4,1E1],		True],
@@ -280,12 +288,22 @@ PROP_INFO  				= {
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
-			   			   'SED': [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E11],		True],
+**dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
 					'grain_size': [r'a ($\mu m$)',														[7E-4,10],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
-								  [r'$\frac{\partial n}{\partial a}$',									[1E-10,1E4],	True]),
+								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
-								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E-10,1E-4],	True])
+								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E20,1E55],	True]),
+					 'cool_rate': [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+					 'heat_rate': [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+					'net_heat_Q': [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'hydro_heat_rate': [r'$\Lambda_{\rm hydro}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'metal_cool_rate': [r'$\Lambda_{\rm metal}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+				'dust_cool_rate': [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
+			   'photo_heat_rate': [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',		[2E-25,2E-22],	True],
+**dict.fromkeys(['T_dust','dust_temp'], [r'$T_{\rm dust}$ [K]',											[0,60],			False]),
+			 'electron_fraction': [r'$f_{\rm electron}$',												[1E-3,1],		True],
+			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0.8,100],		True],
 							}
 
 
