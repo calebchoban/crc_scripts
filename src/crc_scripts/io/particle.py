@@ -5,37 +5,25 @@ from ..utils import coordinate_utils
 from ..utils.snap_utils import get_snap_file_name
 from ..utils.math_utils import approx_gas_temperature,get_stellar_ages,case_insen_compare
 
-class Header:
-
-    def __init__(self, sp):
-
-        # no snapshot, no particle info
-        self.sp = sp
-        self.k = -1 if sp.k==-1 else 0
-
-        return
-
-    def load(self):
-
-        if (self.k!=0): return
-
-        sp = self.sp
-        self.k = 1
-        self.npart = sp.npart
-        self.time = sp.time
-        if sp.cosmological:
-            self.scale_factor = sp.scale_factor
-        else: self.scale_factor = 1
-        self.redshift = sp.redshift
-        self.boxsize = sp.boxsize
-        self.hubble = sp.hubble
-
-        return
-
-
 class Particle:
+    """Particle object that loads and stores particle data for a given particle type. Can be used to get select properties from paticles."""
 
     def __init__(self, sp, ptype):
+        """
+        Construct a Particle instance.
+
+        Parameters
+        ----------
+        sp : Snapshot
+            Snapshot object representing snapshot from which particle data is taken.
+        ptype: int
+            Particle type (0=gas,1=high-res DM,2/3=dummy particles,4=stars,5=sink particles) to load.
+
+        Returns
+        -------
+        Particle
+            Particle instance created from given Snapshot object and for given particle type.
+        """
 
         # no snapshot, no particle info
         self.sp = sp
@@ -66,7 +54,14 @@ class Particle:
 
 
     def load(self):
+        """
+        Loads particle data from snapshot and convert to physical units (kpc, km/s, M_solar, Gyr).
 
+        Returns
+        -------
+        None
+
+        """
         if (self.k!=0): return
 
         # class basic info
@@ -287,8 +282,20 @@ class Particle:
         return
         
 
-    # Reduce the particle data to only the masked particles
     def mask(self, mask):
+        """
+        Reduce the particle data to only the masked particles.
+
+        Parameters
+        ----------
+        mask : ndarray
+            Numpy boolean array masking which particle to keep.
+
+        Returns
+        -------
+        None
+
+        """
 
         for prop in self.data.keys():
             self.data[prop] = self.data[prop][mask]
@@ -298,6 +305,24 @@ class Particle:
         return
 
     def orientate(self, center_pos=None, center_vel=None, principal_vec=None):
+        """
+        Orientates particle data given origin position, velocity, and/or normal/principle vector. 
+        This only runs once so you don't orientate multiple times.
+
+        Parameters
+        ----------
+        center_pos : (3,) ndarray, optional
+            Center x,y,x position to set origin to.
+        center_vel : (3,) ndarray, optional
+            Center x,y,x velocity to correct particle velocities.
+        center_pos : (3,3) ndarray, optional
+            Normal/principle vector to align particle data to. Sets orientation to be parallel with z vector.
+
+        Returns
+        -------
+        None
+
+        """
 
         if self.orientated: return
 
@@ -324,7 +349,20 @@ class Particle:
 
     # Gets derived properties from particle data
     def get_property(self, property):
+        """
+        Returns given particle property data if property is supported (not case sensitive). Will return array of -1 if not supported.
 
+        Parameters
+        ----------
+        property : string
+            Particle property data you want.
+
+        Returns
+        -------
+        data
+            Particle property data.
+
+        """
         data = self.data
         # Nothing to do here if there are no particles
         numpart = len(data['mass'])
@@ -334,7 +372,7 @@ class Particle:
         # Default to -1 for unsupported properties
         prop_data = np.full(numpart,-1,dtype=float)
 
-        # First properties that all particle types have
+        # PROPERTIES ALL PARTICLE HAVE
         # If it corresponds to a data key just pull that
         # Except for Z since you usually only want Z_total
         if case_insen_compare(property,data.keys()) and not case_insen_compare(property,'Z'):
@@ -352,7 +390,9 @@ class Particle:
             prop_data = np.sum(data['position'][:, :2] ** 2, axis=1) ** 0.5
         elif case_insen_compare(property,['v','vel','velocity']):
             prop_data = data['velocity']
+
         elif self.ptype == 0:
+            # GENERAL GAS PROPERTIES
             if case_insen_compare(property,['h','size','scale_length']):
                 prop_data = data['size']
             elif case_insen_compare(property,'M_gas_neutral'):
@@ -374,6 +414,8 @@ class Particle:
                 prop_data = (data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS)*data['H_neutral_fraction']
             elif case_insen_compare(property,['T','temperature']):
                 prop_data = data['temperature']
+            
+            # METALLICITY AND ABUNDANCES
             elif case_insen_compare(property,'Z'):
                 SOLAR_Z = self.sp.solar_abundances[0]
                 prop_data = data['Z'][:,0]/SOLAR_Z
@@ -408,12 +450,16 @@ class Particle:
             elif case_insen_compare(property,'Fe/H'):
                 Fe = data['Z'][:,10]/config.ATOMIC_MASS[10]; H = (1-(data['Z'][:,0]+data['Z'][:,1]))/config.ATOMIC_MASS[0]
                 prop_data = 12+np.log10(Fe/H)
+
+            # GAS PHASES
             elif case_insen_compare(property,'f_cold'):
                 prop_data = np.sum(data['mass'][data['temperature']<=1E3])/np.sum(data['mass'])
             elif case_insen_compare(property,'f_warm'):
                 prop_data = np.sum(data['mass'][(data['temperature']<1E4) & (data['temperature']>=1E3)])/np.sum(data['mass'])
             elif case_insen_compare(property,'f_hot'):
                 prop_data = np.sum(data['mass'][data['temperature']>=1E4])/np.sum(data['mass'])
+            
+            # DUST SPECIES PROPERTIES
             elif self.sp.Flag_DustSpecies:
                 if case_insen_compare(property,'M_dust'):
                     prop_data = data['dust_Z'][:,0]*data['mass']
@@ -472,6 +518,8 @@ class Particle:
                     prop_data[prop_data > 1] = 1
                 elif case_insen_compare(property,['C_in_CO','CinCO']):
                     prop_data = data['C_in_CO']/data['Z'][:,2]
+                
+                # GAS-PHASE METALLICITY AND ABUNDANCES
                 elif case_insen_compare(property,'Z_O_gas'):
                     prop_data = (data['Z'][:,4]-data['dust_Z'][:,4])/self.sp.solar_abundances[4]
                 elif case_insen_compare(property,'Z_C_gas'):
@@ -516,6 +564,8 @@ class Particle:
                     prop_data[prop_data > 1] = 1.
                 elif case_insen_compare(property,['T_dust']):
                     prop_data = data['dust_temp']
+                
+                # DUST GRAIN SIZE BIN PROPERTIES
                 elif self.sp.Flag_GrainSizeBins:
                     if case_insen_compare(property,'grain_bin_num'):
                         prop_data = data['grain_bin_num'];
@@ -560,6 +610,7 @@ class Particle:
                 prop_data = data['size']
 
         elif self.ptype==4:
+            # GENERAL STAR PROPERTIES
             if case_insen_compare(property,['M_star_young','M_stellar_young','M_star_10Myr']):
                 # Assume young stars are < 10 Myr old
                 prop_data = data['mass'].copy()

@@ -434,6 +434,7 @@ def fit_exponential(x_data, y_data, guess=None, bounds=None):
 
     return curve_fit(exp_func,x_data,y_data, p0=guess, bounds=bounds)
 
+
 # This fits a sersic+exponential disk profile to galactocentric vs sufrace density data
 def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='de_vauc', no_exp=False):
     """"

@@ -144,7 +144,8 @@ def get_SKIRT_SED_data(dirc, inst_file, distance=10E6, redshift=0):
     if redshift <=0:
         camera_dist = distance*config.pc_to_m
     else:
-        camera_dist = quick_redshift_to_distance(redshift) *config.pc_to_m
+        # Need to get luminosity distance
+        camera_dist = quick_redshift_to_distance(redshift)*config.pc_to_m
     flux_to_L = 4*np.pi*np.power(camera_dist,2)/config.L_solar # Flux to Solar Luminosity
     
     sed_data={}

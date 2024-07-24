@@ -3,6 +3,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import os
 
+"""
+This houses global variables generall used for plotting and unit conversion
+"""
+
 BASE_DIR = os.path.dirname(__file__)
 OBS_DIR = os.path.join(BASE_DIR, 'observations/data/')
 

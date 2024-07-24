@@ -3,14 +3,30 @@ import matplotlib.pyplot as plt
 
 from ..utils import math_utils
 from ..utils import coordinate_utils
-from .particle import Header,Particle
 
 # This is a class that manages a galaxy/halo in a given
 # snapshot, for either cosmological or isolated simulations.
 
 class Halo(object):
+    """Halo object that loads and stores data for a given galactic halo in a given snapshot."""
 
     def __init__(self, sp, id=0):
+        """
+        Construct a Halo instance.
+
+        Parameters
+        ----------
+        sp : Snapshot
+            Snapshot object representing snapshot from which galactic halo is taken.
+        id: int, optional
+            ID of the galactic halo you want taken from AHF files. Default is the most massive halo. 
+            If not AHF files exists this won't do anything.
+
+        Returns
+        -------
+        Halo
+            Halo instance created from given Snapshot object and for a given galactic halo.
+        """
 
         # the halo must be taken from a snapshot
         self.sp = sp
@@ -19,7 +35,6 @@ class Halo(object):
         self.cosmological = sp.cosmological
 
         # these are linked to its parent snapshot
-        self.header = sp.header
         self.gas = sp.gas
         self.DM = sp.DM
         self.disk = sp.disk
@@ -42,6 +57,20 @@ class Halo(object):
 
     # Set zoom-in region if you don't want all data in rvir
     def set_zoom(self, rout=1.0, kpc=False):
+        """
+        Set the radius of zoom-in region around the halo center. This will determine the extent of the region you want to get particle data for. Default is the virial radius.
+
+        Parameters
+        ----------
+        rout : double, optional
+            The radius of the zoom in region. This is a fraction of the virial radius if kpc=False, else its the physical radius in kpc if kpc=True.
+        kpc: boolean, optional
+            Set to True of you want rout to be a physical radius in units of kpc.
+
+        Returns
+        -------
+        None
+        """
 
         # How far out do you want to load data, default is rvir
         self.rout = rout
@@ -51,15 +80,30 @@ class Halo(object):
         return
 
     def set_orientation(self, ptype=4, mass_radius_max = 100, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
-        # ptype: int
-        #   particle types to use to compute disk center and axis
-        # velocity_radius_max: float
-        #   compute average velocity using particles within this radius [kpc]
-        # distance_max : float
-        #   maximum radius to select particles [kpc physical]
-        # age_limits : float
-        #   min and max limits of age to select star particles [Gyr]
+        """
+        Set the orientation (center position velocity and priciple axes) of the halo. The default values work well for stable galaxies,
+        but may need to be tweaked for chaotic events like mergers or at high-z.
 
+        Parameters
+        ----------
+        ptype : int, optional
+            The particle type you want to use to determine the orientation. For stable galaxies, stars (ptype=4) are best since they lie 
+            well within the galaxy.
+        mass_radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particles for determining center position.
+        velocity_radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particle for determining center velocity.          
+        velocity_radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particle for determining center velocity.             
+        radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particle for determining principle vectors. 
+        age_limits : (2,), array
+            If using star particles, the age limits [Gyr] for what stars to consider when determining principle vectors. Young stars are best.
+
+        Returns
+        -------
+        None
+        """
 
         self.assign_center(ptype, mass_radius_max, velocity_radius_max)
         self.assign_principal_axes(ptype, radius_max, age_limits)
@@ -67,8 +111,20 @@ class Halo(object):
         return
 
 
-    # load basic info to the class
     def load(self, mode='AHF'):
+        """
+        Loads halo data based on either AHF halo file data or center of gas particles in snapshot.
+
+        Parameters
+        ----------
+        mode : string, optional
+            Set to 'AHF' to load AHF halo file information if available. Else, the center of gas particles 
+            and snapshot volume is used to define the extent of the halo.
+
+        Returns
+        -------
+        None
+        """
 
         if (self.k!=0): return # already loaded
 
@@ -130,13 +186,34 @@ class Halo(object):
         return
 
 
-    # Returns the maximum radius
     def get_rmax(self):
+        """ Returns the radius of the halo """ 
         return self.rvir
 
 
-    # Returns the half mass radius for a give particle type
-    def get_half_mass_radius(self, within_radius=None, geometry='spherical', ptype=4, rvir_frac=1.0):
+    def get_half_mass_radius(self, ptype=4, within_radius=None, rvir_frac=1.0, geometry='spherical'):
+        """
+        Determines the half mass radius for a given particle type within the halo.
+
+        Parameters
+        ----------
+        ptype : int, optional
+            Particle type you want the half mass radius for. Default is stars.
+        within_radius : double, optional
+            Maximum physical radius [kpc] you want to considered particles when calculating the half mass radius. 
+            Use this or rvir_frac to set the radius. This takes precedence over rvir_frac.
+        rvir_frac : double, optional
+            Maximum radius as a fraction of the virial radius you want to considered particles when calculating the half mass radius. 
+            Use this or within_radius to set the radius.
+        geometry : string, optional
+            The geometry you want to use given the maximum radius. Supports 'spherical','cylindrical', and 'scale_height'
+
+        Returns
+        -------
+        half_mass_radius: double
+            The half mass radius for the given particle type.
+
+        """
 
         within_radius = self.rvir*rvir_frac if within_radius is None else within_radius
 
@@ -177,6 +254,19 @@ class Halo(object):
 
     # load all particles in the halo/galaxy centered on halo center
     def loadpart(self, ptype):
+        """
+        Load particle data within the Halo object. This data will be orientated to be centered on halo center.
+
+        Parameters
+        ----------
+        ptype : int, optional
+            Particle type you want to load.
+
+        Returns
+        -------
+        None
+            
+        """
 
         part = self.part[ptype]
         # If the particles have previously been loaded and orientated we are done here
@@ -195,42 +285,26 @@ class Halo(object):
         return part
 
 
-    def loadheader(self):
-
-        header=self.header
-        header.load()
-
-        return header
-
-    
-    # load AHF particles for the halo
-    def loadAHFpart(self):
-    
-        AHF = self.sp.loadAHF()
-        PartID, PType = AHF.loadpart(id=self.id)
-    
-        return PartID, PType
-
-
-    # get star formation history using all stars in Rvir
-    def get_SFH(self, dt=0.01, cum=0, rout=1.0, kpc=0):
-
-        self.load()
-        if (self.k==-1): return 0., 0.
-
-        part = self.loadpart(4)
-        if (part.k==-1): return 0., 0.
-
-        p, sft, m = part.get_property('position'), part.get_property('sft'), part.get_property('mass')
-        r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
-        rmax = rout*self.rvir if kpc==0 else rout
-        t, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=self.sp)
-
-        return t, sfr
-
-
     # calculate center position and velocity
     def assign_center(self, ptype=4, mass_radius_max = None, velocity_radius_max=15):
+        """
+        Assign the center position and velocity of the halo using the given particle information.
+
+        Parameters
+        ----------
+        ptype : int, optional
+            The particle type you want to use to determine the center. For stable galaxies, stars (ptype=4) are best since they lie 
+            well within the galaxy.
+        mass_radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particles for determining center position.
+        velocity_radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particle for determining center velocity.          
+
+        Returns
+        -------
+        None
+            
+        """
 
         if self.calc_center: return
         if mass_radius_max is None:
@@ -268,15 +342,24 @@ class Halo(object):
 
 
     def assign_principal_axes(self, ptype=4, radius_max=10, age_limits=[0,1]):
-        '''
+        """
         Assign principal axes (rotation vectors defined by moment of inertia tensor) to galaxy.
 
         Parameters
         ----------
-        part : dictionary class : catalog of particles
-        distance_max : float : maximum radius to select particles [kpc physical]
-        age_limits : float : min and max limits of age to select star particles [Gyr]
-        '''
+        ptype : int, optional
+            The particle type you want to use to determine the orientation. For stable galaxies, stars (ptype=4) are best since they lie 
+            well within the galaxy.         
+        radius_max : double, optional
+            The maximum radius (in kpc) from the halo center you want to consider particle for determining principle vectors. 
+        age_limits : (2,), array
+            If using star particles, the age limits [Gyr] for what stars to consider when determining principle vectors. Young stars are best.
+
+        Returns
+        -------
+        None
+        """
+        
         part = self.part[ptype] # particle types to use to compute MOI tensor and principal axes
         part.load()
         if len(part.get_property('mass')) < 0:
@@ -346,65 +429,8 @@ class Halo(object):
 
         return
 
-    # Calculate the stellar scale radius
-    def calc_stellar_scale_r(self, guess=[1E4,1E2,0.5,3], bounds=(0, [1E6,1E6,5,10]), radius_max=10, output_fit=False,
-                             foutname='stellar_bulge+disk_fit.png', bulge_profile='de_vauc', no_exp=False):
-        # guess : initial guess for central density of sersic profile, central density of exponential disk, sersic scale length, disk scale length, and sersic index
-        # bounds : Bounds for above values
-        # radius_max : maximum disk radius for fit
-        # output_fit : creates a plot of the fit and the data
-        # foutname : name for plotted image
 
-        stars = self.part[4]
-        stars.load()
-        stars.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-        star_mass = stars.get_property('M')
-        r_bins = np.linspace(0,radius_max,int(np.floor(radius_max/.1)))
-        r_vals = np.array([(r_bins[i+1]+r_bins[i])/2. for i in range(len(r_bins)-1)])
-        rmag = np.sqrt(np.sum(np.power(stars.p[:,:2],2),axis=1))
-        sigma_star = np.zeros(len(r_vals))
-        for i in range(len(r_vals)):
-            rmin = r_bins[i]; rmax = r_bins[i+1]
-            mass = np.sum(star_mass[(rmag>rmin) & (rmag<=rmax)])
-            area = np.pi*(rmax**2 - rmin**2)
-            sigma_star[i] = mass/(area*1E6) # M_sol/pc^2
-
-
-        # Fit a sersic/bulge+exponential/disk profile to the disk stellar surface density
-        fit_params,_ = math_utils.fit_bulge_and_disk(r_vals, sigma_star, guess=guess, bounds=bounds, bulge_profile=bulge_profile, no_exp=no_exp)
-        if not no_exp:
-            coeff1 = fit_params[0]; coeff2 = fit_params[1]; sersic_l=fit_params[2]; disk_l=fit_params[3];
-            if bulge_profile == 'sersic':
-                sersic_index = fit_params[4]
-            else:
-                sersic_index = 4
-        else:
-            coeff1 = fit_params[0]; sersic_l = fit_params[1];sersic_index = fit_params[2];
-            coeff2 = 0; disk_l=0
-
-        print("Results for bulge+disk fit to disk galaxy...\n \
-              Sersic Coefficient = %e M_solar/pc^2 \n \
-               Disk Coefficient = %e M_solar/pc^2 \n \
-               Sersic scale length = %e kpc \n \
-               Disk scale length = %e kpc \n \
-               Sersic index = %e "%(coeff1, coeff2, sersic_l,disk_l, sersic_index))
-        if output_fit:
-            plt.figure()
-            plt.scatter(r_vals, sigma_star,c='xkcd:black')
-            x_vals = np.linspace(0,radius_max,100)
-            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index)), label='Sersic Profile')
-            plt.plot(x_vals, coeff2*np.exp(-x_vals/disk_l), label='Exponential Disk')
-            plt.plot(x_vals, coeff1*np.exp(-np.power(x_vals/sersic_l,1./sersic_index))+coeff2*np.exp(-x_vals/disk_l), label='Total')
-            plt.ylim([np.min(sigma_star),np.max(sigma_star)])
-            plt.yscale('log')
-            plt.ylabel(r'$\Sigma_{\rm star} \; (M_{\odot}/{\rm pc}^2$')
-            plt.xlabel("Radius (kpc)")
-            plt.legend()
-            plt.savefig(foutname)
-            plt.close()
-
-        return disk_l
-
+# THE FUNCTIONS BELOW ARE OLD AND NEED TO BE UPDATE. USE AT YOUR OWN RISK
 
 class Disk(Halo):
 

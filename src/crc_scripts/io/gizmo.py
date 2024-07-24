@@ -15,16 +15,7 @@ def load_part(sdir, snum, ptype, cosmological=1):
     sp = load_snap(sdir, snum, cosmological=cosmological)
     part = sp.loadpart(ptype)
 
-    return part 
-
-# this returns a Header class
-def load_header(sdir, snum, ptype, cosmological=1):
-
-    sp = load_snap(sdir, snum, cosmological=cosmological)
-    part = sp.loadheader(ptype)
-
-    return part 
-
+    return part
 
 
 # this returns an AHF class

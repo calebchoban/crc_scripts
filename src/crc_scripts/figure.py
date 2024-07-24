@@ -12,7 +12,8 @@ from .utils import data_calc_utils as calc
 
 
 class Figure(object):
-
+    """ Wrapper for matplotlib figures to have them fit my personal tastes. """
+    
     def __init__(self, plot_num, **kwargs):
         """
         Parameters
