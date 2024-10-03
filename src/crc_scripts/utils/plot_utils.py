@@ -185,7 +185,7 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
     ncols: int, optional
         Force number of columns given multiple plots. This overrids orientation.
     sqeezespace: float, optional
-        The space between plots whcih are sharing axis as given by sharex and sharey.
+        The space between plots which are sharing axis as given by sharex and sharey.
 
     Returns
     -------
@@ -699,7 +699,7 @@ def find_scale_bar(L):
     Parameters
     ----------
     L : float
-        Physical size of projection space
+        Physical size of projection space in kpc
 
     Returns
     -------

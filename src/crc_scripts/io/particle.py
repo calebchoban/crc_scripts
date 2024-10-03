@@ -554,6 +554,8 @@ class Particle:
                 elif case_insen_compare(property,'D/Z'):
                     prop_data = data['dust_Z'][:,0]/data['Z'][:,0]
                     prop_data[prop_data > 1] = 1.
+                elif case_insen_compare(property,'D/G'):
+                    prop_data = data['dust_Z'][:,0]
                 elif 'depletion' in property:
                     elem = property.split('_')[0]
                     if elem not in config.ELEMENTS:

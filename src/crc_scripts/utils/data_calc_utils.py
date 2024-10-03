@@ -6,7 +6,7 @@ from . import math_utils
 
 
 
-def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None):
+def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None, mask_criteria='all'):
 	"""
 	Calculates median and 16/84th-percentiles of property1 in relation to binned property2 for
 	the given snapshot gas data
@@ -24,6 +24,8 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		Number of bins to use for property2
 	prop_lims : ndarray, optional
 		Limits for property2 binning
+	mask_criteria : string, optional
+		Mask for particles to be given to get_particle_mask()
 
 	Returns
 	-------
@@ -43,11 +45,14 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		ptype = 0
 
 	P = snap.loadpart(ptype)
+
+	mask = get_particle_mask(ptype, snap, mask_criteria=mask_criteria)
+
 	# Get property data
-	data = np.zeros([2,P.npart])
-	weights = P.get_property('M')
+	data = np.zeros([2,len(P.get_property('M')[mask])])
+	weights = P.get_property('M')[mask]
 	for i, property in enumerate([property1,property2]):
-		data[i] = P.get_property(property)
+		data[i] = P.get_property(property)[mask]
 
 	if prop_lims is None:
 		prop_lims = config.PROP_INFO[property2][1]

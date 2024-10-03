@@ -100,12 +100,12 @@ class Figure(object):
             self.axis_artists[axis_num]=[]
 
     
-    def plot_line_data(self, axis_num, x_data, y_data, y_std=None, std_kwargs={}, **kwargs):
+    def plot_line_data(self, axis_num, x_data, y_data, y_std=None, std_kwargs=None, **kwargs):
         default_kwargs = {
             'color': config.BASE_COLOR, 
             'linestyle': config.BASE_LINESTYLE, 
             'linewidth': config.BASE_LINEWIDTH, 
-            'zorder': 3}
+            'zorder': 2}
         
         # If std/errors for the y values are given then we want to plot them as shaded regions with the lines
         std_bars = True if y_std is not None else False
@@ -123,7 +123,7 @@ class Figure(object):
             'color': kwargs['color'], 
             'zorder': kwargs['zorder']-1,
             'alpha': 0.3}
-
+            if std_kwargs is None: std_kwargs={}
             for kwarg in default_std_kwargs:
                 if kwarg not in std_kwargs:
                     std_kwargs[kwarg] = default_std_kwargs[kwarg]
@@ -160,7 +160,6 @@ class Figure(object):
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
-
         axis = self.axes[axis_num]
         fb = axis.fill_between(x_data, y1_data, y2_data, **kwargs)
         self.axis_artists[axis_num] += [fb]
@@ -199,8 +198,37 @@ class Figure(object):
         sc = axis.scatter(x_data, y_data, **kwargs)
         self.axis_artists[axis_num] += [sc]
 
-    def plot_histogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None):
-     
+
+    def plot_1Dhistogram(self, axis_num, X, bin_lims=None, bin_nums=100, bin_log=False, label=None, **kwargs):
+        default_kwargs = {
+            'density': True, 
+            'histtype': 'step', 
+            'zorder': 3}
+        
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]     
+
+
+        axis = self.axes[axis_num]
+        if bin_lims is None:
+            bin_lims=axis.get_xlim()
+        if bin_log:
+            bins = np.logspace(np.log10(bin_lims[0]),np.log10(bin_lims[1]),bin_nums)
+        else:
+            bins = np.linspace(bin_lims[0],bin_lims[1],bin_nums)
+
+        img = axis.hist(X,bins,label=label,**kwargs)
+        axis.autoscale('tight')
+        self.axis_artists[axis_num] += [img]
+
+
+    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None, **kwargs):
+        default_kwargs = {
+            'zorder': 3}
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]        
 
         z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
         z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
@@ -211,12 +239,13 @@ class Figure(object):
             norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
 
         axis = self.axes[axis_num]
-        img = axis.pcolormesh(X, Y, Z, cmap=cmap, norm=norm)
+        img = axis.pcolormesh(X, Y, Z, cmap=cmap, norm=norm, **kwargs)
         axis.autoscale('tight')
         self.axis_artists[axis_num] += [img]
 
         if label!=None:
-            axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=4)
+            axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=kwargs['zorder']+1)
+
 
     def set_all_legends(self, labels_per_legend=4, max_cols=2, **kwargs):
         default_kwargs = {
@@ -301,8 +330,6 @@ class Figure(object):
         #         handle.set(cmap=None,norm=None,facecolor=None)
 
 
-
-
     def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False, no_minor_ticks=False, side='right'):
 
         # Since we are adding a colorbar lets make sure the plots aren't too close together
@@ -325,6 +352,7 @@ class Figure(object):
             cbar.ax.invert_yaxis()
         if no_minor_ticks:
             cbar.ax.minorticks_off()
+
 
     def add_outside_colorbar(self, axis_num=0, cbar_prop=None, invert_axis=False, no_minor_ticks=False):
 
