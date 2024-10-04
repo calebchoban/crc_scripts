@@ -594,7 +594,7 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
         List with projection axes you want to setup. Expects one/two axes if sub_projection is true/false.
     main_L : float
         Size of main projection (L x L)
-    su_L : float, optional
+    sub_L : float, optional
         Size of subprojection (L x sub_L)
     axes_visible : bool, optional
         Set whether you want axes with ticks visible along projections.
@@ -603,8 +603,8 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
 
     if sub_L is None:
         ax1 = axes[0]
-        ax1.set_xlim([-main_L,main_L])
-        ax1.set_ylim([-main_L,main_L])
+        ax1.set_xlim([-main_L/2,main_L/2])
+        ax1.set_ylim([-main_L/2,main_L/2])
         if not axes_visible:
             ax1.xaxis.set_visible(False)
             ax1.yaxis.set_visible(False)
@@ -613,14 +613,14 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
     # If there is a subprojection set that up as well
     else:
         ax1 = axes[0]
-        ax1.set_xlim([-main_L,main_L])
-        ax1.set_ylim([-main_L,main_L])
+        ax1.set_xlim([-main_L/2,main_L/2])
+        ax1.set_ylim([-main_L/2,main_L/2])
         for axe in ['top','bottom','left','right']:
             ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
         ax2 = axes[1]
-        ax2.set_ylim([-sub_L, sub_L])
-        ax2.set_xlim([-main_L,main_L])
+        ax2.set_ylim([-sub_L/2, sub_L/2])
+        ax2.set_xlim([-main_L/2,main_L/2])
         for axe in ['top','bottom','left','right']:
                 ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
         
@@ -631,9 +631,11 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
             ax2.yaxis.set_visible(False)
 
     # Add scale bar to main projection
-    bar, label = find_scale_bar(main_L)
-    ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-    ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+    bar, bar_label = find_scale_bar(main_L)
+    bar_x_center = -0.7*main_L/2; bar_y_center = -0.83*main_L/2; label_offset = 0.04*main_L/2
+    ax1.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+    ax1.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+
 
 
 def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False):
@@ -692,7 +694,7 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
     return cbar
 
 
-def find_scale_bar(L):
+def find_scale_bar(L, arcsec=False):
     """
     Determines the appropriate scale bar to use in a projection given the size of the projection.
 
@@ -700,6 +702,8 @@ def find_scale_bar(L):
     ----------
     L : float
         Physical size of projection space in kpc
+    arsec : optional, bool
+        Set if L is in units of arcseconds, else assumes kpc
 
     Returns
     -------
@@ -710,41 +714,62 @@ def find_scale_bar(L):
 
     """
 
-    if (L>=10000):
-        bar = 1000.; label = '1 Mpc'
-    elif (L>=1000):
-        bar = 100.; label = '100 kpc'
-    elif (L>=500):
-        bar = 50.; label = '50 kpc'
-    elif (L>=200):
-        bar = 20.; label = '20 kpc'
-    elif (L>=100):
-        bar = 10.; label = '10 kpc'
-    elif (L>=50):
-        bar = 5.; label = '5 kpc'
-    elif (L>=20):
-        bar = 2.; label = '2 kpc'
-    elif (L>=10):
-        bar = 1.; label = '1 kpc'
-    elif (L>=5):
-        bar = 0.5; label = '500 pc'
-    elif (L>=2):
-        bar = 0.2; label = '200 pc'
-    elif (L>=1):
-        bar = 0.1; label = '100 pc'
-    elif (L>0.5):
-        bar = 0.05; label = '50 pc'
-    elif (L>0.2):
-        bar = 0.02; label = '20 pc'
-    elif (L>0.1):
-        bar = 0.01; label = '10 pc'
-    elif (L>0.05):
-        bar = 0.005; label = '5 pc'
-    elif (L>0.02):
-        bar = 0.002; label = '2 pc'
-    elif (L>0.01):
-        bar = 0.001; label = '1 pc'
+    if not arcsec:
+        if (L>=10000):
+            bar = 1000.; label = '1 Mpc'
+        elif (L>=1000):
+            bar = 100.; label = '100 kpc'
+        elif (L>=500):
+            bar = 50.; label = '50 kpc'
+        elif (L>=200):
+            bar = 20.; label = '20 kpc'
+        elif (L>=100):
+            bar = 10.; label = '10 kpc'
+        elif (L>=50):
+            bar = 5.; label = '5 kpc'
+        elif (L>=20):
+            bar = 2.; label = '2 kpc'
+        elif (L>=10):
+            bar = 1.; label = '1 kpc'
+        elif (L>=5):
+            bar = 0.5; label = '500 pc'
+        elif (L>=2):
+            bar = 0.2; label = '200 pc'
+        elif (L>=1):
+            bar = 0.1; label = '100 pc'
+        elif (L>0.5):
+            bar = 0.05; label = '50 pc'
+        elif (L>0.2):
+            bar = 0.02; label = '20 pc'
+        elif (L>0.1):
+            bar = 0.01; label = '10 pc'
+        elif (L>0.05):
+            bar = 0.005; label = '5 pc'
+        elif (L>0.02):
+            bar = 0.002; label = '2 pc'
+        elif (L>0.01):
+            bar = 0.001; label = '1 pc'
+        else:
+            bar = 0.0005; label = '0.5 pc'
     else:
-        bar = 0.0005; label = '0.5 pc'
+        if (L>=360):
+            bar = 60.; label = '1 arcmin'     
+        if (L>=120):
+            bar = 20.; label = '20 arcsec'            
+        if (L>=60):
+            bar = 10.; label = '10 arcsec'
+        elif (L>=30):
+            bar = 5.; label = '5 arcsec'
+        elif (L>=10):
+            bar = 2.; label = '2 arcsec'
+        elif (L>=5):
+            bar = 1; label = '1 arcsec'
+        elif (L>=1):
+            bar = 0.4; label = '0.4 arcsec'
+        elif (L>=0.2):
+            bar = 0.01; label = '0.01 arcsec'
+        else:
+            bar = 0.005; label = '0.005 arcsec'
+
 
     return bar, label

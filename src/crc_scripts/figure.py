@@ -413,9 +413,13 @@ class Figure(object):
 
 
 class Projection(Figure):
+    """ Wrapper for matplotlib imshow function to easily plot either simulation projections or mock telescope images. """
 
     def __init__(self, plot_num, add_sub_proj=True, add_colorbars=True, height_ratios=[5,1]):
         """
+        Construct a Projection instance, specifying the number of individual images/projections and if they will have a secondary/sub 
+        image underneath them and/or a colorbar.
+
         Parameters
         ----------
         plot_num : int
@@ -427,6 +431,7 @@ class Projection(Figure):
         height_ratios : list
             Ratio between heights of projection, sub_projection, and colorbar. Only need to include ratio for each option selected.
         """
+
         self.plot_num = plot_num
         self.sub_proj = add_sub_proj
         self.has_colorbars = add_colorbars
@@ -441,15 +446,44 @@ class Projection(Figure):
         self.axis_properties = ['' for i in range(self.plot_num)]
 
 
-    def set_all_axis(self, properties, main_Ls, axes_visible=False, colorbar_kwargs=None):
+    def set_all_proj_axis(self, properties, main_Ls, axes_visible=False, colorbar_kwargs=None):
+        """
+        Setup all axes as projections only, given the properties for eahc projection and their size.
+
+        Parameters
+        ----------
+        properties : list
+            List of names for each projection that will be plotted.
+        main_Ls : list
+            List of the physical sizes of each projection.
+        axes_visible : bool
+            Toggle whether you want the axes visible.
+        colorbar_kwargs : dict
+            Arguements to be given to the colorbar.
+        """
 
         for i in range(len(self.axes)):
             if colorbar_kwargs is None:
                 kwargs = {} if colorbar_kwargs is None else colorbar_kwargs[i]
-            self.set_axis(i, properties[i], main_Ls[i], axes_visible=axes_visible, **kwargs)
+            self.set_proj_axis(i, properties[i], main_Ls[i], axes_visible=axes_visible, **kwargs)
 
 
-    def set_axis(self, axis_num, property, main_L, axes_visible=False, **kwargs):
+    def set_proj_axis(self, axis_num, property, main_L, axes_visible=False, **kwargs):
+        """
+        Setup specified axis as a projection, given the properties for eahc projection and their size.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to be setup as a projection.
+        property : str
+            Names of property that will be projected.
+        main_L : float
+            Physical size of projection.
+        axes_visible : bool
+            Toggle whether you want the axis visible.
+        """
+
         default_colorbar_kwargs = {
             'cmap': 'magma', 
             'label': None,
@@ -468,8 +502,50 @@ class Projection(Figure):
         plot_utils.setup_proj_axis(axes_set, main_L, sub_L=sub_L, axes_visible=axes_visible)
 
 
+    def set_image_axis(self, axis_num):
+        """
+        Setup specified axis as an image.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to be setup as an image.
+        """
+        
+        axes=self.axes[axis_num]
+        for i, axis in enumerate(axes):
+            # Only need the main axis for images
+            axis.xaxis.set_visible(False)
+            axis.yaxis.set_visible(False)
+            for axe in ['top','bottom','left','right']:
+                axis.spines[axe].set_visible(False)
+                    
+
     
     def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, **kwargs):
+        """
+        Plot given projection data on specified axis. Can also plot secondary projection data and add labels.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to plot projection data.
+        main_proj_data : ndarray (N,N)
+            NxN array of primary projection data.
+        main_extent : ndarray (2,2)
+            The x and y limits/extenct of the primary data.
+        sub_proj_data : ndarray (M,N)
+            NxM array of secondary projection data. Does not have to be square sinc secondary projections are usually thinner slices.
+        sub_extent : ndarray (2,2)
+            The x and y limits/extenct of the secondary data.
+        label : str, optional
+            Add label in top right corner.
+        v_limits : list, optional
+            Set color map limits. Overrides default choices.
+        v_log : bool, optional
+            Set color map to log scale. Overrides default choices.
+        """
+
         default_imshow_kwargs = {
             'cmap': 'inferno', 
             'interpolation': 'bicubic',
@@ -495,7 +571,7 @@ class Projection(Figure):
 		# Plot top projection
         img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
         if label is not None:
-            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.EXTRA_LARGE_FONT)
+            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.LARGE_FONT)
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
@@ -504,3 +580,76 @@ class Projection(Figure):
             cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1)       
             self.axis_colorbar[axis_num] = cbar
 
+
+    def plot_image(self, axis_num, data, dynamic_range=1E3, v_log=True, fov_kpc=None, fov_arcsec=None, label=None, **kwargs):
+        """
+        Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to plot image data.
+        data : ndarray (N,M) or (N,M,3)
+            Image data for each pixel.
+        dynamic_range : float, optional
+            Set dynamic range for single frame image. Does nothing for RGB image.
+        v_log : bool, optional
+            Set color map to log scale for single frame image. Overrides default choices.
+        fov_kpc : optional, float
+            Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
+        fov_arcsec : optional, float
+            Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
+        label : str, optional
+            Add label in top right corner.
+        """
+
+        default_imshow_kwargs = {
+            'cmap': 'inferno', 
+            'interpolation': 'bicubic',
+            'aspect': 'equal',
+            'origin': 'lower',
+            'zorder': 1}        
+
+        for kwarg in default_imshow_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_imshow_kwargs[kwarg]  
+
+        axis = self.axes[axis_num][0]
+
+        if len(data.shape) != 3:
+            # Change default projection limits
+            v_limits = [np.max(data)/dynamic_range,np.max(data)]
+            if v_log:
+                norm = mpl.colors.LogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True)
+            else:
+                norm = mpl.colors.Normalize(vmin=v_limits[0], vmax=v_limits[1], clip=True)
+            kwargs['norm'] = norm
+
+        # Default to kpc if both kpc and arsec fov are given
+        if fov_kpc is not None:
+            extent = [-fov_kpc/2,fov_kpc/2,-fov_kpc/2,fov_kpc/2]
+        elif fov_arcsec is not None:
+            extent = [-fov_arcsec/2,fov_arcsec/2,-fov_arcsec/2,fov_arcsec/2]
+        else: 
+            extent = None
+
+        img = axis.imshow(data, extent = extent, **kwargs)
+
+        # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
+        if fov_kpc is not None:
+            bar, bar_label = plot_utils.find_scale_bar(fov_kpc)
+            bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.83*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+        if fov_arcsec is not None:
+            bar, bar_label = plot_utils.find_scale_bar(fov_arcsec, arcsec=True)
+            # If extent is already defined in arcsec this is simple. If not we need to convert from arcsec to kpc
+            if fov_kpc is None:
+                bar_x_center = +0.7*fov_arcsec/2; bar_y_center = -0.83*fov_arcsec/2; label_offset = 0.04*fov_arcsec/2
+            else:
+                bar = bar/fov_arcsec * fov_kpc
+                bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.83*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+        if label is not None:
+            axis.text(.95, .95, label, color='xkcd:white', fontsize=config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
