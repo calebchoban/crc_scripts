@@ -577,8 +577,10 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
         fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
         for i in range(num_plots):
             ax = plt.subplot(gs[0,i])
-            cbarax = plt.subplot(gs[1,i])
-            axes += [[ax,cbarax]]
+            if add_colorbars:
+                cbarax = plt.subplot(gs[1,i])
+                axes += [[ax,cbarax]]
+            else: axes += [[ax]]
         axes = np.array(axes)
     
     return fig, axes

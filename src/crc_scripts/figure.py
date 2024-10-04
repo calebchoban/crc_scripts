@@ -211,15 +211,17 @@ class Figure(object):
 
 
         axis = self.axes[axis_num]
+        autoscale=True
         if bin_lims is None:
             bin_lims=axis.get_xlim()
+            autoscale=False
         if bin_log:
             bins = np.logspace(np.log10(bin_lims[0]),np.log10(bin_lims[1]),bin_nums)
         else:
             bins = np.linspace(bin_lims[0],bin_lims[1],bin_nums)
 
         img = axis.hist(X,bins,label=label,**kwargs)
-        axis.autoscale('tight')
+        if autoscale: axis.autoscale('tight')
         self.axis_artists[axis_num] += [img]
 
 
@@ -415,7 +417,7 @@ class Figure(object):
 class Projection(Figure):
     """ Wrapper for matplotlib imshow function to easily plot either simulation projections or mock telescope images. """
 
-    def __init__(self, plot_num, add_sub_proj=True, add_colorbars=True, height_ratios=[5,1]):
+    def __init__(self, plot_num, add_sub_proj=False, add_colorbars=False, height_ratios=[5,1]):
         """
         Construct a Projection instance, specifying the number of individual images/projections and if they will have a secondary/sub 
         image underneath them and/or a colorbar.
