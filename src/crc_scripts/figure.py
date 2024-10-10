@@ -640,18 +640,18 @@ class Projection(Figure):
         # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
         if fov_kpc is not None:
             bar, bar_label = plot_utils.find_scale_bar(fov_kpc)
-            bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.83*fov_kpc/2; label_offset = 0.04*fov_kpc/2
-            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+            bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.LARGE_FONT)
         if fov_arcsec is not None:
             bar, bar_label = plot_utils.find_scale_bar(fov_arcsec, arcsec=True)
             # If extent is already defined in arcsec this is simple. If not we need to convert from arcsec to kpc
             if fov_kpc is None:
-                bar_x_center = +0.7*fov_arcsec/2; bar_y_center = -0.83*fov_arcsec/2; label_offset = 0.04*fov_arcsec/2
+                bar_x_center = +0.7*fov_arcsec/2; bar_y_center = -0.8*fov_arcsec/2; label_offset = 0.04*fov_arcsec/2
             else:
                 bar = bar/fov_arcsec * fov_kpc
-                bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.83*fov_kpc/2; label_offset = 0.04*fov_kpc/2
-            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+                bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+            axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.LARGE_FONT)
         if label is not None:
             axis.text(.95, .95, label, color='xkcd:white', fontsize=config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)

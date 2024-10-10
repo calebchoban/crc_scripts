@@ -634,9 +634,9 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
 
     # Add scale bar to main projection
     bar, bar_label = find_scale_bar(main_L)
-    bar_x_center = -0.7*main_L/2; bar_y_center = -0.83*main_L/2; label_offset = 0.04*main_L/2
-    ax1.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-    ax1.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
+    bar_x_center = -0.7*main_L/2; bar_y_center = -0.8*main_L/2; label_offset = 0.04*main_L/2
+    ax1.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
+    ax1.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.LARGE_FONT)
 
 
 
@@ -727,7 +727,7 @@ def find_scale_bar(L, arcsec=False):
             bar = 20.; label = '20 kpc'
         elif (L>=100):
             bar = 10.; label = '10 kpc'
-        elif (L>=50):
+        elif (L>=40):
             bar = 5.; label = '5 kpc'
         elif (L>=20):
             bar = 2.; label = '2 kpc'

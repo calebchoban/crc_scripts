@@ -1,4 +1,4 @@
-from ..math_utils import quick_redshift_to_distance
+from ..math_utils import quick_cosmological_calc
 from ..stellar_hsml_utils import get_particle_hsml
 from ...io.gizmo import load_halo
 from ... import config
@@ -150,12 +150,11 @@ def get_SKIRT_SED_data(dirc, inst_file, distance=10E6, redshift=0):
         Dictionary with wavelength and flux information for each source component
     '''
 
-    # These are the typical columns for the SKIRT simulations I run
     if redshift <=0:
         camera_dist = distance*config.pc_to_m
     else:
         # Need to get luminosity distance
-        camera_dist = quick_redshift_to_distance(redshift)*config.pc_to_m
+        camera_dist = quick_cosmological_calc(redshift, 'luminosity_distance')*config.pc_to_m
     flux_to_L = 4*np.pi*np.power(camera_dist,2)/config.L_solar # Flux to Solar Luminosity
     
     sed_data={}
@@ -191,24 +190,28 @@ def get_SKIRT_image_data(dirc, inst_file, verbose=True):
         Wavelengths of each image.
     images : ndarray
         MxNxN pixel images.
-    pixel_res : float
-        Resolution of each pixel usually in arcseconds.
+    pixel_res_kpc : float
+        Resolution of each pixel in kpc.
+    pixel_res_arcsec : float
+        Resolution of each pixel in arcseconds.
     '''
     hdul = fits.open(dirc+inst_file)
     wavelengths = hdul[1].data['GRID_POINTS']
-    pixel_res = hdul[0].header['CDELT1']
-    pixel_units = hdul[0].header['CUNIT1']
+    pixel_res_arcsec = hdul[0].header['CDELT1']
+    pixel_units = hdul[0].header['CUNIT1'] # arcsec usually
+    angular_distance = hdul[0].header['DISTANGD']
+    distance_units = hdul[0].header['DISTUNIT'] # Mpc ususally
+    pixel_res_kpc = angular_distance*1E3*config.rad_per_arcsec*pixel_res_arcsec
 
     if verbose:
         print("FITS files info")
         print(hdul.info())
         print(hdul[0].header)
-        print("Pixel resolution ", pixel_res, pixel_units)
+        print("Pixel resolution", pixel_res_arcsec, "arsec",pixel_res_kpc, "kpc")
         print("There are %i photometric images at various wavelengths"%len(wavelengths))
 
     images = hdul[0].data
     hdul.close()
-
 
     # Possiblty add option to zoom in on image.
     # pixel_zoom = int(images[0].shape[0]//2*zoom)
@@ -220,7 +223,7 @@ def get_SKIRT_image_data(dirc, inst_file, verbose=True):
     # for i, image in enumerate(images):
     #     zoomed_images[i] = image[lower_pixel:upper_pixel,lower_pixel:upper_pixel]
 
-    return wavelengths,images,pixel_res
+    return wavelengths,images,pixel_res_kpc,pixel_res_arcsec
 
 
 def create_RGB_log_image_data(sed_data, dynamic_mag_range=3, max_bright_frac=1, max_brightness=None, allow_oversaturation=False, create_rgb_hist=False, only_full_rgb_pixels=True):
@@ -263,7 +266,6 @@ def create_RGB_log_image_data(sed_data, dynamic_mag_range=3, max_bright_frac=1, 
         labels = ['r','g','b']
         # Set minimum to be right above 
         x_lim = [np.min(sed_data[sed_data>0]),np.max(sed_data)]
-        print(x_lim)
         fig.set_axis(0, 'Brightness', 'CDF',y_lim=[0.001,1],y_label='CDF',y_log=False,x_lim=x_lim,x_label='Brightness $(W/m^2/arcsec^2)$',x_log=True)
         for i,image in enumerate(sed_data):
             data = image.flatten()
@@ -340,7 +342,7 @@ def create_RGB_log_image_data(sed_data, dynamic_mag_range=3, max_bright_frac=1, 
     return RGB_image
 
 
-def downsample_image_data(image, image_res, desired_res, image_property='surface_brightness', return_fov_rescale=True):
+def downsample_image_data(image, image_res, desired_res, image_property='surface_brightness'):
     '''
     Given a high-resolution instrument image and a desired lower resolution, downsample the image resolution to a resolution closest to the desired resolution given by dividing by whole numbers. 
     If the two resolutions are not perfectly divisible (i.e remainder not 0) then the edge pixels of the instrument image will be trimmed.
@@ -350,22 +352,18 @@ def downsample_image_data(image, image_res, desired_res, image_property='surface
     image : ndarray (N,N)
         NxN pixel images to be downsampled.
     image_res : float
-        Resolution of image.
+        Resolution of image in arcsec.
     desired_res: float
-        Desired image resolution. 
+        Desired image resolution in arcsec. 
     image_property: optional, str
         Units of image. Only surface_brightness or flux supported. This determines whether the downsampled pixels are meaned or summed respectively.
-    return_fov_rescale: optional, bool
-        Return the rescale factor of the fov due to possible pixel trimming.
-    
+
     Returns
     -------
     downsampled_image: ndarray (M,M)
         MxM pixel image that have been downsampled to the desired resolution.
     new_resolution: float
         New resolution of image
-    fov_rescale: optional, float
-        FOV rescale factor due to pixel trimming.
     '''
 
     
@@ -382,24 +380,21 @@ def downsample_image_data(image, image_res, desired_res, image_property='surface
     else:
         raise ValueError("Invalid image property %s."%image_property)
 
-    image_pixels = np.shape(image)[0]
-    reduced_pixels = int(image_pixels / downsample_factor)
-    excess_pixels = image_pixels%reduced_pixels
-    fov_rescale = 1.-excess_pixels/image_pixels
+    # image_pixels = np.shape(image)[0]
+    # reduced_pixels = int(image_pixels / downsample_factor)
+    # excess_pixels = image_pixels%reduced_pixels
+    # fov_rescale = 1.-excess_pixels/image_pixels
 
-    # Trim excess pixels from each side of the image instead of letting block_reduce remove all 
-    # excess from the ends of the image array, which can offset the image center
-    if excess_pixels != 0:
-        lefttop_trim = int(np.ceil(excess_pixels/2))
-        rightbottom_trim = int(np.floor(excess_pixels/2))
-        image = image[lefttop_trim:image_pixels-rightbottom_trim+1,lefttop_trim:image_pixels-rightbottom_trim+1]
+    # # Trim excess pixels from each side of the image instead of letting block_reduce remove all 
+    # # excess from the ends of the image array, which can offset the image center
+    # if excess_pixels != 0:
+    #     lefttop_trim = int(np.ceil(excess_pixels/2))
+    #     rightbottom_trim = int(np.floor(excess_pixels/2))
+    #     image = image[lefttop_trim:image_pixels-rightbottom_trim+1,lefttop_trim:image_pixels-rightbottom_trim+1]
 
     downsampled_image = block_reduce(image, downsample_factor, func = reduce_func) 
     
-    if return_fov_rescale:
-        return downsampled_image, new_resolution, fov_rescale
-    else:
-        return downsampled_image, new_resolution
+    return downsampled_image, new_resolution
 
 
 def convolve_images_w_PSF(images, instrument, filter_names, instrument_res: float = None, downsample_image: bool=True,
@@ -413,6 +408,8 @@ def convolve_images_w_PSF(images, instrument, filter_names, instrument_res: floa
         M NxN pixel images to be convolved.
     instrument : string
         The telescope instrument you want to get filter PSFs. Only JWST MIRI and NIRCam supported right now.
+    instrument_res : float
+        Resolution of image in arcsec.
     filter_names : list or string
         Either List of M filters or 1 filter to convolve each image over.
     downsample_image : optional, boolean
@@ -485,8 +482,8 @@ def convolve_images_w_PSF(images, instrument, filter_names, instrument_res: floa
             # Our instrument can have arbitrary resolution. 
             # We need the number of pixels the telescope would actually have over the given FOV
             if downsample_image:
-                image, new_resolution, fov_scale = downsample_image_data(image, instrument_res, downsample_res, image_property='surface_brightness', return_fov_rescale=True)
-                print(f"Downsampled image has resolution {new_resolution} arcsec / pixel compared to desired telescope resolution of  {downsample_res:.4g} arcsec / pixel. FOV was rescaled by {fov_scale} \n")
+                image, new_resolution = downsample_image_data(image, instrument_res, downsample_res, image_property='surface_brightness')
+                print(f"Downsampled image has resolution {new_resolution} arcsec / pixel compared to desired telescope resolution of  {downsample_res:.4g} arcsec / pixel.\n")
 
             instrument_npixels = len(image)
 

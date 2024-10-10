@@ -196,7 +196,7 @@ def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
     return conv_func
 
 
-def quick_redshift_to_distance(redshift, sp=None):
+def quick_cosmological_calc(redshift, parameter, sp=None):
     '''
     Quick calculation for the luminosity distance given a redshift assuming a flat universe.
     Taken from https://github.com/coolastro/pyCOSMOCAL
@@ -205,6 +205,8 @@ def quick_redshift_to_distance(redshift, sp=None):
     ----------
     redshift : double
         The redshift you want the distance for
+    parameter : str
+        Cosmological parameter you want. Support ('luminosity_distance', 'angular_scale')
     sp : Snapshot, optional
         Snapshot you want to pull cosmological paramters from. Assume default values otherwise.
 
@@ -251,13 +253,19 @@ def quick_redshift_to_distance(redshift, sp=None):
     DTT = (1.-az)*DTT/n
     DCMR = (1.-az)*DCMR/n
     DA = az*DCMR
+    DA_Mpc = (c/H0)*DA
+    kpc_DA = DA_Mpc/206.264806
     DL = DA/(az*az) # luminosity distance
     DL_Mpc = (c/H0)*DL # luminosity distance in Mpc
-    print(zage_Gyr,DL_Mpc)
-
     distance = DL_Mpc*1E6
 
-    return distance
+    if parameter == 'luminosity_distance':
+        return distance
+    elif parameter == 'angular_scale':
+        return kpc_DA
+    else:
+        print("Given parameter %s not supported"%parameter)
+        return None
 
 
 

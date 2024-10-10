@@ -151,6 +151,7 @@ HUBBLE 						= 0.68 # =0.702
 OMEGA_MATTER				= 0.31 # =0.272
 OMEGA_LAMBDA				= 0.69
 L_solar 					= 3.828E26 # Watts
+rad_per_arcsec				= 1/206265
 
 AG89_SOLAR_Z = 0.02
 AG89_ABUNDANCES = np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
