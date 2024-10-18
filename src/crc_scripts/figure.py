@@ -45,7 +45,7 @@ class Figure(object):
         y_props : list
             List of properties for each y axis.
         axes_kwargs : list
-            List of dictionaries containing arguements for plot_utils.setup_axi()
+            List of dictionaries containing arguements for plot_utils.setup_axis()
         """
 
 
@@ -58,7 +58,7 @@ class Figure(object):
             self.set_axis(self.axes[i], x_props[i], y_props[i], **axes_kwargs[i])
     
 
-    def set_axis(self, axis_num, x_prop, y_prop, twin_time_axis = True, **kwargs):
+    def set_axis(self, axis_num, x_prop, y_prop, twin_time_axis=True, **kwargs):
         """
         Set specific axis in figure given the properties you want you plot on the x and y axis 
         Can also give more arguements for axis such as setting log/linear and the limits.
@@ -82,7 +82,10 @@ class Figure(object):
             tick_labels=False
             if axis_num < self.dims[1]:
                 tick_labels=True
-            plot_utils.make_axis_secondary_time(self.axes[axis_num], x_prop, snapshot=None, tick_labels=tick_labels)
+            rescale_font=1
+            if 'rescale_font' in kwargs: rescale_font=kwargs['rescale_font']
+            plot_utils.make_axis_secondary_time(self.axes[axis_num], x_prop, snapshot=None, tick_labels=tick_labels,
+                                                rescale_font=rescale_font)
 
 
     def save(self, filename, **kwargs):
@@ -225,7 +228,7 @@ class Figure(object):
         self.axis_artists[axis_num] += [img]
 
 
-    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None, **kwargs):
+    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
         default_kwargs = {
             'zorder': 3}
         for kwarg in default_kwargs:
@@ -246,13 +249,12 @@ class Figure(object):
         self.axis_artists[axis_num] += [img]
 
         if label!=None:
-            axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=kwargs['zorder']+1)
+            axis.text(.95, .95, label, color=config.BASE_COLOR, fontsize=rescale_font*config.EXTRA_LARGE_FONT, ha='right', va='top', transform=axis.transAxes, zorder=kwargs['zorder']+1)
 
 
-    def set_all_legends(self, labels_per_legend=4, max_cols=2, **kwargs):
+    def set_all_legends(self, labels_per_legend=4, max_cols=2, rescale_font=1, **kwargs):
         default_kwargs = {
             'loc': 'best',
-            'fontsize': config.SMALL_FONT,
             'frameon': False}
         
         for kwarg in default_kwargs:
@@ -269,14 +271,13 @@ class Figure(object):
                 ncol = max_cols if len(new_lh) > labels_per_legend else 1
                 # Remove any old legends
                 if axis.get_legend() is not None: axis.get_legend().remove()
-                axis.legend(new_lh.values(), new_lh.keys(), ncol=ncol,**kwargs)
+                axis.legend(new_lh.values(), new_lh.keys(), ncol=ncol, fontsize=rescale_font*config.SMALL_FONT, **kwargs)
                 self.axis_legend_handles_labels[i] = new_lh
             labels_handles.update(new_lh)
         
-    def set_axis_legend(self, axis_num, **kwargs):
+    def set_axis_legend(self, axis_num, rescale_font=1, **kwargs):
         default_kwargs = {
             'loc': 'best',
-            'fontsize': config.SMALL_FONT,
             'frameon': False,
             'ncol': 2}
 
@@ -290,18 +291,17 @@ class Figure(object):
         hands, labs = axis.get_legend_handles_labels()
         # Dictionaries do not have duplicate keys so this effectively gets rid of duplicate legend labels
         new_lh = dict(zip(labs, hands))
-        axis.legend(new_lh.values(), new_lh.keys(),**kwargs)
+        axis.legend(new_lh.values(), new_lh.keys(), fontsize=rescale_font*config.SMALL_FONT, **kwargs)
         self.axis_legend_handles_labels[axis_num] = new_lh
 
     
-    def set_outside_legend(self, **kwargs):
+    def set_outside_legend(self, rescale_font=1, **kwargs):
         default_kwargs = {
             'loc': 'lower center',
             'bbox_to_anchor': (0.5, 1.07),
             'frameon': False,
             'ncol': 2,
             'borderaxespad': 0,
-            'fontsize': config.LARGE_FONT,
             "bbox_transform": self.fig.transFigure}     
         
         for kwarg in default_kwargs:
@@ -322,7 +322,7 @@ class Figure(object):
             axis_labels_handles.update(dict(zip(labs, hands)))
             legend_labels_handles.update(self.axis_legend_handles_labels[i])
         for key in legend_labels_handles: axis_labels_handles.pop(key, 0)
-        fig_legend = self.fig.legend(axis_labels_handles.values(), axis_labels_handles.keys(), **kwargs)
+        fig_legend = self.fig.legend(axis_labels_handles.values(), axis_labels_handles.keys(), fontsize=rescale_font*config.LARGE_FONT, **kwargs)
         self.outside_legend_handles_labels = axis_labels_handles
 
         ### THIS NO LONGER WORKS FOR SCATTERS WITH COLORMAPS IN NEW VERSION OF MATPLOTLIB 
@@ -332,7 +332,7 @@ class Figure(object):
         #         handle.set(cmap=None,norm=None,facecolor=None)
 
 
-    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False, no_minor_ticks=False, side='right'):
+    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False, no_minor_ticks=False, side='right', rescale_font=1,):
 
         # Since we are adding a colorbar lets make sure the plots aren't too close together
         if self.plot_num>1:
@@ -349,14 +349,14 @@ class Figure(object):
         cax = divider.append_axes(side, size="5%", pad=0.0)
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
-        cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
+        cbar.ax.set_ylabel(cbar_label, fontsize=rescale_font*config.LARGE_FONT)
         if invert_axis:
             cbar.ax.invert_yaxis()
         if no_minor_ticks:
             cbar.ax.minorticks_off()
 
 
-    def add_outside_colorbar(self, axis_num=0, cbar_prop=None, invert_axis=False, no_minor_ticks=False):
+    def add_outside_colorbar(self, axis_num=0, cbar_prop=None, invert_axis=False, no_minor_ticks=False,rescale_font=1):
 
         # Find the artist with a colormap, seems to have a specific attribute we can use
         for artist in self.axis_artists[axis_num]:
@@ -366,7 +366,7 @@ class Figure(object):
         cax = self.fig.add_axes([0.95, 0.1, 0.05, 0.8])
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
         cbar_label = config.get_prop_label(cbar_prop)
-        cbar.ax.set_ylabel(cbar_label, fontsize=config.LARGE_FONT)
+        cbar.ax.set_ylabel(cbar_label, fontsize=rescale_font*config.LARGE_FONT)
         if invert_axis:
             cbar.ax.invert_yaxis()
         if no_minor_ticks:
@@ -470,7 +470,7 @@ class Projection(Figure):
             self.set_proj_axis(i, properties[i], main_Ls[i], axes_visible=axes_visible, **kwargs)
 
 
-    def set_proj_axis(self, axis_num, property, main_L, axes_visible=False, **kwargs):
+    def set_proj_axis(self, axis_num, property, main_L, axes_visible=False, rescale_font=1, **kwargs):
         """
         Setup specified axis as a projection, given the properties for eahc projection and their size.
 
@@ -501,7 +501,7 @@ class Projection(Figure):
         axes_set = self.axes[axis_num]
         if self.sub_proj: sub_L = main_L/self.height_ratios[0]*self.height_ratios[1]
         else: sub_L = None
-        plot_utils.setup_proj_axis(axes_set, main_L, sub_L=sub_L, axes_visible=axes_visible)
+        plot_utils.setup_proj_axis(axes_set, main_L, sub_L=sub_L, axes_visible=axes_visible,rescale_font=rescale_font)
 
 
     def set_image_axis(self, axis_num):
@@ -524,7 +524,7 @@ class Projection(Figure):
                     
 
     
-    def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, **kwargs):
+    def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, rescale_font=1, **kwargs):
         """
         Plot given projection data on specified axis. Can also plot secondary projection data and add labels.
 
@@ -573,7 +573,7 @@ class Projection(Figure):
 		# Plot top projection
         img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
         if label is not None:
-            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=config.LARGE_FONT)
+            ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=rescale_font*config.LARGE_FONT)
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
@@ -583,7 +583,7 @@ class Projection(Figure):
             self.axis_colorbar[axis_num] = cbar
 
 
-    def plot_image(self, axis_num, data, dynamic_range=1E3, v_log=True, fov_kpc=None, fov_arcsec=None, label=None, **kwargs):
+    def plot_image(self, axis_num, data, dynamic_range=1E3, v_log=True, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, **kwargs):
         """
         Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
 
@@ -642,7 +642,7 @@ class Projection(Figure):
             bar, bar_label = plot_utils.find_scale_bar(fov_kpc)
             bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
-            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.LARGE_FONT)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
         if fov_arcsec is not None:
             bar, bar_label = plot_utils.find_scale_bar(fov_arcsec, arcsec=True)
             # If extent is already defined in arcsec this is simple. If not we need to convert from arcsec to kpc
@@ -652,6 +652,6 @@ class Projection(Figure):
                 bar = bar/fov_arcsec * fov_kpc
                 bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
-            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=config.LARGE_FONT)
+            axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
         if label is not None:
-            axis.text(.95, .95, label, color='xkcd:white', fontsize=config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
+            axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
