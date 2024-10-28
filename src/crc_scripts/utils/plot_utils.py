@@ -642,13 +642,6 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False, rescale_font=1
             ax2.xaxis.set_visible(False)
             ax2.yaxis.set_visible(False)
 
-    # Add scale bar to main projection
-    bar, bar_label = find_scale_bar(main_L)
-    bar_x_center = -0.7*main_L/2; bar_y_center = -0.8*main_L/2; label_offset = 0.04*main_L/2
-    ax1.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
-    ax1.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
-
-
 
 def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False, rescale_font=1):
     """

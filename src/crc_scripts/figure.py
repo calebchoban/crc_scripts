@@ -307,6 +307,8 @@ class Figure(object):
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]
+        if 'fontsize' in kwargs:
+            kwargs['fontsize'] *= rescale_font
         # Check for old legends and remove
         legends = [c for c in self.fig.get_children() if isinstance(c, mpl.legend.Legend)]
         if len(legends)>0:
@@ -322,7 +324,7 @@ class Figure(object):
             axis_labels_handles.update(dict(zip(labs, hands)))
             legend_labels_handles.update(self.axis_legend_handles_labels[i])
         for key in legend_labels_handles: axis_labels_handles.pop(key, 0)
-        fig_legend = self.fig.legend(axis_labels_handles.values(), axis_labels_handles.keys(), fontsize=rescale_font*config.LARGE_FONT, **kwargs)
+        fig_legend = self.fig.legend(axis_labels_handles.values(), axis_labels_handles.keys(), **kwargs)
         self.outside_legend_handles_labels = axis_labels_handles
 
         ### THIS NO LONGER WORKS FOR SCATTERS WITH COLORMAPS IN NEW VERSION OF MATPLOTLIB 
@@ -443,6 +445,7 @@ class Projection(Figure):
         self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, add_sub_proj, add_colorbars=add_colorbars,height_ratios=height_ratios)
 
         self.axis_artists = [[] for i in range(self.plot_num)]
+        self.axis_fov_kpc = [0 for i in range(self.plot_num)]
         if add_colorbars:
             self.axis_colorbar = [None for i in range(self.plot_num)]
         self.axis_properties = ['' for i in range(self.plot_num)]
@@ -468,6 +471,7 @@ class Projection(Figure):
             if colorbar_kwargs is None:
                 kwargs = {} if colorbar_kwargs is None else colorbar_kwargs[i]
             self.set_proj_axis(i, properties[i], main_Ls[i], axes_visible=axes_visible, **kwargs)
+            self.axis_fov_kpc[i] = main_Ls[i]
 
 
     def set_proj_axis(self, axis_num, property, main_L, axes_visible=False, rescale_font=1, **kwargs):
@@ -499,6 +503,7 @@ class Projection(Figure):
                 kwargs[kwarg] = default_colorbar_kwargs[kwarg]
 
         axes_set = self.axes[axis_num]
+        self.axis_fov_kpc[axis_num] = main_L
         if self.sub_proj: sub_L = main_L/self.height_ratios[0]*self.height_ratios[1]
         else: sub_L = None
         plot_utils.setup_proj_axis(axes_set, main_L, sub_L=sub_L, axes_visible=axes_visible,rescale_font=rescale_font)
@@ -574,12 +579,16 @@ class Projection(Figure):
         img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
         if label is not None:
             ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=rescale_font*config.LARGE_FONT)
+        # Add scale bar to main projection
+        fov_kpc = self.axis_fov_kpc[axis_num]
+        self.set_scale_bar(axis_num, fov_kpc=fov_kpc, fov_arcsec=None, rescale_font=rescale_font)
+
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
             img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
         if self.has_colorbars:
-            cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1)       
+            cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1, rescale_font=rescale_font)       
             self.axis_colorbar[axis_num] = cbar
 
 
@@ -617,6 +626,7 @@ class Projection(Figure):
                 kwargs[kwarg] = default_imshow_kwargs[kwarg]  
 
         axis = self.axes[axis_num][0]
+        self.axis_fov_kpc[axis_num] = fov_kpc
 
         if len(data.shape) != 3:
             # Change default projection limits
@@ -638,20 +648,49 @@ class Projection(Figure):
         img = axis.imshow(data, extent = extent, **kwargs)
 
         # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
+        if fov_kpc is not None or fov_arcsec is not None:
+            self.set_scale_bar(axis_num, fov_kpc=fov_kpc, fov_arcsec=fov_arcsec, rescale_font=rescale_font)
+
+        if label is not None:
+            axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
+    
+
+    def set_scale_bar(self, axis_num, fov_kpc=None, fov_arcsec=None, rescale_font=1):
+        """
+        Adds scale bar to given axis, given the projection size.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to plot image data.
+        fov_kpc : float
+            Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
+        fov_arcsec : \float
+            Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
+        rescale_font : float, optional
+            Factor you want to rescale axis font size by
+
+        """
+
+        if fov_kpc is None and fov_arcsec is None:
+            raise ValueError("Must set either fov_kpc or fov_arcsec for set_scale_bar()")
+
+        axis = self.axes[axis_num][0]
+
         if fov_kpc is not None:
             bar, bar_label = plot_utils.find_scale_bar(fov_kpc)
-            bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+            bar_x_center = -0.7*fov_kpc/2; bar_y_center = -0.75*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
             axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
+
         if fov_arcsec is not None:
             bar, bar_label = plot_utils.find_scale_bar(fov_arcsec, arcsec=True)
             # If extent is already defined in arcsec this is simple. If not we need to convert from arcsec to kpc
             if fov_kpc is None:
-                bar_x_center = +0.7*fov_arcsec/2; bar_y_center = -0.8*fov_arcsec/2; label_offset = 0.04*fov_arcsec/2
+                bar_x_center = +0.7*fov_arcsec/2; bar_y_center = -0.75*fov_arcsec/2; label_offset = 0.04*fov_arcsec/2
             else:
+                # Image is in kpc so convert arcsec bar length equivalent kpc length
                 bar = bar/fov_arcsec * fov_kpc
-                bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.8*fov_kpc/2; label_offset = 0.04*fov_kpc/2
+                bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.75*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
             axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
-        if label is not None:
-            axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)

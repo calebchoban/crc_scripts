@@ -579,12 +579,12 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 		return None
 
 	# Only include particles in the box
-	mask = (coord1>-L1) & (coord1<L1) & (coord2>-L2) & (coord2<L2) & (coord3>-Lz) & (coord3<Lz)
+	mask = (coord1>-L1/2) & (coord1<L1/2) & (coord2>-L2/2) & (coord2<L2/2) & (coord3>-Lz/2) & (coord3<Lz/2)
 
-	pixel_bins = int(np.ceil(2*L1/pixel_res)) + 1
-	coord1_bins = np.linspace(-L1,L1,pixel_bins)
-	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
-	coord2_bins = np.linspace(-L2,L2,pixel_bins)
+	pixel_bins = int(np.ceil(L1/pixel_res)) + 1
+	coord1_bins = np.linspace(-L1/2,L1/2,pixel_bins)
+	pixel_bins = int(np.ceil(L2/pixel_res)) + 1
+	coord2_bins = np.linspace(-L2/2,L2/2,pixel_bins)
 
 
 	# Get the data to be projected

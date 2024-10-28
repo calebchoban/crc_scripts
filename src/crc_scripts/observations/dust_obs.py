@@ -15,6 +15,9 @@ def load_HiZ_compilation():
 	df['M_star'] = np.power(10,df['M_star (log M_sol)'])
 	df['M_star_err_low'] =  np.power(10,df['M_star (log M_sol)'])-np.power(10,df['M_star (log M_sol)']+df['M_star_err_low'])
 	df['M_star_err_high'] = np.power(10,df['M_star (log M_sol)']+df['M_star_err_up'])- np.power(10,df['M_star (log M_sol)'])
+	df['O/H_gas'] = df['O/H_gas (12+log10(O/H))']
+	df['O/H_gas_err_low'] = np.abs(df['O/H_gas_err_low'])
+	df['O/H_gas_err_high'] = np.abs(df['O/H_gas_err_up'])
 	df['M_gas_neutral'] = np.power(10,df['M_gas_neutral (log M_sol)'])
 	df['M_gas_neutral_err_low'] = np.power(10,df['M_gas_neutral (log M_sol)'])-np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_low'])
 	df['M_gas_neutral_err_high'] = np.power(10,df['M_gas_neutral (log M_sol)']+df['M_gas_neutral_err_up'])-np.power(10,df['M_gas_neutral (log M_sol)'])
