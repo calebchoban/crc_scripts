@@ -1,6 +1,5 @@
 import h5py
 import numpy as np
-from gizmo_analysis import gizmo_star
 
 from .. import config
 from ..utils import coordinate_utils
@@ -617,6 +616,11 @@ class Particle:
             # GENERAL STAR PROPERTIES
             if case_insen_compare(property,['M_form']):
                  # Need to calculate fractional mass loss to determine stellar mass at initial formation.
+                try:
+                    from gizmo_analysis import gizmo_star
+                except:
+                    raise ModuleNotFoundError("Need to pip install gizmo_analysis @ https://git@bitbucket.org/awetzel/gizmo_analysis.git ")
+
                 if self.sp.FIRE_ver == 2: 
                     mass_loss = gizmo_star.MassLossClass('fire2')
                     metal_mass_frac = data['Z'][:,0]
