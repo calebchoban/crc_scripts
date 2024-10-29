@@ -185,7 +185,7 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
     ncols: int, optional
         Force number of columns given multiple plots. This overrids orientation.
     sqeezespace: float, optional
-        The space between plots whcih are sharing axis as given by sharex and sharey.
+        The space between plots which are sharing axis as given by sharex and sharey.
 
     Returns
     -------
@@ -217,7 +217,7 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
                 if orientation == 'vertical': ncols = num_plots//3+1
                 else: ncols = 3
         nrows = int(np.ceil(num_plots/ncols))
-        fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,np.ceil(num_plots/ncols)*config.BASE_FIG_SIZE*yx_ratio),
+        fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,nrows*config.BASE_FIG_SIZE*yx_ratio),
                                     squeeze=True, sharex=sharex, sharey=sharey)
         # Need to delete extra axes and reshow tick labels if axes were shared
         if num_plots%ncols > 0:
@@ -263,7 +263,7 @@ def add_artists(axis, artists):
 
 
 def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, 
-               artists_to_add=None, face_color='xkcd:white'):
+               artists_to_add=None, face_color='xkcd:white', rescale_font=1):
     """
     Sets up the axis plot given x and y properties. Supported properties are listed in config.PROP_INFO and unless given, this
     is where the limits for each axis and log/linear scale are determined. 
@@ -292,6 +292,8 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         List of matplotlib artists objects to be added to axis
     face_color : string, optional
         Axis background color
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
 
     Returns
     -------
@@ -332,14 +334,14 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     axis.set_facecolor(face_color)
 
     # Set axis labels and ticks
-    setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label)
+    setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label, rescale_font=rescale_font)
     # Add given artist to axis
     add_artists(axis,artists_to_add)
 
     return
 
 
-def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
+def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None, rescale_font=1):
     """
     Sets the axis labels based on the given properties. Ticks are set so they face inwards and have minor and major ticks.
     Special ticks are given for redshift only.
@@ -356,6 +358,8 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
         X axis label (overrides default label for x_prop)
     y_label : string, optional
         Y axis label (overrides default label for y_prop)
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
 
     Returns
     -------
@@ -367,10 +371,10 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
     # we don't want to add a label
     if (len(axis.get_xaxis().get_ticklabels())!=0):
         label = x_label if x_label is not None else config.get_prop_label(x_prop)
-        axis.set_xlabel(label, fontsize = config.LARGE_FONT)
+        axis.set_xlabel(label, fontsize = rescale_font*config.LARGE_FONT)
     if (len(axis.get_yaxis().get_ticklabels())!=0):
         label = y_label if y_label is not None else config.get_prop_label(y_prop)
-        axis.set_ylabel(label, fontsize = config.LARGE_FONT)
+        axis.set_ylabel(label, fontsize = rescale_font*config.LARGE_FONT)
 
     # If plotting redshift need to make some specific changes
     if x_prop in ['redshift','redshift_plus_1']:
@@ -380,21 +384,21 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None,):
         axis.set_xticks(major_xticks,minor=False)
         axis.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-        axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+        axis.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
         # Make sure not to put minor ticks on redshift axis
-        axis.tick_params(axis='x', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+        axis.tick_params(axis='x', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
     else:
         axis.minorticks_on()
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-        axis.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-        axis.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+        axis.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+        axis.tick_params(axis='both', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
 
     for axe in ['top','bottom','left','right']:
         axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
 
 
-def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
+def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True, rescale_font=1):
     '''
     Make secondary x-axis for time. The secondary time parameter is chosen based on what time is already plotted and the scale
     of the x-axis. If physical time (e.g. Gyr) is plotted then redshift/redshift+1 if plotted on the second axis if the x-axis 
@@ -412,6 +416,8 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
         cosmological constants are assumed.
     tick_labels : boolean
         Set whether the seconday axis should include tick labels
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
     
     Returns
     -------
@@ -466,17 +472,17 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True):
     axis2.set_xticks(axis_2_tick_locations,minor=False)
     if tick_labels:
         axis2.set_xticklabels(axis_2_tick_labels)
-        axis2.set_xlabel(config.get_prop_label(axis_2_name), fontsize = config.LARGE_FONT, labelpad=9)
+        axis2.set_xlabel(config.get_prop_label(axis_2_name), fontsize = rescale_font*config.LARGE_FONT, labelpad=9)
     else:
         axis2.set_xticklabels([])
     axis2.set_xlim(axis.get_xlim()) # Need to reset limits to twinned axis after making ticks
     axis2.xaxis.set_minor_locator(mticker.NullLocator()) # Turn off minor ticks which reappear when setting xlimits
-    axis2.tick_params(axis='x', which='major',direction='in', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+    axis2.tick_params(axis='x', which='major',direction='in', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
     
 
 
 
-def setup_colorbar(image, axis, label):
+def setup_colorbar(image, axis, label, rescale_font=1):
     """
     Sets the colorbar and its label and ticks for the given axis.
 
@@ -488,6 +494,8 @@ def setup_colorbar(image, axis, label):
         Axis of plot to have color bar added
     label : string
         Color bar label
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
 
 
     Returns
@@ -501,12 +509,12 @@ def setup_colorbar(image, axis, label):
     cax = divider.append_axes("right", size="5%", pad=0.0)
     # Add colobar to new axis and give it a mappable image so it knows what color map to use
     cbar = plt.colorbar(image, cax=cax)
-    cbar.ax.set_ylabel(label, fontsize=config.LARGE_FONT)
+    cbar.ax.set_ylabel(label, fontsize=rescale_font*config.LARGE_FONT)
     # Set ticks to the way I like them
     cbar.ax.minorticks_on()
     cbar.ax.tick_params(axis='both',which='both',direction='in',right=True)
-    cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-    cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+    cbar.ax.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+    cbar.ax.tick_params(axis='both', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
     cbar.outline.set_linewidth(config.AXIS_BORDER_WIDTH)
 
     return
@@ -577,14 +585,16 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
         fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
         for i in range(num_plots):
             ax = plt.subplot(gs[0,i])
-            cbarax = plt.subplot(gs[1,i])
-            axes += [[ax,cbarax]]
+            if add_colorbars:
+                cbarax = plt.subplot(gs[1,i])
+                axes += [[ax,cbarax]]
+            else: axes += [[ax]]
         axes = np.array(axes)
     
     return fig, axes
 
 
-def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
+def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False, rescale_font=1):
     """
     Sets up axis, ticks, and scale bar for specified projection size. 
 
@@ -594,17 +604,19 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
         List with projection axes you want to setup. Expects one/two axes if sub_projection is true/false.
     main_L : float
         Size of main projection (L x L)
-    su_L : float, optional
+    sub_L : float, optional
         Size of subprojection (L x sub_L)
     axes_visible : bool, optional
         Set whether you want axes with ticks visible along projections.
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
 
     """
 
     if sub_L is None:
         ax1 = axes[0]
-        ax1.set_xlim([-main_L,main_L])
-        ax1.set_ylim([-main_L,main_L])
+        ax1.set_xlim([-main_L/2,main_L/2])
+        ax1.set_ylim([-main_L/2,main_L/2])
         if not axes_visible:
             ax1.xaxis.set_visible(False)
             ax1.yaxis.set_visible(False)
@@ -613,14 +625,14 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
     # If there is a subprojection set that up as well
     else:
         ax1 = axes[0]
-        ax1.set_xlim([-main_L,main_L])
-        ax1.set_ylim([-main_L,main_L])
+        ax1.set_xlim([-main_L/2,main_L/2])
+        ax1.set_ylim([-main_L/2,main_L/2])
         for axe in ['top','bottom','left','right']:
             ax1.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
 
         ax2 = axes[1]
-        ax2.set_ylim([-sub_L, sub_L])
-        ax2.set_xlim([-main_L,main_L])
+        ax2.set_ylim([-sub_L/2, sub_L/2])
+        ax2.set_xlim([-main_L/2,main_L/2])
         for axe in ['top','bottom','left','right']:
                 ax2.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
         
@@ -630,13 +642,8 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False):
             ax2.xaxis.set_visible(False)
             ax2.yaxis.set_visible(False)
 
-    # Add scale bar to main projection
-    bar, label = find_scale_bar(main_L)
-    ax1.plot([-0.7*main_L-bar/2,-0.7*main_L+bar/2], [-0.87*main_L,-0.87*main_L], '-', c='xkcd:white', lw=config.BASE_LINEWIDTH)
-    ax1.annotate(label, (0.15,0.05), xycoords='axes fraction', color='xkcd:white', ha='center', va='top', fontsize=config.SMALL_FONT)
 
-
-def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False):
+def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False, rescale_font=1):
     """
     Sets up colorbar for given projection. 
 
@@ -659,6 +666,8 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
         Shape (2) list with limits for colorbar. Will override default in config.PROP_INFO.
     log : bool, optional
         Set whether to be in log or linear scale. Will override default in config.PROP_INFO.
+    rescale_font : float, optional
+        Factor you want to rescale axis font size by
 
     """
 
@@ -682,24 +691,26 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
         cbar = fig.colorbar(mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=caxis, orientation='horizontal')
     else: 
         cbar = fig.colorbar(mappable = mappable, cax=caxis, orientation='horizontal')
-    cbar.ax.set_xlabel(label, fontsize=config.LARGE_FONT)
+    cbar.ax.set_xlabel(label, fontsize=rescale_font*config.LARGE_FONT)
     cbar.ax.minorticks_on()
     cbar.ax.tick_params(axis='both',which='both',direction='in')
-    cbar.ax.tick_params(axis='both', which='major', labelsize=config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-    cbar.ax.tick_params(axis='both', which='minor', labelsize=config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+    cbar.ax.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
+    cbar.ax.tick_params(axis='both', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
     cbar.outline.set_linewidth(config.AXIS_BORDER_WIDTH)
 
     return cbar
 
 
-def find_scale_bar(L):
+def find_scale_bar(L, arcsec=False):
     """
     Determines the appropriate scale bar to use in a projection given the size of the projection.
 
     Parameters
     ----------
     L : float
-        Physical size of projection space
+        Physical size of projection space in kpc
+    arsec : optional, bool
+        Set if L is in units of arcseconds, else assumes kpc
 
     Returns
     -------
@@ -709,42 +720,63 @@ def find_scale_bar(L):
         Label for scale bar
 
     """
-
-    if (L>=10000):
-        bar = 1000.; label = '1 Mpc'
-    elif (L>=1000):
-        bar = 100.; label = '100 kpc'
-    elif (L>=500):
-        bar = 50.; label = '50 kpc'
-    elif (L>=200):
-        bar = 20.; label = '20 kpc'
-    elif (L>=100):
-        bar = 10.; label = '10 kpc'
-    elif (L>=50):
-        bar = 5.; label = '5 kpc'
-    elif (L>=20):
-        bar = 2.; label = '2 kpc'
-    elif (L>=10):
-        bar = 1.; label = '1 kpc'
-    elif (L>=5):
-        bar = 0.5; label = '500 pc'
-    elif (L>=2):
-        bar = 0.2; label = '200 pc'
-    elif (L>=1):
-        bar = 0.1; label = '100 pc'
-    elif (L>0.5):
-        bar = 0.05; label = '50 pc'
-    elif (L>0.2):
-        bar = 0.02; label = '20 pc'
-    elif (L>0.1):
-        bar = 0.01; label = '10 pc'
-    elif (L>0.05):
-        bar = 0.005; label = '5 pc'
-    elif (L>0.02):
-        bar = 0.002; label = '2 pc'
-    elif (L>0.01):
-        bar = 0.001; label = '1 pc'
+    scale_frac = 0.8
+    if not arcsec:
+        if (L>=10000*scale_frac):
+            bar = 1000.; label = '1 Mpc'
+        elif (L>=1000*scale_frac):
+            bar = 100.; label = '100 kpc'
+        elif (L>=500*scale_frac):
+            bar = 50.; label = '50 kpc'
+        elif (L>=200*scale_frac):
+            bar = 20.; label = '20 kpc'
+        elif (L>=100*scale_frac):
+            bar = 10.; label = '10 kpc'
+        elif (L>=50*scale_frac):
+            bar = 5.; label = '5 kpc'
+        elif (L>=20*scale_frac):
+            bar = 2.; label = '2 kpc'
+        elif (L>=10*scale_frac):
+            bar = 1.; label = '1 kpc'
+        elif (L>=5*scale_frac):
+            bar = 0.5; label = '500 pc'
+        elif (L>=2*scale_frac):
+            bar = 0.2; label = '200 pc'
+        elif (L>=1*scale_frac):
+            bar = 0.1; label = '100 pc'
+        elif (L>0.5*scale_frac):
+            bar = 0.05; label = '50 pc'
+        elif (L>0.2*scale_frac):
+            bar = 0.02; label = '20 pc'
+        elif (L>0.1*scale_frac):
+            bar = 0.01; label = '10 pc'
+        elif (L>0.05*scale_frac):
+            bar = 0.005; label = '5 pc'
+        elif (L>0.02*scale_frac):
+            bar = 0.002; label = '2 pc'
+        elif (L>0.01*scale_frac):
+            bar = 0.001; label = '1 pc'
+        else:
+            bar = 0.0005; label = '0.5 pc'
     else:
-        bar = 0.0005; label = '0.5 pc'
+        if (L>=360):
+            bar = 60.; label = r'1\''     
+        if (L>=120):
+            bar = 20.; label = r'20"'            
+        if (L>=60):
+            bar = 10.; label = r'10"'
+        elif (L>=30):
+            bar = 5.; label = r'5"'
+        elif (L>=10):
+            bar = 2.; label = r'2"'
+        elif (L>=5):
+            bar = 1; label = r'1"'
+        elif (L>=1):
+            bar = 0.3; label = r'0.3"'
+        elif (L>=0.2):
+            bar = 0.01; label = r'0.01"'
+        else:
+            bar = 0.005; label = r'0.005"'
+
 
     return bar, label

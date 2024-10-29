@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+
 from .. import config
 from ..utils import coordinate_utils
 from ..utils.snap_utils import get_snap_file_name
@@ -554,6 +555,8 @@ class Particle:
                 elif case_insen_compare(property,'D/Z'):
                     prop_data = data['dust_Z'][:,0]/data['Z'][:,0]
                     prop_data[prop_data > 1] = 1.
+                elif case_insen_compare(property,'D/G'):
+                    prop_data = data['dust_Z'][:,0]
                 elif 'depletion' in property:
                     elem = property.split('_')[0]
                     if elem not in config.ELEMENTS:
@@ -611,7 +614,29 @@ class Particle:
 
         elif self.ptype==4:
             # GENERAL STAR PROPERTIES
-            if case_insen_compare(property,['M_star_young','M_stellar_young','M_star_10Myr']):
+            # Properties which need formation time stellar masses require some extra work
+            if case_insen_compare(property,['M_form', 'M_form_10Myr','M_form_100Myr','M_form_young','sfr']):
+                 # Need to calculate fractional mass loss to determine stellar mass at initial formation.
+                try:
+                    from gizmo_analysis import gizmo_star
+                except:
+                    raise ModuleNotFoundError("Need to pip install gizmo_analysis @ https://git@bitbucket.org/awetzel/gizmo_analysis.git ")
+
+                if self.sp.FIRE_ver == 2: 
+                    mass_loss = gizmo_star.MassLossClass('fire2')
+                    metal_mass_frac = data['Z'][:,0]
+                else : 
+                    mass_loss = gizmo_star.MassLossClass('fire3')
+                    metal_mass_frac = data['Z'][:,10]
+                mass_loss_frac = mass_loss.get_mass_loss_from_spline(
+                                        data['age'] * 1000,
+                                        metal_mass_fractions=metal_mass_frac)
+                prop_data = data['mass'] / (1 - mass_loss_frac)
+                if case_insen_compare(property,['sfr','M_form_young','M_form_10Myr']):
+                    prop_data[age>0.01] = 0.
+                elif case_insen_compare(property,['M_form_100Myr']):
+                    prop_data[age>0.1] = 0.
+            elif case_insen_compare(property,['M_star_young','M_stellar_young','M_star_10Myr']):
                 # Assume young stars are < 10 Myr old
                 prop_data = data['mass'].copy()
                 age = data['age']

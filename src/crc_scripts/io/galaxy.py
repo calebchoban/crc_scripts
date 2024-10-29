@@ -191,7 +191,7 @@ class Halo(object):
         return self.rvir
 
 
-    def get_half_mass_radius(self, ptype=4, within_radius=None, rvir_frac=1.0, geometry='spherical'):
+    def get_half_mass_radius(self, ptype=4, within_radius=None, rvir_frac=1.0, geometry='spherical', mass_weight=None):
         """
         Determines the half mass radius for a given particle type within the halo.
 
@@ -207,7 +207,9 @@ class Halo(object):
             Use this or within_radius to set the radius.
         geometry : string, optional
             The geometry you want to use given the maximum radius. Supports 'spherical','cylindrical', and 'scale_height'
-
+        mass_weight : ndarray, optional
+            Weight for each particle mass. Use this when you want to mask certain particles or for things like neutral gas mass by supplying neutral mass fractions.
+            
         Returns
         -------
         half_mass_radius: double
@@ -218,8 +220,11 @@ class Halo(object):
         within_radius = self.rvir*rvir_frac if within_radius is None else within_radius
 
         part = self.loadpart(ptype)
+        if mass_weight is None:
+            mass_weight = np.full(part.npart,1)
         coords = part.get_property('coords')
-        masses = part.get_property('M')
+        masses = part.get_property('M')*mass_weight
+
 
         edges = np.linspace(0, within_radius, 5000, endpoint=True)
 

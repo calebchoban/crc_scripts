@@ -6,7 +6,7 @@ from . import math_utils
 
 
 
-def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None):
+def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None, mask_criteria='all'):
 	"""
 	Calculates median and 16/84th-percentiles of property1 in relation to binned property2 for
 	the given snapshot gas data
@@ -24,6 +24,8 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		Number of bins to use for property2
 	prop_lims : ndarray, optional
 		Limits for property2 binning
+	mask_criteria : string, optional
+		Mask for particles to be given to get_particle_mask()
 
 	Returns
 	-------
@@ -43,11 +45,14 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		ptype = 0
 
 	P = snap.loadpart(ptype)
+
+	mask = get_particle_mask(ptype, snap, mask_criteria=mask_criteria)
+
 	# Get property data
-	data = np.zeros([2,P.npart])
-	weights = P.get_property('M')
+	data = np.zeros([2,len(P.get_property('M')[mask])])
+	weights = P.get_property('M')[mask]
 	for i, property in enumerate([property1,property2]):
-		data[i] = P.get_property(property)
+		data[i] = P.get_property(property)[mask]
 
 	if prop_lims is None:
 		prop_lims = config.PROP_INFO[property2][1]
@@ -339,7 +344,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_sfr':
-			bin_data = P.get_property('M_sfr')[mask]
+			bin_data = P.get_property('M_form_10Myr')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
@@ -574,12 +579,12 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 		return None
 
 	# Only include particles in the box
-	mask = (coord1>-L1) & (coord1<L1) & (coord2>-L2) & (coord2<L2) & (coord3>-Lz) & (coord3<Lz)
+	mask = (coord1>-L1/2) & (coord1<L1/2) & (coord2>-L2/2) & (coord2<L2/2) & (coord3>-Lz/2) & (coord3<Lz/2)
 
-	pixel_bins = int(np.ceil(2*L1/pixel_res)) + 1
-	coord1_bins = np.linspace(-L1,L1,pixel_bins)
-	pixel_bins = int(np.ceil(2*L2/pixel_res)) + 1
-	coord2_bins = np.linspace(-L2,L2,pixel_bins)
+	pixel_bins = int(np.ceil(L1/pixel_res)) + 1
+	coord1_bins = np.linspace(-L1/2,L1/2,pixel_bins)
+	pixel_bins = int(np.ceil(L2/pixel_res)) + 1
+	coord2_bins = np.linspace(-L2/2,L2/2,pixel_bins)
 
 
 	# Get the data to be projected
@@ -623,7 +628,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 		elif property == 'sigma_iron':  		proj_data = P.get_property('M_iron')
 		elif property == 'sigma_ORes': 			proj_data = P.get_property('M_ORes')
 		elif property == 'sigma_star':  		proj_data = P.get_property('M_star')
-		elif property == 'sigma_sfr':  			proj_data = P.get_property('M_star_young')
+		elif property == 'sigma_sfr':  			proj_data = P.get_property('M_form_10Myr')
 		elif property == 'T':					proj_data = P.get_property('T')
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%property)
@@ -700,6 +705,7 @@ def calc_radial_dens_projection(property, snap, rmax, rmin=0, proj='xy', bin_num
 	elif property == 'sigma_iron':  	proj_data = P.get_property('M_iron')
 	elif property == 'sigma_ORes': 		proj_data = P.get_property('M_ORes')
 	elif property == 'sigma_star':  	proj_data = P.get_property('M_star')
+	elif property == 'sigma_sfr':  		proj_data = P.get_property('M_form_10Myr')
 	else:
 		print("%s is not a supported parameter in calc_obs_projection()."%property)
 		return None

@@ -73,13 +73,14 @@ mpl.rcParams["ytick.minor.visible"] = True
 mpl.rcParams["xtick.top"] = True
 mpl.rcParams["ytick.right"] = True
 
-# Make the x and y ticks bigger                                                    
+# Make the x and y ticks bigger and increase padding                                                    
 mpl.rcParams['xtick.labelsize'] = 11
 mpl.rcParams['xtick.major.size'] = 5
 mpl.rcParams['xtick.major.width'] = .5
 mpl.rcParams['ytick.labelsize'] = 11
 mpl.rcParams['ytick.major.size'] = 5
 mpl.rcParams['ytick.major.width'] = .5
+mpl.rcParams['xtick.major.pad'] = 5
 
 # Make the axes linewidths bigger                                                  
 mpl.rcParams['axes.linewidth'] = AXIS_BORDER_WIDTH
@@ -150,6 +151,7 @@ HUBBLE 						= 0.68 # =0.702
 OMEGA_MATTER				= 0.31 # =0.272
 OMEGA_LAMBDA				= 0.69
 L_solar 					= 3.828E26 # Watts
+rad_per_arcsec				= 1/206265
 
 AG89_SOLAR_Z = 0.02
 AG89_ABUNDANCES = np.array([0.02,0.28,3.26e-3,1.32e-3,8.65e-3,2.22e-3,9.31e-4,1.08e-3,6.44e-4,1.01e-4,1.73e-3])
@@ -176,6 +178,12 @@ SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 # with olivine fraction of 0.32 and Mg fraction of 0.8
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
 DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
+
+# DUST_PROPERTIES = {
+# **dict.fromkeys(['sil','silicates','Silicates'], {'bulk_dens': 3.13}),
+# **dict.fromkeys(['carb','carbon','carbonaceous','Carbon'], {'bulk_dens': 2.25})
+# **dict.fromkeys(['iron','Iron','metallic_iron'], {'bulk_dens': 7.86})
+# }
 
 # Order for species and sources chosen in terms of fraction of total mass useful for plotting
 DUST_SPECIES				= ['Silicates','Carbon','Iron','O Reservoir','SiC','Iron Inclusions']

@@ -112,12 +112,12 @@ def get_SFH(sp, dt=0.01, cum=0, rout=1.0, kpc=0):
         return None, None
     
     if isinstance(sp, Halo):
-        p, sft, m = part.get_property('position'), part.get_property('sft'), part.get_property('mass')
+        p, sft, m = part.get_property('position'), part.get_property('sft'), part.get_property('M_form')
         r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
         rmax = rout*sp.rvir if kpc==0 else rout
         time, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=sp.sp)
     else:
-        sft, m = part.get_property('sft'), part.get_property('mass')
+        sft, m = part.get_property('sft'), part.get_property('M_form')
         time, sfr = math_utils.SFH(sft, m, dt=dt, cum=cum, sp=sp)
 
     return time, sfr
