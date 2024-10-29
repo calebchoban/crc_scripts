@@ -34,7 +34,7 @@ class Buffer(object):
         self.gas_subsamples = ['all','cold','warm','hot','coronal','neutral','molecular','ionized'] if gas_subsamples is None else gas_subsamples
         
         if star_props is None:
-            self.star_properties = ['M_star','M_star_10Myr','M_star_100Myr','r_1/2']
+            self.star_properties = ['M_star','M_form_10Myr','M_form_100Myr','r_1/2']
         else: 
             self.star_properties = star_props
         self.star_subsamples = ['all']  if star_subsamples is None else star_subsamples

@@ -614,7 +614,8 @@ class Particle:
 
         elif self.ptype==4:
             # GENERAL STAR PROPERTIES
-            if case_insen_compare(property,['M_form']):
+            # Properties which need formation time stellar masses require some extra work
+            if case_insen_compare(property,['M_form', 'M_form_10Myr','M_form_100Myr','M_form_young','sfr']):
                  # Need to calculate fractional mass loss to determine stellar mass at initial formation.
                 try:
                     from gizmo_analysis import gizmo_star
@@ -631,8 +632,11 @@ class Particle:
                                         data['age'] * 1000,
                                         metal_mass_fractions=metal_mass_frac)
                 prop_data = data['mass'] / (1 - mass_loss_frac)
-                print(np.sum(prop_data),np.sum(data['mass']))
-            if case_insen_compare(property,['M_star_young','M_stellar_young','M_star_10Myr']):
+                if case_insen_compare(property,['sfr','M_form_young','M_form_10Myr']):
+                    prop_data[age>0.01] = 0.
+                elif case_insen_compare(property,['M_form_100Myr']):
+                    prop_data[age>0.1] = 0.
+            elif case_insen_compare(property,['M_star_young','M_stellar_young','M_star_10Myr']):
                 # Assume young stars are < 10 Myr old
                 prop_data = data['mass'].copy()
                 age = data['age']

@@ -344,7 +344,7 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
 		elif property=='sigma_sfr':
-			bin_data = P.get_property('M_sfr')[mask]
+			bin_data = P.get_property('M_form_10Myr')[mask]
 			ret = binned_statistic_2d(x, y, bin_data, statistic=np.sum, bins=[x_bins,y_bins]).statistic
 			M_pixel = ret.flatten()/pixel_area
 			pixel_data[i] = M_pixel
@@ -628,7 +628,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 		elif property == 'sigma_iron':  		proj_data = P.get_property('M_iron')
 		elif property == 'sigma_ORes': 			proj_data = P.get_property('M_ORes')
 		elif property == 'sigma_star':  		proj_data = P.get_property('M_star')
-		elif property == 'sigma_sfr':  			proj_data = P.get_property('M_star_young')
+		elif property == 'sigma_sfr':  			proj_data = P.get_property('M_form_10Myr')
 		elif property == 'T':					proj_data = P.get_property('T')
 		else:
 			print("%s is not a supported parameter in calc_obs_projection()."%property)
@@ -705,6 +705,7 @@ def calc_radial_dens_projection(property, snap, rmax, rmin=0, proj='xy', bin_num
 	elif property == 'sigma_iron':  	proj_data = P.get_property('M_iron')
 	elif property == 'sigma_ORes': 		proj_data = P.get_property('M_ORes')
 	elif property == 'sigma_star':  	proj_data = P.get_property('M_star')
+	elif property == 'sigma_sfr':  		proj_data = P.get_property('M_form_10Myr')
 	else:
 		print("%s is not a supported parameter in calc_obs_projection()."%property)
 		return None
