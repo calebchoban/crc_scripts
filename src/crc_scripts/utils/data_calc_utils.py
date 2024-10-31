@@ -513,7 +513,7 @@ def calc_gal_int_params(property, snap, criteria='all', mask=None):
 
 	"""
 
-	if 'M_star' in property or 'sfr' in property or 'M_stellar' in property:
+	if 'M_star' in property or 'sfr' in property or 'M_stellar' in property or 'M_form' in property:
 		ptype = 4
 	else:
 		ptype = 0
