@@ -632,6 +632,7 @@ class Particle:
                                         data['age'] * 1000,
                                         metal_mass_fractions=metal_mass_frac)
                 prop_data = data['mass'] / (1 - mass_loss_frac)
+                age = data['age']
                 if case_insen_compare(property,['sfr','M_form_young','M_form_10Myr']):
                     prop_data[age>0.01] = 0.
                 elif case_insen_compare(property,['M_form_100Myr']):
