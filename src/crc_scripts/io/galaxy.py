@@ -81,7 +81,7 @@ class Halo(object):
 
     def set_orientation(self, ptype=4, mass_radius_max = 100, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
         """
-        Set the orientation (center position velocity and priciple axes) of the halo. The default values work well for stable galaxies,
+        Set the orientation (center position velocity and principle axes) of the halo. The default values work well for stable galaxies,
         but may need to be tweaked for chaotic events like mergers or at high-z.
 
         Parameters
@@ -169,15 +169,16 @@ class Halo(object):
                 self.Lhat = np.array([0,0,1.])
         # Default for non-cosmological and no AHF to center of star mass
         else:
-            print("Centering galaxy based on average position of gas")
+            print("No halo file given so galaxy centered on median position of gas particles with nH>10 cm^-3. This may not always work.")
             self.k = 1
             self.time = sp.time
             self.redshift = sp.redshift
             # Get center from average of gas particles
             part = self.sp.loadpart(0)
-            self.xc = np.average(part.get_property('position')[:,0],weights=part.get_property('mass'))
-            self.yc = np.average(part.get_property('position')[:,1],weights=part.get_property('mass'))
-            self.zc = np.average(part.get_property('position')[:,2],weights=part.get_property('mass'))
+            dens_indx = part.get_property('nH')>10
+            self.xc = np.median(part.get_property('position')[dens_indx,0])
+            self.yc = np.median(part.get_property('position')[dens_indx,1])
+            self.zc = np.median(part.get_property('position')[dens_indx,2])
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
 
@@ -404,7 +405,7 @@ class Halo(object):
         radius_vectors = radius_vectors[masks]
         part_indices = part_indices[masks]
         if (len(radius_vectors) <=0):
-            print("WARNING: No particles of pytpe",ptype," within max_radius ",radius_max," and within age limits ",age_limits, "found when determining principle axes!")
+            print("WARNING: No particles of ptype",ptype," within max_radius ",radius_max," and within age limits ",age_limits, "found when determining principle axes!")
             return 
 
         # compute rotation vectors for principal axes (defined via moment of inertia tensor)
