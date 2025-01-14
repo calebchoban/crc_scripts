@@ -275,6 +275,7 @@ PROP_INFO  				= {
 					 'Fe/H_dust': [r'12+log(Fe/H)$_{\rm dust}$', 										[6.5,8.5], 	    False],
 						   'D/Z': ['D/Z', 																[1E-2,1.05],   	True],
 						   'D/H': ['D/H',																[7E-5,2E-2],	True],
+						   'D/G': ['D/G',																[7E-5,2E-2],	True],
 				   'D/H_neutral': [r'D/H$_{\rm neutral}$',												[7E-5,2E-2],	True],
 					 'depletion': [r'$\delta_{\rm X}$', 												[1E-3,1.1E0],   True],
 				   'C_depletion': [r'$\delta_{\rm C}$', 												[1E-1,1.1E0],   True],
