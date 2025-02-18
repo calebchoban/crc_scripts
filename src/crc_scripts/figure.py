@@ -334,7 +334,7 @@ class Figure(object):
         #         handle.set(cmap=None,norm=None,facecolor=None)
 
 
-    def add_colorbar(self, axis_num, cbar_prop=None, invert_axis=False, no_minor_ticks=False, side='right', rescale_font=1,):
+    def add_colorbar(self, axis_num, cbar_prop=None, cbar_label=None, invert_axis=False, no_minor_ticks=False, side='right', rescale_font=1,):
 
         # Since we are adding a colorbar lets make sure the plots aren't too close together
         if self.plot_num>1:
@@ -350,7 +350,8 @@ class Figure(object):
         divider = make_axes_locatable(axis)
         cax = divider.append_axes(side, size="5%", pad=0.0)
         cbar = self.fig.colorbar(mappable,cax=cax,pad=0)
-        cbar_label = config.get_prop_label(cbar_prop)
+        if cbar_label is None:
+            cbar_label = config.get_prop_label(cbar_prop)
         cbar.ax.set_ylabel(cbar_label, fontsize=rescale_font*config.LARGE_FONT)
         if invert_axis:
             cbar.ax.invert_yaxis()
@@ -375,10 +376,10 @@ class Figure(object):
             cbar.ax.minorticks_off()
  
     # This is a wrapper for the matplotlib annotate function which is more versatile than the text function
-    def add_text(self, axis_num, x, y, text, **kwargs):
+    def add_text(self, axis_num, x, y, text, rescale_font=1, **kwargs):
         default_kwargs = {
             'color': config.BASE_COLOR,
-            'fontsize': config.EXTRA_LARGE_FONT,
+            'fontsize': rescale_font*config.EXTRA_LARGE_FONT,
             'ha': 'center',
             "va": 'center',
             'xycoords': 'axes fraction'} 

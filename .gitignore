@@ -13,7 +13,7 @@ webbpsf-data/
 *.csv
 *.pickle
 *.ewah
-
+*.dat
 *.png
 *.pdf
 *.eps

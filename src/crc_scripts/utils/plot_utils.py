@@ -263,7 +263,7 @@ def add_artists(axis, artists):
 
 
 def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, 
-               artists_to_add=None, face_color='xkcd:white', rescale_font=1):
+               artists_to_add=None, face_color='xkcd:white', rescale_font=1, no_minor_ticks=False):
     """
     Sets up the axis plot given x and y properties. Supported properties are listed in config.PROP_INFO and unless given, this
     is where the limits for each axis and log/linear scale are determined. 
@@ -334,14 +334,14 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
     axis.set_facecolor(face_color)
 
     # Set axis labels and ticks
-    setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label, rescale_font=rescale_font)
+    setup_labels(axis,x_prop,y_prop, x_label=x_label, y_label=y_label, rescale_font=rescale_font, no_minor_ticks=no_minor_ticks)
     # Add given artist to axis
     add_artists(axis,artists_to_add)
 
     return
 
 
-def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None, rescale_font=1):
+def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None, rescale_font=1, no_minor_ticks=False):
     """
     Sets the axis labels based on the given properties. Ticks are set so they face inwards and have minor and major ticks.
     Special ticks are given for redshift only.
@@ -386,12 +386,19 @@ def setup_labels(axis, x_prop, y_prop, x_label=None, y_label=None, rescale_font=
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
         axis.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
         # Make sure not to put minor ticks on redshift axis
-        axis.tick_params(axis='x', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+        if not no_minor_ticks:
+            axis.tick_params(axis='x', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH,width=config.AXIS_BORDER_WIDTH/2)
+        else:
+            axis.minorticks_off()
     else:
-        axis.minorticks_on()
         axis.tick_params(axis='both',which='both',direction='in',right=True, top=True)
-        axis.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH)
-        axis.tick_params(axis='both', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+        # Need to add padding to xtick labels so they don't overlap with axis
+        axis.tick_params(axis='both', which='major', labelsize=rescale_font*config.SMALL_FONT, length=4*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH, pad=rescale_font*mpl.rcParams['xtick.major.pad'])
+        if not no_minor_ticks:
+            axis.minorticks_on()
+            axis.tick_params(axis='both', which='minor', labelsize=rescale_font*config.SMALL_FONT, length=2*config.AXIS_BORDER_WIDTH, width=config.AXIS_BORDER_WIDTH/2)
+        else:
+            axis.minorticks_off()
 
     for axe in ['top','bottom','left','right']:
         axis.spines[axe].set_linewidth(config.AXIS_BORDER_WIDTH)
@@ -445,6 +452,8 @@ def make_axis_secondary_time(axis, time_name, snapshot=None, tick_labels=True, r
                 axis_2_tick_labels = ['12','11','10','9','8','7','6']
             elif time_limits[1] < 3:
                 axis_2_tick_labels = ['10','8', '7', '6', '5', '4', '3', '2', '1', '0.5', '0.2', '0']
+            elif time_limits[1] > 10:
+                axis_2_tick_labels = ['0.4', '0.2', '0.1', '0.05', '0.02']
             else:
                 axis_2_tick_labels = ['6', '4', '3', '2', '1', '0.5', '0.2', '0']
         axis_2_tick_values = np.array([float(v) for v in axis_2_tick_labels])

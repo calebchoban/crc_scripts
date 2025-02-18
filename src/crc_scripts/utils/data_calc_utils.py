@@ -61,10 +61,10 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 		if prop_lims[1] > 30*prop_lims[0]: 	log_bins=True
 		else:								log_bins=False
 
-	bin_vals, mean_DZ, std_DZ = math_utils.bin_values(data[1], data[0], prop_lims, bin_nums=bin_nums, weight_vals=weights,
+	bin_vals, mean_vals, std_vals = math_utils.bin_values(data[1], data[0], prop_lims, bin_nums=bin_nums, weight_vals=weights,
 												 log=log_bins)
 
-	return bin_vals, mean_DZ, std_DZ
+	return bin_vals, mean_vals, std_vals
 
 
 
