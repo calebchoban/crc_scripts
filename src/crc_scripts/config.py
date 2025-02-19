@@ -138,12 +138,15 @@ SPEED_OF_LIGHT				= 3E8 # m/s
 BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
 U_to_temp					=  ((PROTONMASS/BoltzMann_ergs)*(UnitVelocity_in_cm_per_s**2))
-Cm_to_pc					= 3.24078e-19
+cm_to_pc					= 3.24078e-19
+pc_to_cm					= 1/cm_to_pc
 pc_to_m						= 3.086E16
 Kpc_to_cm					= 3.086E21
 km_per_kpc					= 3.086E16
 sec_per_Gyr					= 3.16E16
+Gyr_to_sec					= 3.1536E16
 cm_to_um					= 1E4
+um_to_cm					= 1/cm_to_um
 Ergs_per_joule				= 1E7
 grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
@@ -173,11 +176,13 @@ else:
 ELEMENTS					= ['Z','He','C','N','O','Ne','Mg','Si','S','Ca','Fe']
 ELEMENT_NAMES				= ['Metals','Helium','Carbon','Nitrogen','Oxygen','Neon','Magnesium','Silicon','Sulfur','Calcium','Iron']
 ATOMIC_MASS					= np.array([1.01, 4.0, 12.01, 14, 15.99, 20.2, 24.305, 28.086, 32.065, 40.078, 55.845])
+DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
+
 SIL_ELEM_INDEX				= np.array([4,6,7,10]) # O,Mg,Si,Fe
 # number of atoms that make up one formula unit of silicate dust assuming an olivine, pyroxene mixture
 # with olivine fraction of 0.32 and Mg fraction of 0.8
 SIL_NUM_ATOMS				= np.array([3.631,1.06,1.,0.571]) # O,Mg,Si,Fe
-DUST_BULK_DENS				= np.array([3.13,2.25,3.21,7.86]) # silicates, carbonaceous, SiC, metallic iron (g/cm^-3)
+SIL_ATOMIC_WEIGHT 			= np.sum(SIL_NUM_ATOMS * ATOMIC_MASS[SIL_ELEM_INDEX])
 
 # DUST_PROPERTIES = {
 # **dict.fromkeys(['sil','silicates','Silicates'], {'bulk_dens': 3.13}),
@@ -298,7 +303,7 @@ PROP_INFO  				= {
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
 **dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
-					'grain_size': [r'a ($\mu m$)',														[7E-4,10],		True],
+					'grain_size': [r'a ($\mu m$)',														[7E-4,2E0],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
 								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
@@ -313,6 +318,7 @@ PROP_INFO  				= {
 **dict.fromkeys(['T_dust','dust_temp'], [r'$T_{\rm dust}$ [K]',											[0,60],			False]),
 			 'electron_fraction': [r'$f_{\rm electron}$',												[1E-3,1],		True],
 			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0.8,100],		True],
+			   	   'mach_number': [r'$\mathcal{M}$',														[0,20],			False],
 							}
 
 

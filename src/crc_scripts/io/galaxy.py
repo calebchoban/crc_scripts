@@ -56,7 +56,7 @@ class Halo(object):
 
 
     # Set zoom-in region if you don't want all data in rvir
-    def set_zoom(self, rout=1.0, kpc=False):
+    def set_zoom(self, rout=None, kpc=False):
         """
         Set the radius of zoom-in region around the halo center. This will determine the extent of the region you want to get particle data for. Default is the virial radius.
 
@@ -71,6 +71,20 @@ class Halo(object):
         -------
         None
         """
+
+        # If nothing is specified, makes an educated guess as to how much you want to zoom in
+        if rout is None:
+            # 10% of the virial radius is good for cosmological sims with known virial radius 
+            if self.cosmological and self.catalog is not None:
+                rout = 0.1 
+                kpc = False
+            # Since we don't know the virial radius, we just zoom in to 20 kpc
+            else:
+                rout = 20
+                kpc = True
+        if not kpc and self.catalog is None:
+            print("WARNING: You have set the zoom in region to be a fraction of the virial radius but no halo file was provided. This may not work.")
+            
 
         # How far out do you want to load data, default is rvir
         self.rout = rout
@@ -162,6 +176,7 @@ class Halo(object):
                 print("Defaulting to center of snapshot box.")
                 self.k = 0 # so you can re-load it
                 self.redshift = sp.redshift
+                self.catalog = None
                 self.xc = sp.boxsize/2.
                 self.yc = sp.boxsize/2.
                 self.zc = sp.boxsize/2.
@@ -173,6 +188,7 @@ class Halo(object):
             self.k = 1
             self.time = sp.time
             self.redshift = sp.redshift
+            self.catalog = None
             # Get center from average of gas particles
             part = self.sp.loadpart(0)
             dens_indx = part.get_property('nH')>10

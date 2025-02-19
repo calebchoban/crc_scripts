@@ -139,6 +139,7 @@ class Particle:
             'DustMolecularSpeciesFractions': ['dense_H2_frac','C_in_CO'],
             # clumping factor (C_2) from unresolved turbulent mixing
             'ClumpingFactor': 'clumping_factor',
+            'MachNumber': 'mach_number',
             # temperature of dust grains from FIRE-3
             'Dust_Temperature': 'dust_temp',
             # parameters for grain size bins with linear slopes. Each species has N grain size bins specified at sim runtime
@@ -366,7 +367,7 @@ class Particle:
         """
         data = self.data
         # Nothing to do here if there are no particles
-        numpart = len(data['mass'])
+        numpart = self.npart
         if numpart == 0:
             return np.zeros(0)
         
@@ -575,6 +576,8 @@ class Particle:
                     elif case_insen_compare(property,'grain_bin_slope'):
                         prop_data = data['grain_bin_slope'];
                     # Note all dust grain size distribution data is normalized by the total grain number
+                    elif case_insen_compare(property,'N_grain_total'):
+                        prop_data = np.sum(data['grain_bin_num'],axis=2)
                     elif case_insen_compare(property,'dn/da'):
                         # Gives normalized dn/da at the center of the grain bins 
                         N_total = np.sum(data['grain_bin_num'],axis=2)

@@ -28,7 +28,7 @@ def load_AHF(sdir, snum, cosmological=1, hdir=None):
 
 
 # this returns the primary halo/galaxy
-def load_halo(sdir, snum, cosmological=1, id=-1, mode='AHF', hdir=None):
+def load_halo(sdir, snum, cosmological=1, id=-1, mode=None, hdir=None):
 
     sp = load_snap(sdir, snum, cosmological=cosmological)
     halo = sp.loadhalo(id=id, mode=mode, hdir=hdir)
@@ -37,7 +37,7 @@ def load_halo(sdir, snum, cosmological=1, id=-1, mode='AHF', hdir=None):
 
 
 # this returns the primary galactic disk
-def load_disk(sdir, snum, cosmological=1, id=-1, mode='AHF', hdir=None, rmax=20, height=5):
+def load_disk(sdir, snum, cosmological=1, id=-1, mode=None, hdir=None, rmax=20, height=5):
 
     sp = load_snap(sdir, snum, cosmological=cosmological)
     disk = sp.loaddisk(id=id, mode=mode, hdir=hdir, rmax=rmax, height=height)

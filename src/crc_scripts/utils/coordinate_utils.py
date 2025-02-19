@@ -450,7 +450,7 @@ def get_velocity_differences(
 #===================================================================================================
 def get_center_position_zoom(
     positions, weights=None, periodic_length=None, position_number_min=32, center_position=None,
-    distance_max=np.Inf):
+    distance_max=np.inf):
     '''
     Get position of center of mass, using iterative zoom-in.
 
@@ -468,7 +468,7 @@ def get_center_position_zoom(
     center_position : array : position vector of center of mass
     '''
     distance_bins = np.array([
-        np.Inf, 1000, 700, 500, 300, 200, 150, 100,
+        np.inf, 1000, 700, 500, 300, 200, 150, 100,
         70, 50, 30, 20, 15, 10,
         7, 5, 3, 2, 1.5, 1,
         0.7, 0.5, 0.3, 0.2, 0.15, 0.1,

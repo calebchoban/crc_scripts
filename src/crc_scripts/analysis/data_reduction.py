@@ -139,11 +139,11 @@ class Buffer(object):
         elif prop == 'redshift' and self.reduced_data.cosmological:
             data = self.reduced_data.redshift
         elif prop in ['sfr_10Myr','sfr']:
-            data = reduced_data['M_star_10Myr_'+subsample]/1E7
+            data = reduced_data['M_form_10Myr_'+subsample]/1E7
         elif prop == 'sfr_100Myr':
-            data = reduced_data['M_star_100Myr_'+subsample]/1E8
+            data = reduced_data['M_form_100Myr_'+subsample]/1E8
         elif prop == 'ssfr':
-            data = (reduced_data['M_star_10Myr_'+subsample]/0.01)/reduced_data['M_star_'+subsample] # Gyr^-1
+            data = (reduced_data['M_form_10Myr_'+subsample]/0.01)/reduced_data['M_star_'+subsample] # Gyr^-1
         elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral','f_coronal','f_ionized']:
             if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
             elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
@@ -256,7 +256,7 @@ class Buffer(object):
                             reduced_data['dz_iron_'+subsample]+reduced_data['dz_ORes_'+subsample]) \
                             / reduced_data['dz_carb_'+subsample]
             else:
-                print(prop, " is not in the dataset with given statistic.")
+                print(prop," with subsample",subsample, "is not in the dataset with given statistic.")
                 return None
         else:
             print(prop," is not in the dataset.")
