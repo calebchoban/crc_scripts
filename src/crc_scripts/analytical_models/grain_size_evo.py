@@ -1,7 +1,9 @@
 import numpy as np
-from scipy.integrate import quad, dblquad, odeint
-from scipy.interpolate import interp1d
+from scipy.integrate import quad
+from scipy.interpolate import interp1d,CubicSpline
 from scipy.special import erfc,erf
+from astropy.table import Table
+import os
 from .. import config
 from ..utils.math_utils import weighted_percentile
 
@@ -107,7 +109,10 @@ def dust_species_properties(species):
         youngs = 5.4E11 # youngs modulus (dyn cm^-2) 
         gamma = 25 # surface energy (rgc cm^-2)
         rho_c = 3.13 # density of dust material (g cm^-3)
-        nH_max = 1E4
+        nH_max = 1E4 # accretion max density
+        # Parameters used for SNe processing
+        delta_sput = 0.4
+        delta_shat = 0.1
     elif species == 'carbonaceous':
         dust_atomic_weight = config.ATOMIC_MASS[2]
         key_mass = dust_atomic_weight
@@ -120,6 +125,9 @@ def dust_species_properties(species):
         gamma = 75 # surface energy (rgc cm^-2)
         rho_c = 2.25 # density of dust material (g cm^-3)
         nH_max = 1E3
+        # Parameters used for SNe processing
+        delta_sput = 0.2
+        delta_shat = 0.2
     elif species == 'iron':
         dust_atomic_weight = config.ATOMIC_MASS[10]
         key_mass = dust_atomic_weight
@@ -132,6 +140,9 @@ def dust_species_properties(species):
         gamma = 3000 # surface energy (rgc cm^-2)
         rho_c = 7.86 # density of dust material (g cm^-3) 
         nH_max = 1E4
+        # Parameters used for SNe processing
+        delta_sput = 0.2
+        delta_shat = 0.2
     else:
         assert 1, "Species type not supported"
 
@@ -147,7 +158,9 @@ def dust_species_properties(species):
     "youngs": youngs,
     "gamma": gamma,
     "rho_c": rho_c,
-    "nH_max": nH_max
+    "nH_max": nH_max,
+    "delta_sput": delta_sput,
+    "delta_shat": delta_shat
     }
 
     return spec_props
@@ -446,7 +459,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
             ai_lower = a_vals[i]
             ai_center = (ai_upper + ai_lower)/2
             # grains can shatter to below the minimum size. Need to include them in the mshat calc to conserve mass
-            if i==0: ai_lower=0 
+            #if i==0: ai_lower=0 
             mi_acenter = 4*np.pi/3*rho_c*np.power(ai_center,3)
 
 
@@ -457,7 +470,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
                 aj_lower = a_vals[j]
                 aj_center = (aj_upper + aj_lower)/2
                 # grains can shatter to below the minimum size. Need to include them in the mshat calc to conserve mass
-                if j==0: aj_lower=0 
+                #if j==0: aj_lower=0 
                 
 
                 int_I_ij = ((2*np.power(ai_lower,2) + 2*ai_lower*ai_upper + 2*np.power(ai_upper,2) + 3*ai_lower*(aj_lower + aj_upper) + 3*ai_upper*(aj_lower + aj_upper) + 2*(np.power(aj_lower,2) + aj_lower*aj_upper + np.power(aj_upper,2)))*init_N[i]*init_N[j])/6.
@@ -473,7 +486,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
                     ak_lower = a_vals[k]
                     ak_center = (ak_upper + ak_lower)/2
                     # grains can shatter to below the minimum size. Need to include them in the mshat calc to conserve mass
-                    if k==0: ak_lower=0
+                    #if k==0: ak_lower=0
 
                     int_I_kj = ((2*np.power(aj_lower,2) + 2*aj_lower*aj_upper + 2*np.power(aj_upper,2) + 3*aj_lower*(ak_lower + ak_upper) + 3*aj_upper*(ak_lower + ak_upper) + 2*(np.power(ak_lower,2) + ak_lower*ak_upper + np.power(ak_upper,2)))*init_N[j]*init_N[k])/6.
                     vkjrel = grain_relative_velocity(ak_center, aj_center, rho_c, ISM_phase)
@@ -780,3 +793,245 @@ def get_grain_size_dist(snap, spec_ind, mask=None, mass=False, points_per_bin=1)
     else: 
         std_dist_points = np.array([dist_points[0],dist_points[0]])
         return grain_size_points, dist_points[0], std_dist_points # Get rid of extra dimension if only one particle
+
+
+
+
+
+class SNe_Dust_Processing(object):
+    """
+    Class to handle the dust processing by supernovae in the ISM.
+    Methods:
+    - __init__(dnda, a_limit, bins=500): Initializes the SNe_Dust_Processing object.
+    - dnda_SNe_sputtering_approximation(dnda, a, delta_sput=0.1, a_sput=0.1): Returns the resulting dnda after a sputtering approximation step given an initial dnda.
+    - dnda_SNe_shattering_approximation(dnda, a, delta_shat=0.1, a_shat=0.1, a_frag_max=0.1): Returns the resulting dnda after a shattering step given an initial dnda.
+    - get_SNe_processed_dnda(approx='shat_sput_shat', **kwargs): Returns the processed dnda based on the given approximation scheme.
+    - shat_sput_shat(delta_sput=0.1, delta_shat=0.1, a_sput=0.05, a_shat=0.05, a_frag_max=0.05): Returns the processed dnda using the 'shat_sput_shat' approximation scheme.
+    - sput_only(delta_sput=0.1, a_sput=0.05): Returns the processed dnda using the 'sput' approximation scheme.
+    """
+
+
+    def __init__(self, dnda, a_limit, bins=500):
+        """
+        Parameters:
+        - dnda (function): Initial grain size distribution function.
+        - a_limit (ndarray): Grain size limits.
+        - bins (int): Number of bins for grain size distribution
+        """
+
+        self.init_dnda = dnda
+        # Renorm grain size distribution to one for ease comparison
+        total_N = quad(self.init_dnda, a_limit[0], a_limit[1])[0]
+        self.init_dnda = lambda a: dnda(a)/total_N
+        self.init_dmda = lambda a: np.power(a,3) * dnda(a)/total_N
+        self.amin = a_limit[0]
+        self.amax = a_limit[1]
+        self.a_values = np.logspace(np.log10(self.amin),np.log10(self.amax),bins)
+
+    # Returns the resulting dnda after a sputtering approximation step given an initial dnda
+    def dnda_SNe_sputtering_approximation(self, dnda, a, delta_sput=0.1, a_sput=0.1):
+        """
+        Calculates the approximate grain size evolution for the SNe sputtering approximation. All size units in microns.
+
+        Parameters:
+        - dnda (function): The function that calculates the initial grain size distribution.
+        - a (float): The grain size.
+        - delta_sput (float, optional): The sputtering parameter. Defaults to 0.1.
+        - a_sput (float, optional): The characteristic grain size for sputtering. Defaults to 0.1.
+
+        Returns:
+        - float: The grain size function after sputtering.
+        """
+        def eff_sput(a, delta_sput, a_sput):
+            return (1 - np.exp(-(delta_sput / (a/a_sput))))
+        return dnda(a)*(1-eff_sput(a,delta_sput,a_sput))
+
+    # Returns the resulting dnda after a shattering step given an initial dnda
+    def dnda_SNe_shattering_approximation(self, dnda, a, delta_shat=0.1, a_shat=0.1, a_frag_max=0.1):
+        """
+        Calculate the grain size distribution after Sne shattering approximation. All size units in microns.
+
+        Parameters:
+        - dnda (function): The function that represents the initial grain size distribution.
+        - a (float): The grain size.
+        - delta_shat (float, optional): The shattering efficiency parameter. Default is 0.1.
+        - a_shat (float, optional): The characteristic grain size for shattering. Default is 0.1.
+        - a_frag_max (float, optional): The maximum grain size for fragmentation. Default is 0.1.
+
+        Returns:
+        - ndarray: The grain size distribution after shattering.
+        """
+        def eff_shat(a, delta_shat, a_shat):
+            return (1 - np.exp(-(delta_shat * (a/a_shat))))
+        def dmda_shattered(a, dnda):
+            return eff_shat(a, delta_shat, a_shat) * dnda(a) * a * a * a
+        def dnda_fragments(a, C_frag):
+            return np.piecewise(a, [a <= a_frag_max, a > a_frag_max], [lambda a: C_frag * np.power(a,-3.3), 0])
+
+        M_shattered = quad(dmda_shattered, self.amin, self.amax, args=(dnda))[0]
+        C_frag = M_shattered * 7 / (10 * (np.power(a_frag_max,0.7) - np.power(self.amin,0.7)))
+        return dnda_fragments(a, C_frag) + dnda(a)*(1-eff_shat(a, delta_shat, a_shat))
+    
+
+    def get_SNe_processed_dnda(self, approx='shat_sput_shat', species=None, **kwargs):
+        """
+        Calculate the SNe processed grain size distribution.
+
+        Parameters:
+        - approx (str): The approximation scheme to use. Supported values are 'sput_shat_sput', 'sput', and 'nozawa'.
+        - **kwargs: Additional keyword arguments specific to the chosen approximation scheme.
+
+        Returns:
+        - ndarray: The processed grain size distribution.
+
+        Raises:
+        - AssertionError: If the given approximation scheme is not supported.
+        """
+        assert approx in ['shat_sput_shat','sput','nozawa'], "Given approximation scheme not supported"
+
+        # If species given then override parameters 
+        if species is not None and approx != 'nozawa':
+            spec_props = dust_species_properties(species)
+            kwargs['delta_sput'] = spec_props['delta_sput']
+            kwargs['delta_shat'] = spec_props['delta_shat']
+            kwargs['a_sput'] = 0.05
+            kwargs['a_shat'] = 0.05
+            kwargs['a_frag_max'] = 0.05
+
+        if approx == 'shat_sput_shat':
+            return self.shat_sput_shat(**kwargs)
+        elif approx == 'sput':
+            return self.sput_only(**kwargs)
+        elif approx == 'nozawa':
+            return self.Nozawa_prescription(**kwargs)
+
+
+    def shat_sput_shat(self, delta_sput=0.1, delta_shat=0.1, a_sput=0.05, a_shat=0.05, a_frag_max=0.05):
+        """
+        Calculates the destruction fraction, final size distribution, and final mass distribution
+        for an approximate shatter, sputter, shatter scheme. All size units in microns.
+        Parameters:
+        - delta_sput (float): The sputtering parameter.
+        - delta_shat (float): The shattering parameter.
+        - a_sput (float): The sputtering efficiency parameter.
+        - a_shat (float): The shattering efficiency parameter.
+        - a_frag_max (float): The maximum fragmentation efficiency parameter.
+        Returns:
+        - dest_frac (float): The destruction fraction, which represents the fraction of the initial mass that is lost.
+        - final_dnda (CubicSpline): The final size distribution.
+        - final_dmda (CubicSpline): The final mass distribution.
+        """
+
+        initial_mass = quad(self.init_dmda, self.amin, self.amax)[0]
+        dnda_shat1 = self.dnda_SNe_shattering_approximation(self.init_dnda,self.a_values,delta_shat=delta_shat,a_shat=a_shat,a_frag_max=a_frag_max)
+        dnda_shat1 = CubicSpline(self.a_values,dnda_shat1); 
+        
+        dnda_sput1 = self.dnda_SNe_sputtering_approximation(dnda_shat1,self.a_values,delta_sput=delta_sput,a_sput=a_sput)
+        dnda_sput1 = CubicSpline(self.a_values,dnda_sput1); 
+        
+        dnda_shat2 = self.dnda_SNe_shattering_approximation(dnda_sput1,self.a_values,delta_shat=delta_shat,a_shat=a_shat,a_frag_max=a_frag_max)
+        dnda_shat2 = CubicSpline(self.a_values,dnda_shat2); 
+        
+        final_dnda = dnda_shat2
+        total_N = quad(final_dnda, self.amin, self.amax)[0]
+        final_dmda = CubicSpline(self.a_values, np.power(self.a_values,3) * final_dnda(self.a_values))
+        total_M = quad(final_dmda, self.amin, self.amax)[0]
+        dest_frac = 1-total_M/initial_mass
+        # # Now renorm dnda and dmda to one
+        # final_dnda = CubicSpline(self.a_values,final_dnda(self.a_values)/total_N); 
+        # final_dmda = CubicSpline(self.a_values,final_dmda(self.a_values)/total_M); 
+    
+        return dest_frac, final_dnda, final_dmda
+
+    def sput_only(self, delta_sput=0.1, a_sput=0.05):
+        """
+        Calculate the approximate sputtering-only evolution of grain size distribution. All size units in microns.
+        Parameters:
+        - delta_sput (float): The sputtering efficiency parameter.
+        - a_sput (float): The sputtering yield parameter.
+        Returns:
+        - dest_frac (float): The fraction of mass lost due to sputtering.
+        - final_dnda (CubicSpline): The final grain size distribution.
+        - final_dmda (CubicSpline): The final grain mass distribution.
+        """
+
+        initial_mass = quad(self.init_dmda, self.amin, self.amax)[0]
+
+        dnda_sput1 = self.dnda_SNe_sputtering_approximation(self.init_dnda,self.a_values,delta_sput=delta_sput,a_sput=a_sput)
+        dnda_sput1 = CubicSpline(self.a_values,dnda_sput1); 
+
+        final_dnda = dnda_sput1
+        total_N = quad(final_dnda, self.amin, self.amax)[0]
+        final_dmda = CubicSpline(self.a_values, np.power(self.a_values,3) * final_dnda(self.a_values))
+        total_M = quad(final_dmda, self.amin, self.amax)[0]
+        dest_frac = 1-total_M/initial_mass
+
+        # # Now renorm dnda and dmda to one
+        # final_dnda = CubicSpline(self.a_values,final_dnda(self.a_values)/total_N); 
+        # final_dmda = CubicSpline(self.a_values,final_dmda(self.a_values)/total_M); 
+
+        return dest_frac, final_dnda, final_dmda
+    
+    def Nozawa_prescription(self, smooth=True):
+
+        initial_mass = quad(self.init_dmda, self.amin, self.amax)[0]
+
+        # Load the Nozawa data tables for nH = 1 cm^-3
+        base_path = os.path.dirname(__file__)
+        file_path = os.path.join(base_path, 'Nozawa_nH1.dat')
+        Nozawa_table = Table.read(file_path,format='ascii')
+        # Convert all sizes to microns
+        ac_init = np.unique(Nozawa_table['a_init (cm)'].data)*1E4
+        a1 = (Nozawa_table['a_init (cm)'].data)*1E4
+        a2 = (Nozawa_table['a_final (cm)'].data)*1E4
+        frac_i_to_f = Nozawa_table['Mg2SiO4'].data
+        # Slight rounding errors in the Nozawa table means you can miss the size limit boundaries so extended them slightly
+        ac_init = ac_init[(ac_init>=self.amin*0.9) & (ac_init<=self.amax*1.1)]
+        ac_final = np.copy(ac_init)
+        a_binwidth = 0.1 # dex
+
+        
+        # Check how many grains in each in bin move to other bins
+        after_N_bin = np.zeros(len(ac_init))
+        for i,ac in enumerate(ac_init):
+            if i==0:
+                bin_limits = [self.amin,np.power(10,np.log10(self.amin)+(a_binwidth/2))]
+            elif i == len(ac_init)-1:
+                bin_limits = [np.power(10,np.log10(self.amax)-(a_binwidth/2)),self.amax]
+            else:
+                bin_limits = [np.power(10,np.log10(ac)-(a_binwidth/2)),np.power(10,np.log10(ac)+(a_binwidth/2))]
+
+            N_bin = quad(self.init_dnda,bin_limits[0],bin_limits[1])[0]
+            total_frac = 0
+            for j,af in enumerate(ac_final):
+                if af > ac: continue
+                frac = frac_i_to_f[(a1==ac) & (a2==af)][0]
+                after_N_bin[j] += frac * N_bin
+                total_frac+=frac
+        
+        after_dnda = np.zeros(len(after_N_bin))
+        for i,ac in enumerate(ac_init):
+            if i==0:
+                bin_limits = [self.amin,np.power(10,np.log10(self.amin)+(a_binwidth/2))]
+            elif i == len(ac_init)-1:
+                bin_limits = [np.power(10,np.log10(self.amax)-(a_binwidth/2)),self.amax]
+            else:
+                bin_limits = [np.power(10,np.log10(ac)-(a_binwidth/2)),np.power(10,np.log10(ac)+(a_binwidth/2))]
+        
+            after_dnda[i] = after_N_bin[i]/(bin_limits[1]-bin_limits[0])
+        
+        
+        # Need to smooth out dnda since this can have sharp dips for whatever reason
+        if smooth:
+            for i,ac in enumerate(ac_init):
+                if i==0 or i ==len(ac_init)-1:
+                    continue
+                
+                if after_dnda[i] < after_dnda[i-1] and after_dnda[i] < after_dnda[i+1]:
+                    after_dnda[i] = np.power(10,(np.log10(after_dnda[i-1]) + np.log10(after_dnda[i+1]))/2)
+
+        dnda_Nozawa = CubicSpline(ac_init,after_dnda)
+        dmda_Nozawa = CubicSpline(ac_init,after_dnda*np.power(ac_init,3))
+        f_nozawa = 1-quad(dmda_Nozawa, self.amin, self.amax)[0]/initial_mass
+
+        return f_nozawa, dnda_Nozawa, dmda_Nozawa
