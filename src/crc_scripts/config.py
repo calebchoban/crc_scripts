@@ -123,6 +123,7 @@ mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
 
 
 # Conversion factors for code to cgs units
+FIRE_GAS_PARTICLE_MASS 		= 7100 # Msolar
 Msolar_to_g					= 1.989E33
 UnitLength_in_cm            = 3.085678e21   # 1.0 kpc/h
 UnitMass_in_g               = 1.989e43  	# 1.0e10 solar masses/h
@@ -134,6 +135,7 @@ UnitEnergy_per_Mass 		= np.power(UnitLength_in_cm, 2) / np.power(UnitTime_in_s, 
 UnitDensity_in_cgs 			= UnitMass_in_g / np.power(UnitLength_in_cm, 3)
 H_MASS 						= 1.674E-24 # grams
 PROTONMASS					= H_MASS
+HYDROGEN_MASSFRAC           = 0.76  # approximate mass fraction of hydrogen compared to all other elements
 SPEED_OF_LIGHT				= 3E8 # m/s
 BoltzMann_ergs              = 1.3806e-16
 EPSILON						= 1E-7 # small number to avoid zeros
@@ -141,7 +143,7 @@ U_to_temp					=  ((PROTONMASS/BoltzMann_ergs)*(UnitVelocity_in_cm_per_s**2))
 cm_to_pc					= 3.24078e-19
 pc_to_cm					= 1/cm_to_pc
 pc_to_m						= 3.086E16
-Kpc_to_cm					= 3.086E21
+kpc_to_cm					= 3.086E21
 km_per_kpc					= 3.086E16
 yr_to_sec					= 3.1536E7
 sec_to_yr					= 1/yr_to_sec
@@ -149,6 +151,8 @@ Gyr_to_sec					= 3.1536E16
 sec_to_Gyr					= 1/Gyr_to_sec
 cm_to_um					= 1E4
 um_to_cm					= 1/cm_to_um
+cm_to_nm					= 1E7
+nm_to_cm					= 1/cm_to_nm
 Ergs_per_joule				= 1E7
 grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc

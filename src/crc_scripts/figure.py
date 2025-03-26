@@ -230,7 +230,7 @@ class Figure(object):
 
     def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
         default_kwargs = {
-            'zorder': 3}
+            'zorder': 1}
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]        

@@ -268,7 +268,7 @@ class Particle:
         if 'grain_bin_num' in self.data and 'grain_bin_slope' in self.data:
             # Need to convert to actual linear values. 
             # Grain numbers are in log10 form 
-            # Grain slopes are in log10 form but the sign represent if it's positive or negative
+            # Grain slopes are in log10 form but the sign represents if it's positive or negative
             # THIS WILL PROBABLY CHANGE TO BE MASS INSTEAD OF SLOPE FOR FINAL RUNS
             self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
             self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
@@ -279,6 +279,12 @@ class Particle:
             # Since dn/da is normalized to the dust mass in the code, need to multiply by h factor
             self.data['grain_bin_num'] *= hubble
             self.data['grain_bin_slope'] *= hubble
+
+            # Catch any bins with < 1 grain due to numerical errors and set to 0
+            low_N_mask = self.data['grain_bin_num']<1
+            self.data['grain_bin_num'][low_N_mask] = 0
+            self.data['grain_bin_slope'][low_N_mask] = 0
+
         
         self.k = 1
         return
@@ -465,6 +471,8 @@ class Particle:
             elif self.sp.Flag_DustSpecies:
                 if case_insen_compare(property,'M_dust'):
                     prop_data = data['dust_Z'][:,0]*data['mass']
+                elif case_insen_compare(property,'M_spec'):
+                    prop_data = data['dust_spec']*data['mass'][:,np.newaxis]               
                 elif case_insen_compare(property,'M_sil'):
                     prop_data = data['dust_spec'][:,0]*data['mass']
                 elif case_insen_compare(property,'M_carb'):
