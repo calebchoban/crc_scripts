@@ -101,11 +101,6 @@ def get_SFH(sp, dt=0.01, cum=0, rout=1.0, kpc=0):
         Star formation rate data for SFH.     
     """
 
-    sp.load()
-    if(sp.k==-1): 
-        print("Snapshot is not loaded. Need to load it first.")
-        return None, None
-
     part = sp.loadpart(4)
     if (part.k==-1): 
         print("Particle data in snapshot is not loaded. Need to load it first.")
@@ -115,10 +110,10 @@ def get_SFH(sp, dt=0.01, cum=0, rout=1.0, kpc=0):
         p, sft, m = part.get_property('position'), part.get_property('sft'), part.get_property('M_form')
         r = np.sqrt((p[:,0])**2+(p[:,1])**2+(p[:,2])**2)
         rmax = rout*sp.rvir if kpc==0 else rout
-        time, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], dt=dt, cum=cum, sp=sp.sp)
+        time, sfr = math_utils.SFH(sft[r<rmax], m[r<rmax], sp, dt=dt, cum=cum)
     else:
         sft, m = part.get_property('sft'), part.get_property('M_form')
-        time, sfr = math_utils.SFH(sft, m, dt=dt, cum=cum, sp=sp)
+        time, sfr = math_utils.SFH(sft, m, sp, dt=dt, cum=cum)
 
     return time, sfr
 
