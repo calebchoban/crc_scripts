@@ -230,7 +230,7 @@ class Figure(object):
 
     def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
         default_kwargs = {
-            'zorder': 3}
+            'zorder': 1}
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_kwargs[kwarg]        
@@ -420,7 +420,7 @@ class Figure(object):
 class Projection(Figure):
     """ Wrapper for matplotlib imshow function to easily plot either simulation projections or mock telescope images. """
 
-    def __init__(self, plot_num, add_sub_proj=False, add_colorbars=False, height_ratios=[5,1]):
+    def __init__(self, plot_num, add_sub_proj=False, add_colorbars=False, height_ratios=[5,1], nrows=1):
         """
         Construct a Projection instance, specifying the number of individual images/projections and if they will have a secondary/sub 
         image underneath them and/or a colorbar.
@@ -435,6 +435,8 @@ class Projection(Figure):
             Toggle wether each projection has a colorbar.
         height_ratios : list
             Ratio between heights of projection, sub_projection, and colorbar. Only need to include ratio for each option selected.
+        nrows : int
+            Number of rows in the figure only if no colorbars or subprojections are set. Use this when you are plotting many projections
         """
 
         self.plot_num = plot_num
@@ -443,7 +445,11 @@ class Projection(Figure):
         if self.sub_proj: self.height_ratios = height_ratios
         else: height_ratios = [1]
         # Set up subplots based on number of parameters given
-        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, add_sub_proj, add_colorbars=add_colorbars,height_ratios=height_ratios)
+        self.fig, self.axes = plot_utils.setup_proj_figure(plot_num, 
+                                                           add_sub_proj, 
+                                                           add_colorbars=add_colorbars,
+                                                           height_ratios=height_ratios,
+                                                           nrows=nrows)
 
         self.axis_artists = [[] for i in range(self.plot_num)]
         self.axis_fov_kpc = [0 for i in range(self.plot_num)]
@@ -477,7 +483,7 @@ class Projection(Figure):
 
     def set_proj_axis(self, axis_num, property, main_L, axes_visible=False, rescale_font=1, **kwargs):
         """
-        Setup specified axis as a projection, given the properties for eahc projection and their size.
+        Setup specified axis as a projection, given the properties for each projection and their size.
 
         Parameters
         ----------

@@ -529,7 +529,7 @@ def setup_colorbar(image, axis, label, rescale_font=1):
     return
 
 
-def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[5,1]):
+def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[5,1], nrows=1):
     """
     Sets up figure for projection plots given the number of plots you want and if they are going to include sub-projections. 
 
@@ -585,20 +585,28 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
 
     # Only one projection
     else:
-        nrows=1
         if add_colorbars:
             height_ratios=np.append(height_ratios,[cbar_height])
             nrows=2
-        gs = gridspec.GridSpec(nrows,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
-        ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if add_colorbars else 1
-        fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio* config.BASE_FIG_SIZE))
-        for i in range(num_plots):
-            ax = plt.subplot(gs[0,i])
-            if add_colorbars:
-                cbarax = plt.subplot(gs[1,i])
-                axes += [[ax,cbarax]]
-            else: axes += [[ax]]
-        axes = np.array(axes)
+            gs = gridspec.GridSpec(nrows,num_plots,height_ratios=height_ratios,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
+            ratio = (height_ratios[0]+height_ratios[1])/height_ratios[0] if add_colorbars else 1
+            fig=plt.figure(figsize=(num_plots*config.BASE_FIG_SIZE,ratio*config.BASE_FIG_SIZE))
+            for i in range(num_plots):
+                ax = plt.subplot(gs[0,i])
+                if add_colorbars:
+                    cbarax = plt.subplot(gs[1,i])
+                    axes += [[ax,cbarax]]
+                else: axes += [[ax]]
+            axes = np.array(axes)
+        else:
+            ncols = int(np.ceil(num_plots/nrows))
+            gs = gridspec.GridSpec(nrows,ncols,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
+            fig=plt.figure(figsize=(nrows*config.BASE_FIG_SIZE,ncols*config.BASE_FIG_SIZE)) 
+            for i in range(nrows):
+                for j in range(ncols):
+                    ax = plt.subplot(gs[i,j])
+                    axes += [[ax]]
+            axes = np.array(axes)
     
     return fig, axes
 

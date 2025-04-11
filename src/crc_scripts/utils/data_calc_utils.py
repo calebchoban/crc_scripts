@@ -566,8 +566,14 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 
 	L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
 
-	if 'star' in property or 'stellar' in property or 'sfr' in property: P = snap.loadpart(4)
-	else: 				   												 P = snap.loadpart(0)
+	if 'star' in property or 'stellar' in property or 'sfr' in property: 
+		
+		if not snap.cosmological:
+			P = snap.loadpart(2)
+			P.append_particle(snap.loadpart(4))
+		else:
+			P = snap.loadpart(4)
+	else:	P = snap.loadpart(0)
 	x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
 
 	# Set up coordinates to project

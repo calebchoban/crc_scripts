@@ -93,16 +93,22 @@ class Snapshot:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
 
+        # Check if there is info on the chemical composition of silicates since this can change
+        if 'Silicates_Element_Key' in f['Header'].attrs.keys():
+            self.Silicates_Element_Key = f['Header'].attrs['Silicates_Element_Key'] # The indices of the elements that make up silicates
+        if 'Silicates_Element_Number' in f['Header'].attrs.keys():
+            self.Silicates_Element_Number = f['Header'].attrs['Silicates_Element_Number'] # The number of each element in silicates
+
         if f['Header'].attrs.get('ISMDustChem_Num_Grain_Size_Bins',0):
             print("This snap has grain size bins!")
-            self.Grain_Size_Max = f['Header'].attrs['ISMDustChem_Grain_Size_Max']
-            self.Grain_Size_Min = f['Header'].attrs['ISMDustChem_Grain_Size_Min']
+            self.Grain_Size_Max = f['Header'].attrs['ISMDustChem_Grain_Size_Max'] * config.cm_to_um
+            self.Grain_Size_Min = f['Header'].attrs['ISMDustChem_Grain_Size_Min'] * config.cm_to_um
             self.Flag_GrainSizeBins = f['Header'].attrs['ISMDustChem_Num_Grain_Size_Bins']
             bin_size = np.power(10,np.log10( self.Grain_Size_Max/self.Grain_Size_Min)/self.Flag_GrainSizeBins)
             self.Grain_Bin_Edges = np.zeros(self.Flag_GrainSizeBins+1)
             self.Grain_Bin_Centers = np.zeros(self.Flag_GrainSizeBins)
             for i in range(self.Flag_GrainSizeBins+1):
-                self.Grain_Bin_Edges[i] = pow(bin_size,i)*self.Grain_Size_Min * config.cm_to_um
+                self.Grain_Bin_Edges[i] = pow(bin_size,i)*self.Grain_Size_Min
             for i in range(self.Flag_GrainSizeBins):
                 self.Grain_Bin_Centers[i] = ( self.Grain_Bin_Edges[i+1]+ self.Grain_Bin_Edges[i])/2.
         else:

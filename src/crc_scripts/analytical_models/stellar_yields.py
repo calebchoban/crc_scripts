@@ -195,11 +195,11 @@ def stellar_winds(min_time, max_time, N, Z, FIRE_ver=2, AGB_change='base'):
 			time_step = time[i]-time[i-1]
 		windRate[i] = stellarRates(age, Z, time_step,FIRE_ver=FIRE_ver,AGB_change=AGB_change)/time_step
 		windVel[i] = wind_velocity(age, Z, FIRE_ver=FIRE_ver,AGB_change=AGB_change)
-		windE[i] = 0.5 * (windRate[i]/config.sec_per_Gyr) * (windVel[i]*1E3)**2 * config.Ergs_per_joule
+		windE[i] = 0.5 * (windRate[i]/config.sec_to_Gyr) * (windVel[i]*1E3)**2 * config.Ergs_per_joule
 		if i == 0:
-			cum_windE[i] = windE[i]*time_step*config.sec_per_Gyr
+			cum_windE[i] = windE[i]*time_step*config.sec_to_Gyr
 		else:
-			cum_windE[i] = cum_windE[i-1]+windE[i]*time_step*config.sec_per_Gyr
+			cum_windE[i] = cum_windE[i-1]+windE[i]*time_step*config.sec_to_Gyr
 
 
 	return time, windRate, windVel, windE, cum_windE
