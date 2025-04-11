@@ -1,6 +1,7 @@
 from astropy.io import fits
 from astropy.visualization import make_lupton_rgb, LogStretch, ManualInterval
 from astropy.convolution import convolve_fft,Gaussian2DKernel
+from astropy import units as u
 import numpy as np
 
 
@@ -63,7 +64,7 @@ filter_wavelengths = np.array([
     1.845, 1.874, 1.989, 2.095, 2.121, 2.503, 2.762, 2.989, 3.232, 3.237, 3.362, 3.568, 
     3.624, 4.052, 4.082, 4.281, 4.404, 4.630, 4.654, 4.708, 4.818, 5.635, 7.639, 9.953, 
     11.31, 12.81, 15.06, 17.98, 20.80, 25.36
-])
+]) * u.micron
 
 
 class SKIRT_Instrument(object):
@@ -77,25 +78,22 @@ class SKIRT_Instrument(object):
         self.verbose = verbose
 
         hdul = fits.open(self.dirc+self.inst_file)
-        self.images = hdul[0].data
-        self.pivot_wavelengths = hdul[1].data['GRID_POINTS']
-        self.pixel_res_arcsec = hdul[0].header['CDELT1']
-        self.pixel_units = hdul[0].header['CUNIT1'] # arcsec usually
-        self.angular_distance = hdul[0].header['DISTANGD']
-        self.distance_units = hdul[0].header['DISTUNIT'] # Mpc usually
-        self.pixel_res_kpc = self.angular_distance*1E3*config.rad_per_arcsec*self.pixel_res_arcsec
-        self.filters = ["N/A"]*len(self.pivot_wavelengths)
+        self.images = hdul[0].data * u.Unit(hdul[0].header['BUNIT'])
+        self.pivot_wavelengths = (hdul[1].data['GRID_POINTS'] * u.Unit(hdul[0].header['CUNIT3'])).to('micron')
+        self.pixel_res_angle = (hdul[0].header['CDELT1'] * u.Unit(hdul[0].header['CUNIT1'])).to('arcsec') # arcsec
+        self.angular_distance = (hdul[0].header['DISTANGD'] * (u.Unit(hdul[0].header['DISTUNIT']))/u.Unit('rad')).to('kpc/rad') # kpc
+        self.pixel_res_physical = self.angular_distance.to('kpc/rad') * self.pixel_res_angle.to('rad')
         self.num_pixels = hdul[0].header['NAXIS1']
-        self.fov_kpc = self.num_pixels * self.pixel_res_kpc
-        self.fov_arcsec = self.num_pixels * self.pixel_res_arcsec
-        self.brightness_units = hdul[0].header['BUNIT']
+        self.fov_physical = self.num_pixels * self.pixel_res_physical.to('kpc')
+        self.fov_angle = self.num_pixels * self.pixel_res_angle.to('arcsec')
 
         # Determine what filters corresponds to the pivot wavelengths in the FITS file
         # Note you can have custom filters so this will let you know if now known filter matches.
+        self.filters = ["N/A"]*len(self.pivot_wavelengths)
         self.unknown_filter = 0
         for i,wavelength in enumerate(self.pivot_wavelengths):
             idx = np.nanargmin(np.abs(wavelength - filter_wavelengths))
-            if np.abs(wavelength - filter_wavelengths[idx])/filter_wavelengths[idx] > 0.0001:
+            if np.abs(wavelength - filter_wavelengths[idx])/filter_wavelengths[idx] > 0.0001: # Needs to be very small since commonly used filers can have slightly different pivot wavelengths for different telescopes
                 self.unknown_filter += 1
             else:
                 self.filters[i] = filter_names[idx]
@@ -106,9 +104,9 @@ class SKIRT_Instrument(object):
             print("FITS files info")
             print(hdul.info())
             print(hdul[0].header)
-            print("Pixel brightness in units of", self.brightness_units)
-            print("Pixel resolution", self.pixel_res_arcsec, "arsec", self.pixel_res_kpc, "kpc")
-            print("Image FOV",self.fov_kpc," kpc",self.fov_arcsec,"arcsec")
+            print("Pixel brightness in units of", self.images.unit)
+            print("Pixel resolution", self.pixel_res_angle, self.pixel_res_physical)
+            print("Image FOV",self.fov_physical,self.fov_angle)
             print("There are %i photometric images"%len(self.pivot_wavelengths))
             print("Filter Name \t\t Pivot Wavelength (microns)")
             for i,wavelength in enumerate(self.pivot_wavelengths):
@@ -119,7 +117,7 @@ class SKIRT_Instrument(object):
         hdul.close()
 
 
-    def get_filter_image(self, filter, neutral_units=False, psf=None):
+    def get_filter_image(self, filter, psf=None, brightness_units=None):
         '''
         This function extracts the image data for the specified filter.
 
@@ -127,8 +125,6 @@ class SKIRT_Instrument(object):
         ----------
         filter : string
             Name of filter to extract from FITS file.
-        neutral_units : bool, optional
-            If True, convert the image to approximate neutral units (lambda * F_lambda or nu * F_nu). Default is False.
         psf : Telescope_PSF, optional
             PSF you want to convolve the image with. Default is None.
 
@@ -144,15 +140,48 @@ class SKIRT_Instrument(object):
         idx = np.where(self.filters == filter)
         image = self.images[idx][0]
 
-        # Brightness can be in units of F_nu or F_lambda
-        # Check if you want neutral units nu * F_nu = lambda * F_lambda whihc are needed for nice 3-color images
-        # For simplicty of lupton_rgb we only scale by the relative frequency/wavelength so the units wont be correct
-        # but the lupton Q and stretch parameters wont change considerably.
-        if neutral_units:
+        # Determine surface brightness units of images
+        image_units = None
+        if image.unit.is_equivalent(u.MJy / u.sr):
+            image_units = 'frequency'
+        elif image.unit.is_equivalent(u.erg / u.cm**2 / u.s / u.micron / u.sr):
+            image_units = 'wavelength'
+        elif image.unit.is_equivalent(u.erg / u.cm**2 / u.s / u.sr):
+            image_units = 'neutral'
+        else:
+            print("WARNING: Unknown brightness units. Cannot covert units.")
+            return None
+        
+
+        if self.verbose:
+            print("%s image brightness is per %s with units %s"%(filter,image_units, image.unit))
+
+        # Convert to different units if requested
+        if brightness_units is not None and image_units != brightness_units:
             wavelength = self.get_filter_wavelength(filter)
-            # If in F_nu units (MJy/sr) convert to approximate W/m^2/sr
-            if 'jy' in self.brightness_units.lower():
-                image = image / wavelength
+            if image_units != 'neutral':
+                if brightness_units == 'wavelength':    
+                    # Convert to F_lambda units
+                    image = image.to(u.erg / u.cm**2 / u.s / u.angstrom / u.sr,
+                    equivalencies=u.spectral_density(wavelength))
+                elif brightness_units == 'frequency':
+                    # Convert to F_nu units
+                    image = image.to(u.erg / u.cm**2 / u.s / u.Hz/ u.sr,
+                    equivalencies=u.spectral_density(wavelength))
+                elif brightness_units == 'neutral':
+                    # Convert to neutral (lambda F_lamda = nu F_nu) units
+                    image = image.to(u.erg / u.cm**2 / u.s / u.micron / u.sr,
+                    equivalencies=u.spectral_density(wavelength))*wavelength.to('micron')
+            else:
+                # Convert to F_lambda units
+                if brightness_units == 'wavelength':
+                    image = image / wavelength.to('micron')
+                # Convert to F_nu units
+                if brightness_units == 'frequency':
+                    image = image / wavelength.to('Hz', equivalencies=u.spectral())
+
+            if self.verbose:
+                print("Image brightness units converted to %s."%image.unit)
 
         if psf is not None:
             image = convolve_fft(image, psf)
@@ -211,19 +240,19 @@ class SKIRT_Instrument(object):
         if max_percentile is not None:
             if not isinstance(max_percentile, list):
                 max_percentile = [max_percentile]*3
-            maximums = [np.percentile(r_frame[r_frame>0],max_percentile[0]),np.percentile(g_frame[g_frame>0],max_percentile[1]),np.percentile(b_frame[b_frame>0],max_percentile[2])]
+            maximums = [np.percentile(r_frame[r_frame>0].value,max_percentile[0]),np.percentile(g_frame[g_frame>0].value,max_percentile[1]),np.percentile(b_frame[b_frame>0].value,max_percentile[2])]
         else:
             if not isinstance(max_frac, list):
                 max_frac = [max_frac]*3
-            maximums = [np.max(r_frame)*max_frac[0],np.max(g_frame)*max_frac[1],np.max(b_frame)*max_frac[2]]
+            maximums = [np.max(r_frame.value)*max_frac[0],np.max(g_frame.value)*max_frac[1],np.max(b_frame.value)*max_frac[2]]
         if min_percentile is not None:
             if not isinstance(min_percentile, list):
                 min_percentile = [min_percentile]*3
-            minimums = [np.percentile(r_frame[r_frame>0],min_percentile[0]),np.percentile(g_frame[g_frame>0],min_percentile[1]),np.percentile(b_frame[b_frame>0],min_percentile[2])]
+            minimums = [np.percentile(r_frame[r_frame>0].value,min_percentile[0]),np.percentile(g_frame[g_frame>0].value,min_percentile[1]),np.percentile(b_frame[b_frame>0].value,min_percentile[2])]
         else:
             if not isinstance(min_frac, list):
                 min_frac = [min_frac]*3
-            minimums = [np.max(r_frame)*min_frac[0],np.max(g_frame)*min_frac[1],np.max(b_frame)*min_frac[2]]
+            minimums = [np.max(r_frame.value)*min_frac[0],np.max(g_frame.value)*min_frac[1],np.max(b_frame.value)*min_frac[2]]
 
         
         intervals = [ManualInterval(vmin=minimums[0], vmax=maximums[0]),ManualInterval(vmin=minimums[1], vmax=maximums[1]),ManualInterval(vmin=minimums[2], vmax=maximums[2])]
@@ -239,20 +268,19 @@ class SKIRT_Instrument(object):
 
         img = Projection(1)
         img.set_image_axis(0)
-        img.plot_image(0, RGB_image, fov_kpc=self.fov_kpc, fov_arcsec=self.fov_arcsec, label = label)
+        img.plot_image(0, RGB_image, fov_kpc=self.fov_physical.value, fov_arcsec=self.fov_angle.value, label = label)
         
         if output_name is not None:
             img.save(output_name)
     
 
-    def make_lupton_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, minimum=0,label=None, output_name=None, **kwargs):
+    def make_lupton_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, minimum=0, label=None, output_name=None, **kwargs):
         """
         Generate a log-scaled RGB image using Lupton's RGB algorithm.
         Parameters:
         - rgb_filters (list): List of three filter names to use for the red, green, and blue channels.
         - max_frac (float): Fraction of maximum pixel brightness for max limit of scaling.
         - stretch (int): Stretch factor for the log scaling.
-        - neutral_units (bool): Flag indicating whether to use neutral units for the filter images.
         - label (str): Label for the image.
         - output_name (str): Output file name for the image.
         Returns:
@@ -278,7 +306,7 @@ class SKIRT_Instrument(object):
         img = Projection(1)
         img.set_image_axis(0)
 
-        img.plot_image(0, RGB_image, fov_kpc=self.fov_kpc, fov_arcsec=self.fov_arcsec, label = label)
+        img.plot_image(0, RGB_image, fov_kpc=self.fov_physical.value, fov_arcsec=self.fov_angle.value, label = label)
 
         if output_name is not None:
             img.save(output_name)
@@ -298,8 +326,6 @@ class SKIRT_Instrument(object):
             The range between the min and max stretch parameter.
         bins : int, optional
             Number of bins between Q and stretch limits.
-        neutral_units : bool, optional
-            If True, convert the image to approximate neutral units (lambda * F_lambda or nu * F_nu). Default is False.
         output_name : string, optional
             Name of output file for the image. If None, the image will not be saved.
 
@@ -378,7 +404,7 @@ class SKIRT_Instrument(object):
         
         # Set minimum to be right above 
         x_lim = [np.min(rgb_image[rgb_image>0]),np.max(rgb_image)]
-        fig.set_axis(0, 'Brightness', 'CDF',y_lim=[0.001,1],y_label='CDF',y_log=False,x_lim=x_lim,x_label='Brightness (arbitrary)',x_log=True)
+        fig.set_axis(0, 'Brightness', 'CDF',y_lim=[0.001,1],y_label='CDF',y_log=False,x_lim=x_lim,x_label=f'Brightness ({r_frame.unit:latex})',x_log=True)
         for i,image in enumerate(rgb_image):
             data = image.flatten()
             data = data[data>x_lim[0]] # ignore zero pixels
@@ -422,6 +448,8 @@ class Telescope_PSF(object):
                 oversample_factor: int = 4, # oversample factor for the PSF
                 ):
         
+        telescope_res = telescope_res * u.arcsec
+
         if self.telescope == 'GENERIC':
             self.get_gaussian_psf(telescope_res=telescope_res,
                                   oversample_factor=oversample_factor,)
@@ -445,7 +473,7 @@ class Telescope_PSF(object):
         # SKIRT instrument can have any resolution. 
         # The relative resolution of the instrument and the actual telescope will determine the Gaussian sigma
         if not self.instrument is None:
-            instrument_res = self.instrument.pixel_res_arcsec
+            instrument_res = self.instrument.pixel_res_angle.to('arcsec') # in arcsec
         else: instrument_res=telescope_res # If no SKIRT instrument given assume same resolution as telescope
         # calculate the sigma in pixels.
         sigma = telescope_resolution/instrument_res
@@ -473,7 +501,7 @@ class Telescope_PSF(object):
             psf_hdulist = nircam.calc_psf()
             telescope_res = psf_hdulist[extension_name].header["PIXELSCL"]
             instrument_npixels = self.instrument.num_pixels
-            instrument_res = self.instrument.pixel_res_arcsec
+            instrument_res = self.instrument.pixel_res_angle.to('arcsec')
             telescope_npixels = int(instrument_npixels * instrument_res / telescope_res)
             if self.verbose:
                 print(f"JWST NIRCam filter {filter_name} has resolution of {telescope_res} arcsec.\n")
@@ -522,7 +550,7 @@ class Telescope_PSF(object):
             psf_hdulist = miri.calc_psf()
             telescope_res = psf_hdulist[extension_name].header["PIXELSCL"]
             instrument_npixels = self.instrument.num_pixels
-            instrument_res = self.instrument.pixel_res_arcsec
+            instrument_res = self.instrument.pixel_res_angle.to('arcsec')
             telescope_npixels = int(instrument_npixels * instrument_res / telescope_res)
             if self.verbose:
                 print(f"JWST MIRI filter {filter_name} has resolution of {telescope_res} arcsec.\n")
