@@ -402,12 +402,15 @@ PROP_INFO  				= {
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
+**dict.fromkeys(['1/lambda','inverse_wavelength'], [r'$\lambda^{-1} \, [\mu m^{-1}]$', 					[0,10], 	    False]),
 **dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
 					'grain_size': [r'a ($\mu m$)',														[7E-4,2E0],		True],
 **dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
 								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),
 **dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
 								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E20,1E55],	True]),
+**dict.fromkeys(['extinction','A_lambda'],
+								  [r'$A_{\lambda}/A_V$',								                [0,10],	        False]),
 					 'cool_rate': [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 					 'heat_rate': [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
 					'net_heat_Q': [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],
@@ -418,7 +421,7 @@ PROP_INFO  				= {
 **dict.fromkeys(['T_dust','dust_temp'], [r'$T_{\rm dust}$ [K]',											[0,60],			False]),
 			 'electron_fraction': [r'$f_{\rm electron}$',												[1E-3,1],		True],
 			   'clumping_factor': [r'Clumping Factor ($C_2$)',											[0.8,100],		True],
-			   	   'mach_number': [r'$\mathcal{M}$',														[0,20],			False],
+			   	   'mach_number': [r'$\mathcal{M}$',														[0,20],		False],
 							}
 
 

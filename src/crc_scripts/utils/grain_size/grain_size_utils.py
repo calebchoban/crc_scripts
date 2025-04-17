@@ -45,14 +45,14 @@ def get_grain_bin_mass(snap: Snapshot, species='silicates'):
 def get_grain_size_dist(snap, species='silicates', mask=None, mass=False, points_per_bin=1,percentiles = [50, 16, 84]):
     """
     Calculates the normalized grain size probability distribution (number or mass) of a dust species from a snapshot. 
-    Gives the mean and standard deviation of the distrition for all particles. 
+    Gives the mean and standard deviation of the distribution for all particles. 
 
     Parameters
     ----------
     snap : snapshot/galaxy
         Snapshot or Galaxy object from which particle data can be loaded
-    spec_ind: int
-        Number for dust species you want the distribution for.
+    species: str
+        Name of species you want size distribution for. (silicates, carbonaceous, or iron)
     mask : ndarray
         Boolean array to mask particles. Set to None for all particles.
     mass : bool
@@ -162,32 +162,36 @@ def get_dust_optical_properties(species: str):
     header_found = False
     radius_values = []
 
-    # Open the file and process it line by line
+    # The optical properties files are formatted as tables of Qsca and Qabs vs wavelength for different grain sizes
+    # General format is 
+    # 1.000E-03 = radius(micron) Astronomical silicate, smoothed UV      
+    # w(micron)  Q_abs     Q_sca     g=<cos>
+    # ...        ...       ...       ...
+    # Need to open the file and read line by line and then merge into one larage table since this is not a standard table format
     with open(data_dirc+file_name, 'r') as file:
         for line in file:
-            # Check if the line contains the header for a new table
-            if "w(micron)" in line:
-                # If a table is already being processed, save it
-                if current_table:
-                    # Add the radius as a column to the current table
-                    df = pd.DataFrame(current_table, columns=['w(micron)', 'Q_abs', 'Q_sca', 'g=<cos>'])
-                    df['radius(micron)'] = radius_values[-1]  # Use the last radius value
-                    df['Q_ext'] = df['Q_abs'] + df['Q_sca']  # Add Q_ext column
-                    tables.append(df)
-                    current_table = []
-                header_found = True  # Mark that a header has been found
-            elif "radius(micron)" in line:  # Extract radius value
+            if "radius(micron)" in line:  # Extract radius value before header
                 try:
                     radius = float(line.split('=')[0].strip())
                     radius_values.append(radius)
+                    header_found=True
                 except ValueError:
                     pass
-            elif header_found and line.strip():  # Process data lines after the header
+            elif "w(micron)" in line: # Skip actual header
+                continue
+            elif header_found and line.strip():  # If line isn't whitespace then it must be a line from the table
                 try:
                     current_table.append([float(x) for x in line.split()])
                 except ValueError:
                     # Skip lines that cannot be parsed as data
                     pass
+            elif header_found and not line.strip(): # End of table is whitespace
+                df = pd.DataFrame(current_table, columns=['w(micron)', 'Q_abs', 'Q_sca', 'g=<cos>'])
+                df['radius(micron)'] = radius_values[-1]  # Use the last radius value
+                df['Q_ext'] = df['Q_abs'] + df['Q_sca']  # Add Q_ext column
+                tables.append(df)
+                current_table = []
+                header_found = False
 
         # Add the last table if it exists
         if current_table:
@@ -196,8 +200,127 @@ def get_dust_optical_properties(species: str):
             df['Q_ext'] = df['Q_abs'] + df['Q_sca']  # Add Q_ext column
             tables.append(df)
 
-
     # Merge all tables into one
     optical_properties = pd.concat(tables, ignore_index=True)
 
     return optical_properties
+
+
+def get_extinction_curve(snap, species='silicates', mask=None, percentiles = [50, 16, 84]):
+    """
+    Calculates the extinction curve normalized by Av for each gas particle from a snapshot. 
+    Gives the mean and standard deviation of the curves for all particles. 
+
+    Parameters
+    ----------
+    snap : snapshot/galaxy
+        Snapshot or Galaxy object from which particle data can be loaded
+    species: str
+        Species you want to extinction curve for. (silicates, carbonaceous, or all)
+    mask : ndarray
+        Boolean array to mask particles. Set to None for all particles.
+    mass : bool
+        Return grain mass probabiltiy distribution instead of grain number.
+    percentiles : list
+        Percentiles to calculate for the extinction curve. Default is [50, 16, 84].
+
+    Returns
+    -------
+    wavelength_points: ndarray
+        Wavelength data points in micron.
+    mean_curve_points : ndarray
+        Mean A_lambda/A_V values at correspoinding wavelength points.
+    std_curve_points : ndarray
+        Standard deviation values of A_lambda/A_V.
+    """	
+
+    # Find the closest wavelength to the V band wavelength and the closest radii to grain size bin centers
+    # from our snapshot in the optical properties table 
+    lambda_V = 0.5470 # V band wavelength in microns
+    # Need wavelengths for A_lambda values. Assuming all dust species tables have the same wavelengths
+    # Make sure this is the same order as appears in the first subtable
+    # WARNING: If using numpy.unique the wavelengths order in the table is no preserved
+    optical_property = get_dust_optical_properties('silicates')
+    unique_wavelengths = optical_property['w(micron)'].values[optical_property['radius(micron)']==1E-3] # 1E-3 is the first radius in the table
+
+    # Load snapshot gas particle data and grain size bin data
+    G = snap.loadpart(0)
+    bin_nums = G.get_property('grain_bin_num')
+    bin_centers = snap.Grain_Bin_Centers
+    num_bins = snap.Flag_GrainSizeBins
+
+    if species == 'silicates': 
+        spec_ind = [0]
+        optical_properties = [get_dust_optical_properties(species)]
+    elif species == 'carbonaceous': 
+        spec_ind = [1]
+        optical_properties = [get_dust_optical_properties(species)]
+    elif species == 'iron': 
+        spec_ind = [2]
+        optical_properties = [get_dust_optical_properties(species)]
+    elif species == 'all': 
+        spec_ind = [0,1,2]
+        optical_properties = [get_dust_optical_properties('silicates'),
+                              get_dust_optical_properties('carbonaceous'),
+                              get_dust_optical_properties('silicates')] # Assuming iron has silicate properties
+    else: assert 0, "Dust species not supported"
+
+    # Apply given mask or use all particles
+    if mask is None: mask = np.ones(G.npart,dtype=bool)
+    num_part = len(G.get_property('M_gas')[mask])
+
+    A_lambda_total = np.zeros([num_part,len(unique_wavelengths)])
+    A_V_total = np.zeros([num_part]) # Extinction in V band (5470 Angstrom)
+
+    for i,spec in enumerate(spec_ind):
+        # Load in Qextinction data for the given species
+        optical_property = optical_properties[i]
+        Qext = optical_property['Q_ext'].values
+        grain_radii = optical_property['radius(micron)'].values
+        wavelengths = optical_property['w(micron)'].values
+        # Find the closest radii in the optical properties table to the bin centers
+        unique_radii = pd.unique(grain_radii)
+        closest_indices = [np.abs(unique_radii - bin_center).argmin() for bin_center in bin_centers]
+        closest_radii = unique_radii[closest_indices]
+        # Find the closest wavelength in the optical properties table to the V band wavelength
+        unique_wavelengths = pd.unique(wavelengths)
+        V_wavelength = unique_wavelengths[np.abs(unique_wavelengths - lambda_V).argmin()]
+
+
+        spec_bin_num = bin_nums[mask,spec]
+
+        A_lambda_spec = np.zeros([num_part,len(unique_wavelengths)])
+        A_V_spec = np.zeros([num_part]) # Extinction in V band (5470 Angstrom) for one species
+
+        for j in range(num_bins):
+            bin_num = spec_bin_num[:,j]
+            bin_center = bin_centers[j]
+            closest_radius = closest_radii[j]
+
+            Qext_acenter = Qext[grain_radii==closest_radius]
+            Qext_V_acenter = Qext[(grain_radii==closest_radius) & (wavelengths == V_wavelength)]
+
+            A_lambda_spec += bin_center*bin_center*bin_num[:,np.newaxis]*Qext_acenter # Add extra dimension for numpy math below
+            A_V_spec += bin_center*bin_center*bin_num*Qext_V_acenter
+
+        A_lambda_total += A_lambda_spec
+        A_V_total += A_V_spec
+
+    A_lambda_norm = A_lambda_total/A_V_total[:,np.newaxis] # Normalize by A_V
+
+    # If we have more than one particle want to return an average extinction
+    if num_part > 1:
+        # Weight each particle by their the total dust species mass
+        if species == 'all':
+            weights = G.get_property('M_dust')[mask]
+        else:
+            weights = G.get_property('M_gas')[mask] * G.get_property('dust_spec')[mask,spec_ind[0]]
+        mean_dist_points = np.zeros(len(unique_wavelengths)); std_dist_points = np.zeros([len(unique_wavelengths),2]);
+        # Get the mean and std for each x point
+        for i in range(len(unique_wavelengths)):
+            points = A_lambda_norm[:,i]
+            mean_dist_points[i], std_dist_points[i,0], std_dist_points[i,1] = weighted_percentile(points, percentiles=np.array(percentiles), weights=weights, ignore_invalid=True)
+        return unique_wavelengths, mean_dist_points, std_dist_points
+    else: 
+        std_dist_points = np.array([A_lambda_norm[0],A_lambda_norm[0]])
+        return unique_wavelengths, A_lambda_norm[0], std_dist_points # Get rid of extra dimension if only one particle
