@@ -5,7 +5,7 @@ from scipy.special import erfc,erf
 from astropy.table import Table
 import os
 from .. import config
-from ..utils.math_utils import weighted_percentile
+from ..config import dust_species_properties
 
 
 def MRN_dnda(a):
@@ -70,105 +70,6 @@ def ISM_phase_properties(ISM_phase):
 
     ISM_phase_props = {'nH':nH, 'rho':rho, 'temp':temp, 'M':M}
     return ISM_phase_props
-
-
-def dust_species_properties(species):
-    """
-    Returns the physical properties of a given dust species.
-
-    Parameters:
-    - species (str): The type of dust species. Supported values are 'silicates', 'carbonaceous', and 'iron'.
-
-    Returns:
-    - spec_props (dict): A dictionary containing the physical properties of the dust species. The dictionary includes the following keys:
-        - dust_atomic_weight (float): The atomic weight of the dust species.
-        - key_mass (float): The mass of the key atom in the dust species.
-        - key_abundance (float): The abundance of the key atom in the dust species.
-        - key_num_atoms (int): The number of key atoms in the dust species.
-        - P1 (float): The critical shock pressure of the dust species.
-        - v_shat (float): The shattering velocity threshold of the dust species.
-        - poisson (float): The Poisson ratio of the dust species.
-        - youngs (float): The Young's modulus of the dust species.
-        - gamma (float): The surface energy of the dust species.
-        - rho_c (float): The density of the dust material.
-
-    Raises:
-    - AssertionError: If the given species is not supported.
-
-    """
-
-    # These are the base SNe sputtering and shattering efficiencies that each speices is scaled off of
-    # The relative scaling arises from differences in sputtering erosion rate and shattering rates
-    base_delta_sput = 0.3
-    base_delta_shat = 0.1
-
-    # Physical properties of dust species needed for calculations
-    if species == 'silicates':
-        dust_atomic_weight = config.SIL_ATOMIC_WEIGHT
-        key_mass = config.ATOMIC_MASS[7] # Assume Si
-        key_abundance = config.A09_ABUNDANCES[7]
-        key_num_atoms = 1
-        P1 = 3E11 # critical shock pressure (dyn cm^-2)
-        v_shat = 2.7E5 # shattering velocity threshold (cm/s)
-        poisson = 0.17; # poisson ratio 
-        youngs = 5.4E11 # youngs modulus (dyn cm^-2) 
-        gamma = 25 # surface energy (rgc cm^-2)
-        rho_c = 3.13 # density of dust material (g cm^-3)
-        nH_max = 1E4 # accretion max density
-        # Parameters used for SNe processing
-        delta_sput = 1 * base_delta_sput
-        delta_shat = 1 * base_delta_shat
-    elif species == 'carbonaceous':
-        dust_atomic_weight = config.ATOMIC_MASS[2]
-        key_mass = dust_atomic_weight
-        key_abundance = config.A09_ABUNDANCES[2]
-        key_num_atoms = 1
-        P1 = 4E10 # critical shock pressure
-        v_shat = 1.2E5 # shattering velocity threshold
-        poisson = 0.32; # poisson ratio
-        youngs = 1E11 # youngs modulus (dyn cm^-2)
-        gamma = 75 # surface energy (rgc cm^-2)
-        rho_c = 2.25 # density of dust material (g cm^-3)
-        nH_max = 1E3
-        # Parameters used for SNe processing
-        delta_sput = 0.66 * base_delta_sput
-        delta_shat = 1.3 * base_delta_shat
-    elif species == 'iron':
-        dust_atomic_weight = config.ATOMIC_MASS[10]
-        key_mass = dust_atomic_weight
-        key_abundance = config.A09_ABUNDANCES[10]
-        key_num_atoms = 1
-        P1 = 5.5E10 # critical shock pressure
-        v_shat = 2.2E5 # shattering velocity threshold
-        poisson = 0.27; # poisson ratio
-        youngs = 2.1E12 # youngs modulus (dyn cm^-2) 
-        gamma = 3000 # surface energy (rgc cm^-2)
-        rho_c = 7.86 # density of dust material (g cm^-3) 
-        nH_max = 1E4
-        # Parameters used for SNe processing
-        delta_sput = 0.8 * base_delta_sput
-        delta_shat = 1.5 * base_delta_shat
-    else:
-        assert 0, "Species type not supported"
-
-
-    spec_props = {
-    "dust_atomic_weight": dust_atomic_weight,
-    "key_mass": key_mass,
-    "key_abundance": key_abundance,
-    "key_num_atoms": key_num_atoms,
-    "P1": P1,
-    "v_shat": v_shat,
-    "poisson": poisson,
-    "youngs": youngs,
-    "gamma": gamma,
-    "rho_c": rho_c,
-    "nH_max": nH_max,
-    "delta_sput": delta_sput,
-    "delta_shat": delta_shat
-    }
-
-    return spec_props
 
 
 def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_num=1000, init_dnda = MRN_dnda, depl_frac=0.1, ISM_phase='CNM', species='silicates', subcycle_constraints='min_bin'):
@@ -788,93 +689,6 @@ def m_coagulation(alower, aupper, a1, a2, vrel, vcoag, rho_c):
         m_coag = 0
 
     return m_coag
-
-
-
-# Returns dnda and grain size data points for plotting
-def get_grain_size_dist(snap, spec_ind, mask=None, mass=False, points_per_bin=1):
-    """
-    Calculates the grain size probability distribution (number or mass) of a dust species from a snapshot. 
-    Specifically gives the mean and standard deviation. 
-
-    Parameters
-    ----------
-    snap : snapshot/galaxy
-        Snapshot or Galaxy object from which particle data can be loaded
-    spec_ind: int
-        Number for dust species you want the distribution for.
-    mask : ndarray
-        Boolean array to mask particles. Set to None for all particles.
-    mass : bool
-        Return grain mass probabiltiy distribution instead of grain number.
-    points_per_bin : int
-        Number of data points you want in each grain size bin. If 1, will use the center of each bin.
-        Note this uses the bin slopes, so this won't always be pretty to look at.
-
-    Returns
-    -------
-    grain_size_points: ndarray
-        Grain size data points.
-    mean_dist_points : ndarray
-        Mean dn/da or dm/da values at correspoinding grain size points.
-    std_dist_points : ndarray
-        Standard deviation values of dn/da or dm/da.
-    """	
-
-    G = snap.loadpart(0)
-    bin_nums = G.get_property('grain_bin_num')
-    bin_slopes = G.get_property('grain_bin_slope')
-    bin_edges = snap.Grain_Bin_Edges
-    bin_centers = snap.Grain_Bin_Centers
-    num_bins = snap.Flag_GrainSizeBins
-    # internal density for given dust species
-    bulk_dens = config.DUST_BULK_DENS[spec_ind];
-    if mask is None: mask = np.ones(G.npart,dtype=bool)
-    num_part = len(G.get_property('M_gas')[mask])
-    
-
-
-    grain_size_points = np.zeros(points_per_bin*num_bins)
-    dist_points = np.zeros([num_part,points_per_bin*num_bins])
-
-    # Need to normalize the distributions to one, so we are just considering their shapes
-    # Add extra dimension for numpy math below
-    total_N = np.sum(bin_nums[mask,spec_ind],axis=1)[:,np.newaxis]
-    total_M = (G.get_property('M_gas')[mask]*G.get_property('dust_spec')[mask,spec_ind]*config.Msolar_to_g)[:,np.newaxis]
-
-    for i in range(num_bins):
-        bin_num = bin_nums[mask,spec_ind][:,i]; 
-        bin_slope = bin_slopes[mask,spec_ind][:,i]; 
-        # Add extra dimension for numpy math below
-        bin_num = bin_num[:,np.newaxis]
-        bin_slope = bin_slope[:,np.newaxis]
-        
-        # If one point per bin, set it to the center of the bin
-        if points_per_bin == 1: x_points = np.array([bin_centers[i]])
-        else: x_points = np.logspace(np.log10(bin_edges[i]*1.02),np.log10(bin_edges[i+1]*0.98),points_per_bin) # shave off the very edges of each bin since they can be near zero
-        grain_size_points[i*points_per_bin:(i+1)*points_per_bin] = x_points
-
-        if not mass:
-            dist_points[:,i*points_per_bin:(i+1)*points_per_bin] = (bin_num/(bin_edges[i+1]-bin_edges[i])+bin_slope*(x_points-bin_centers[i]))/total_N
-        else:
-            dist_points[:,i*points_per_bin:(i+1)*points_per_bin] = (4/3*np.pi*bulk_dens*np.power(x_points,4)*(bin_num/(bin_edges[i+1]-bin_edges[i])+bin_slope*(x_points-bin_centers[i])))/total_M
-
-    # If we have more than one particle want to return an average distribution
-    if num_part > 1:
-        # Weight each particle by their the total dust species mass
-        weights = G.get_property('M_gas')[mask] * G.get_property('dust_spec')[mask,spec_ind]
-        mean_dist_points = np.zeros(len(grain_size_points)); std_dist_points = np.zeros([len(grain_size_points),2]);
-        # Get the mean and std for each x point
-        for i in range(len(grain_size_points)):
-            points = dist_points[:,i]
-            mean_dist_points[i], std_dist_points[i,0], std_dist_points[i,1] = weighted_percentile(points, percentiles=np.array([50, 16, 84]), weights=weights, ignore_invalid=True)
-        return grain_size_points, mean_dist_points, std_dist_points
-    else: 
-        std_dist_points = np.array([dist_points[0],dist_points[0]])
-        return grain_size_points, dist_points[0], std_dist_points # Get rid of extra dimension if only one particle
-
-
-
 
 
 class SNe_Dust_Processing(object):

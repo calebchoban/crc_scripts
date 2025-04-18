@@ -1,9 +1,9 @@
+from astropy import units as u
 from astropy.io import fits
 from astropy.visualization import make_lupton_rgb, LogStretch, ManualInterval
 from astropy.convolution import convolve_fft,Gaussian2DKernel
-from astropy import units as u
+from astropy.nddata import block_reduce
 import numpy as np
-
 
 from ..math_utils import quick_cosmological_calc
 from ... import config
@@ -117,7 +117,7 @@ class SKIRT_Instrument(object):
         hdul.close()
 
 
-    def get_filter_image(self, filter, psf=None, brightness_units=None):
+    def get_filter_image(self, filter, psf=None, brightness_units=None, downsample_resolution=None):
         '''
         This function extracts the image data for the specified filter.
 
@@ -127,18 +127,24 @@ class SKIRT_Instrument(object):
             Name of filter to extract from FITS file.
         psf : Telescope_PSF, optional
             PSF you want to convolve the image with. Default is None.
+        brightness_units : string, optional
+            Surface brightness units wanted (wavelength, frequency, neutral). Default is None which uses units in FITS file.
+        downsample_resolution : double, optional
+            Resolutionin arsec to downsample the image to. Default is None.
 
         Returns
         -------
         image : ndarray (N,N)
             NxN pixel image for the specified filter.
         '''
+
+
         if filter not in self.filters:
             print("Filter %s not found in FITS file. Returning None."%filter)
             return None
 
         idx = np.where(self.filters == filter)
-        image = self.images[idx][0]
+        image = np.copy(self.images[idx][0])
 
         # Determine surface brightness units of images
         image_units = None
@@ -182,6 +188,21 @@ class SKIRT_Instrument(object):
 
             if self.verbose:
                 print("Image brightness units converted to %s."%image.unit)
+
+        
+
+        if downsample_resolution is not None:
+            desired_resolution = downsample_resolution * u.arcsec
+            downsample_factor = int(np.round(desired_resolution/self.pixel_res_angle))
+            new_resolution = self.pixel_res_angle*downsample_factor
+            if downsample_factor < 2:
+                print("Desired resolution is either higher than the given image or >0.5 of given image so nothing to downsample.")
+            else:
+                print("Downsampling image from %s to %s arcsec."%(self.pixel_res_angle.to('arcsec'), new_resolution.to('arcsec')))
+
+            reduce_func = np.mean # reducing resolution means new larger pixels have the average brigtness of the smaller pixels
+            print(downsample_factor)
+            image = block_reduce(image, downsample_factor, func = reduce_func) 
 
         if psf is not None:
             image = convolve_fft(image, psf)
@@ -446,13 +467,15 @@ class Telescope_PSF(object):
     def get_psf(self,   
                 telescope_res: float = 0.1, # in arcsec
                 oversample_factor: int = 4, # oversample factor for the PSF
+                use_instrument_res: bool = True, # Use the instrument resolution to determine the PSF. If False will assume instrument and telescope have the same resolution
                 ):
         
         telescope_res = telescope_res * u.arcsec
 
         if self.telescope == 'GENERIC':
             self.get_gaussian_psf(telescope_res=telescope_res,
-                                  oversample_factor=oversample_factor,)
+                                  oversample_factor=oversample_factor,
+                                  use_instrument_res=use_instrument_res)
         elif self.telescope == 'NIRCAM':
             self.get_NIRCam_psf(oversample_factor=oversample_factor)
         elif self.telescope == 'MIRI':
@@ -466,13 +489,14 @@ class Telescope_PSF(object):
 
     def get_gaussian_psf(self,
                         telescope_res: float = 0.1,
-                        oversample_factor: int = 4,):
+                        oversample_factor: int = 4,
+                        use_instrument_res: bool = True,):
         
         # Telescope resolution in arcsecond
         telescope_resolution = telescope_res
         # SKIRT instrument can have any resolution. 
         # The relative resolution of the instrument and the actual telescope will determine the Gaussian sigma
-        if not self.instrument is None:
+        if self.instrument is not None and use_instrument_res:
             instrument_res = self.instrument.pixel_res_angle.to('arcsec') # in arcsec
         else: instrument_res=telescope_res # If no SKIRT instrument given assume same resolution as telescope
         # calculate the sigma in pixels.
@@ -486,7 +510,8 @@ class Telescope_PSF(object):
 
 
     def get_NIRCam_psf(self,
-                       oversample_factor: int = 4,):
+                       oversample_factor: int = 4,
+                       use_instrument_res: bool = True,):
 
         # Only need filter number (i.e. F070W) and not the full name (i.e. JWST_NIRCAM_F070W)
         filter_name = self.filter.split('_')[-1]
@@ -494,7 +519,7 @@ class Telescope_PSF(object):
         extension_name= "DET_SAMP" # Other choices are ["DET_SAMP", "OVERSAMP", "DET_DIST", "OVERDIST"]
         # Calculate npixels for the telescope given the npixels and resolution of the instrument given
         # Else we assume the instrument and telescope have the same resolution
-        if not self.instrument is None:
+        if self.instrument is not None and use_instrument_res:
             # Have to run this once to get the pixel scale for the instrument
             nircam = webbpsf.NIRCam()
             nircam.filter = filter_name
@@ -534,7 +559,8 @@ class Telescope_PSF(object):
 
 
     def get_MIRI_psf(self,
-                    oversample_factor: int = 4,):
+                    oversample_factor: int = 4,
+                    use_instrument_res: bool = True,):
 
         # Only need filter number (i.e. F770W) and not the full name (i.e. JWST_MIRI_F770W)
         filter_name = self.filter.split('_')[-1]
@@ -543,7 +569,7 @@ class Telescope_PSF(object):
         extension_name= "DET_SAMP" # Other choices are ["DET_SAMP", "OVERSAMP", "DET_DIST", "OVERDIST"]
         # Calculate npixels for the telescope given the npixels and resolution of the instrument given
         # Else we assume the instrument and telescope have the same resolution
-        if not self.instrument is None:
+        if self.instrument is not None and use_instrument_res:
             # Have to run this once to get the pixel scale for the instrument
             miri = webbpsf.MIRI()
             miri.filter = filter_name
