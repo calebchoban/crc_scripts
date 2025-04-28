@@ -1,11 +1,23 @@
 import numpy as np
 import pandas as pd
 import os
+from scipy.interpolate import RegularGridInterpolator as RGI
+from scipy.integrate import quad
 
 from ... import config
 from ...config import dust_species_properties
 from ...io.snapshot import Snapshot
 from ..math_utils import weighted_percentile
+
+
+def MRN_dnda(a):
+    return np.power(a,-3.5)
+
+def MRN_dmdloga(a, rho_c=1):
+    return 4/3*np.pi * rho_c * np.power(a,4)*np.power(a,-3.5)
+
+def lognorm_dnda(a, a_norm=0.1*config.um_to_cm, sigma_a=0.6):
+    return 1/a * np.exp(-np.power(np.log(a/a_norm),2) / (2*sigma_a*sigma_a))
 
 
 # Returns the mass in grain bins determined from their number and slope
@@ -41,96 +53,97 @@ def get_grain_bin_mass(snap: Snapshot, species='silicates'):
     return bin_masses
 
 
-# Returns dnda and grain size data points for plotting
-def get_grain_size_dist(snap, species='silicates', mask=None, mass=False, points_per_bin=1,percentiles = [50, 16, 84]):
+def get_grain_size_distribution(snap: Snapshot,
+                                species: str ='silicates', 
+                                mask: list = None, 
+                                points_per_bin: int = 1, 
+                                std_percentiles: list = [16, 84]):
     """
-    Calculates the normalized grain size probability distribution (number or mass) of a dust species from a snapshot. 
+    Calculates the normalized grain size probability distribution (dn/da and dm/dloga) of a dust species from a snapshot. 
     Gives the mean and standard deviation of the distribution for all particles. 
+    Note this is determined by calculating the normalized distributions for all particles and then calculating the percentiles
+    with the dust species masses as weights.
 
     Parameters
     ----------
-    snap : snapshot/galaxy
+    snap : Snapshot
         Snapshot or Galaxy object from which particle data can be loaded
     species: str
         Name of species you want size distribution for. (silicates, carbonaceous, or iron)
-    mask : ndarray
+    mask : list
         Boolean array to mask particles. Set to None for all particles.
-    mass : bool
-        Return grain mass probabiltiy distribution instead of grain number.
-    points_per_bin : int
+    points_per_bin : int, optional
         Number of data points you want in each grain size bin. If 1, will use the center of each bin.
-        Note this uses the bin slopes, so this won't always be pretty to look at.
+        Note this uses the bin slopes, so this won't be pretty to look at.
+    std_percentiles : list, optional
+        Percentiles of the standard deviation you want.
 
     Returns
     -------
-    grain_size_points: ndarray
+    grain_size_points: list
         Grain size data points.
-    mean_dist_points : ndarray
-        Mean dn/da or dm/da values at correspoinding grain size points.
-    std_dist_points : ndarray
-        Standard deviation values of dn/da or dm/da.
+    percentile_dnda : list
+        Median and percentiles of dn/da at corresponding grain size points.
+    percentile_dmdloga : list 
+        Median and percentiles of dm/dloga at corresponding grain size points.
     """	
 
+    percentiles = [50] + std_percentiles # Add the median to the percentiles
     G = snap.loadpart(0)
-    bin_nums = G.get_property('grain_bin_num')
-    bin_slopes = G.get_property('grain_bin_slope')
+    if mask is None: mask = np.ones(G.npart,dtype=bool)
+    num_part = len(G.get_property('M_gas')[mask])
     bin_edges = snap.Grain_Bin_Edges
     bin_centers = snap.Grain_Bin_Centers
     num_bins = snap.Flag_GrainSizeBins
+    if species == 'silicates': spec_ind = 0
+    elif species == 'carbonaceous': spec_ind = 1
+    elif species == 'iron': spec_ind = 2
+    else: assert 0, "Dust species %s not supported"%species
+
+    bin_nums = G.get_property('grain_bin_num')[mask,spec_ind]
+    bin_slopes = G.get_property('grain_bin_slope')[mask,spec_ind]
+    total_species_mass = G.get_property('M_gas')[mask]*G.get_property('dust_spec')[mask,spec_ind]*config.Msolar_to_g
+
     # internal density for given dust species
     # Physical properties of dust species needed for calculations
     spec_props = dust_species_properties(species)
     rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+    
 
-    if species == 'silicates': spec_ind = 0
-    elif species == 'carbonaceous': spec_ind = 1
-    elif species == 'iron': spec_ind = 2
-    else: assert 0, "Dust species not supported"
+    grain_size_vals = np.zeros(points_per_bin*num_bins)
+    dnda_vals = np.zeros([num_part,points_per_bin*num_bins])
+    dmdloga_vals = np.zeros([num_part,points_per_bin*num_bins])
 
-    if mask is None: mask = np.ones(G.npart,dtype=bool)
-    num_part = len(G.get_property('M_gas')[mask])
-
-    grain_size_points = np.zeros(points_per_bin*num_bins)
-    dist_points = np.zeros([num_part,points_per_bin*num_bins])
-
-    # Need to normalize the distributions to one, so we are just considering their shapes
-    # Add extra dimension for numpy math below
-    total_N = np.sum(bin_nums[mask,spec_ind],axis=1)[:,np.newaxis]
-    total_M = (G.get_property('M_gas')[mask]*G.get_property('dust_spec')[mask,spec_ind]*config.Msolar_to_g)[:,np.newaxis]
+    # Need to normalize the distributions by total number and total mass, since we are only considering their shapes
+    total_N = np.sum(bin_nums,axis=1)[:,np.newaxis]
+    total_M = total_species_mass[:,np.newaxis]
     no_dust = (total_N[:,0] == 0) | (total_M[:,0] == 0)
 
+    # Determine grain size, dn/da, and dm/dloga values for points in each bin
     for i in range(num_bins):
-        bin_num = bin_nums[mask,spec_ind][:,i]; 
-        bin_slope = bin_slopes[mask,spec_ind][:,i]; 
-        # Add extra dimension for numpy math below
-        bin_num = bin_num[:,np.newaxis]
-        bin_slope = bin_slope[:,np.newaxis]
-        
+        bin_num = bin_nums[:,i,np.newaxis]; # Add extra dimension for numpy math below
+        bin_slope = bin_slopes[:,i,np.newaxis]; 
         # If one point per bin, set it to the center of the bin
         if points_per_bin == 1: x_points = np.array([bin_centers[i]])
         else: x_points = np.logspace(np.log10(bin_edges[i]*1.02),np.log10(bin_edges[i+1]*0.98),points_per_bin) # shave off the very edges of each bin since they can be near zero
-        grain_size_points[i*points_per_bin:(i+1)*points_per_bin] = x_points
+        grain_size_vals[i*points_per_bin:(i+1)*points_per_bin] = x_points
 
-        dist_points[no_dust,i*points_per_bin:(i+1)*points_per_bin] = 0
-        if not mass:
-            dist_points[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i]))/total_N[~no_dust]
-        else:
-            dist_points[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (4/3*np.pi*rho_c*np.power(x_points,4)*(bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i])))/total_M[~no_dust]
+        dnda_vals[no_dust,i*points_per_bin:(i+1)*points_per_bin] = 0
+        dmdloga_vals[no_dust,i*points_per_bin:(i+1)*points_per_bin] = 0
+        dnda_vals[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i]))/total_N[~no_dust]
+        dmdloga_vals[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (4/3*np.pi*rho_c*np.power(x_points,4)*(bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i])))/total_M[~no_dust]
 
-    # If we have more than one particle want to return an average distribution
-    if num_part > 1:
-        # Weight each particle by their the total dust species mass
-        weights = G.get_property('M_gas')[mask] * G.get_property('dust_spec')[mask,spec_ind]
-        mean_dist_points = np.zeros(len(grain_size_points)); std_dist_points = np.zeros([len(grain_size_points),2]);
-        # Get the mean and std for each x point
-        for i in range(len(grain_size_points)):
-            points = dist_points[:,i]
-            mean_dist_points[i], std_dist_points[i,0], std_dist_points[i,1] = weighted_percentile(points, percentiles=np.array(percentiles), weights=weights, ignore_invalid=True)
-        return grain_size_points, mean_dist_points, std_dist_points
-    else: 
-        std_dist_points = np.array([dist_points[0],dist_points[0]])
-        return grain_size_points, dist_points[0], std_dist_points # Get rid of extra dimension if only one particle
+    # Determine percentile distribution values from all of the the particles
+    # Weight each particle by their the total dust species mass
+    weights = total_species_mass/config.Msolar_to_g # Convert to smaller units to prevent overflow
+    percentile_dnda = np.zeros([len(percentiles),points_per_bin*num_bins])
+    percentile_dmdloga = np.zeros([len(percentiles),points_per_bin*num_bins])
+    # Get percentiles for each point in each bin
+    for i in range(len(grain_size_vals)):
+        percentile_dnda[:,i] = weighted_percentile(dnda_vals[:,i], percentiles=percentiles, weights=weights, ignore_invalid=True)
+        percentile_dmdloga[:,i] = weighted_percentile(dmdloga_vals[:,i], percentiles=percentiles, weights=weights, ignore_invalid=True)
 
+    return grain_size_vals, percentile_dnda, percentile_dmdloga
 
 
 
@@ -205,122 +218,196 @@ def get_dust_optical_properties(species: str):
 
     return optical_properties
 
+    
 
-def get_extinction_curve(snap, species='silicates', mask=None, percentiles = [50, 16, 84]):
+def calculate_extinction_curve(snap: Snapshot, 
+                               species: str = 'silicates', 
+                               mask: list = None, 
+                               std_percentiles: list = [16, 84],
+                               bin_subsamples: int = 1):
     """
-    Calculates the extinction curve normalized by Av for each gas particle from a snapshot. 
-    Gives the mean and standard deviation of the curves for all particles. 
+    Calculates the median and percentile extinction curve normalized by the extinction 
+    in the visible band (A_lambda / A_V) from the gas cell grain size distributions 
+    in the given snapshot. Can specify only contributions from a given species 
+    (silicates, carbonaceous, or iron) or the total extinction from all species. The median 
+    and percentiles are calculated as such. A normalized extinction curve is calculated 
+    for each gas cell given its grain size distribution for each dust species. 
+    The median and percentiles are then calculated from all of the gas cells weighted by
+    their total dust mass.
 
     Parameters
     ----------
     snap : snapshot/galaxy
         Snapshot or Galaxy object from which particle data can be loaded
     species: str
-        Species you want to extinction curve for. (silicates, carbonaceous, or all)
+        Species you want to extinction curve for. (silicates, carbonaceous, or all). 
+        Note this is still normalized by the total A_V from all species.
     mask : ndarray
         Boolean array to mask particles. Set to None for all particles.
-    mass : bool
-        Return grain mass probabiltiy distribution instead of grain number.
-    percentiles : list
-        Percentiles to calculate for the extinction curve. Default is [50, 16, 84].
+    std_percentiles : list
+        Standard deviation percentiles to be calculated from the extinction curves from all 
+        particles used in extinction curve calculation. 
+        Default is [16, 84].
+    bin_subsamples : int
+        Number of dn/da subsamples from each grain size bin to be used for calculating extinction. 
+        Default of 1 means the grain size distribution at only the centers of each bin are used 
+        to calculate the extinction curves. If set to N>1, the grain size distribution at N points 
+        is used. This is useful when you have a small number of grain size bins 
+        (i.e. your bins cover a large range in grain sizes).
+
 
     Returns
     -------
-    wavelength_points: ndarray
+    wavelength_points: list
         Wavelength data points in micron.
-    mean_curve_points : ndarray
-        Mean A_lambda/A_V values at correspoinding wavelength points.
-    std_curve_points : ndarray
-        Standard deviation values of A_lambda/A_V.
-    """	
+    A_lambda_points : list
+        Median and percentile A_lambda/A_V values at corresponding wavelength points.
+    """	    
 
-    # Find the closest wavelength to the V band wavelength and the closest radii to grain size bin centers
-    # from our snapshot in the optical properties table 
+    N_wave_bins = 500 # Number of wavelength bins for interpolation
+    percentiles = [50] + std_percentiles # Add the median to the percentiles
+
     lambda_V = 0.5470 # V band wavelength in microns
     # Need wavelengths for A_lambda values. Assuming all dust species tables have the same wavelengths
     # Make sure this is the same order as appears in the first subtable
-    # WARNING: If using numpy.unique the wavelengths order in the table is no preserved
+    # WARNING: If using numpy.unique the wavelengths order in the table is not preserved
     optical_property = get_dust_optical_properties('silicates')
-    unique_wavelengths = optical_property['w(micron)'].values[optical_property['radius(micron)']==1E-3] # 1E-3 is the first radius in the table
+    unique_wavelengths = optical_property['w(micron)'].values[optical_property['radius(micron)']==np.min(optical_property['radius(micron)'])] # use the smallest grain radius table to get the corresponding Qext wavelengths
+    # Extend the wavelength grid for interpolation of Qext
+    unique_wavelengths = np.logspace(np.log10(np.min(unique_wavelengths)), np.log10(np.max(unique_wavelengths)), N_wave_bins)
 
     # Load snapshot gas particle data and grain size bin data
     G = snap.loadpart(0)
-    bin_nums = G.get_property('grain_bin_num')
-    bin_centers = snap.Grain_Bin_Centers
-    num_bins = snap.Flag_GrainSizeBins
-
-    if species == 'silicates': 
-        spec_ind = [0]
-        optical_properties = [get_dust_optical_properties(species)]
-    elif species == 'carbonaceous': 
-        spec_ind = [1]
-        optical_properties = [get_dust_optical_properties(species)]
-    elif species == 'iron': 
-        spec_ind = [2]
-        optical_properties = [get_dust_optical_properties(species)]
-    elif species == 'all': 
-        spec_ind = [0,1,2]
-        optical_properties = [get_dust_optical_properties('silicates'),
-                              get_dust_optical_properties('carbonaceous'),
-                              get_dust_optical_properties('silicates')] # Assuming iron has silicate properties
-    else: assert 0, "Dust species not supported"
-
-    # Apply given mask or use all particles
     if mask is None: mask = np.ones(G.npart,dtype=bool)
     num_part = len(G.get_property('M_gas')[mask])
+    bin_nums = G.get_property('grain_bin_num')[mask]
+    bin_slopes = G.get_property('grain_bin_slope')[mask]
+    dust_masses = G.get_property('M_dust')[mask]
+    bin_centers = snap.Grain_Bin_Centers
+    bin_edges = snap.Grain_Bin_Edges
+    num_bins = snap.Flag_GrainSizeBins
 
-    A_lambda_total = np.zeros([num_part,len(unique_wavelengths)])
-    A_V_total = np.zeros([num_part]) # Extinction in V band (5470 Angstrom)
+    dust_species = ['silicates', 'carbonaceous', 'iron']
+    spec_indices = [0,1,2]
+    num_species = len(dust_species)
+    optical_properties = [get_dust_optical_properties('silicates'),
+                          get_dust_optical_properties('carbonaceous'),
+                          get_dust_optical_properties('silicates')] # Assuming iron has silicate properties
+    
 
-    for i,spec in enumerate(spec_ind):
-        # Load in Qextinction data for the given species
-        optical_property = optical_properties[i]
-        Qext = optical_property['Q_ext'].values
-        grain_radii = optical_property['radius(micron)'].values
-        wavelengths = optical_property['w(micron)'].values
-        # Find the closest radii in the optical properties table to the bin centers
-        unique_radii = pd.unique(grain_radii)
-        closest_indices = [np.abs(unique_radii - bin_center).argmin() for bin_center in bin_centers]
-        closest_radii = unique_radii[closest_indices]
-        # Find the closest wavelength in the optical properties table to the V band wavelength
-        unique_wavelengths = pd.unique(wavelengths)
-        V_wavelength = unique_wavelengths[np.abs(unique_wavelengths - lambda_V).argmin()]
+    # If species is specified we will exclude all other species from 
+    # the A_lambda calculation but still include them for A_V normalization
+    if species == 'silicates': 
+        exclude_spec_ind = [1,2]
+    elif species == 'carbonaceous': 
+        exclude_spec_ind = [0,2]
+    elif species == 'iron': 
+        exclude_spec_ind = [0,1]
+    elif species == 'all': 
+        exclude_spec_ind = []
+    else: assert 0, "Dust species not supported"
 
+    # Determine grain size and dn/da values for each dust species
+    grain_size_vals = np.zeros(bin_subsamples*num_bins)
+    dnda_vals = np.zeros([num_part,num_species,bin_subsamples*num_bins])
 
-        spec_bin_num = bin_nums[mask,spec]
-
-        A_lambda_spec = np.zeros([num_part,len(unique_wavelengths)])
-        A_V_spec = np.zeros([num_part]) # Extinction in V band (5470 Angstrom) for one species
+    # Determine dn/da values for points in each bin for each dust species
+    for i in spec_indices:
+        spec_bin_nums = bin_nums[:,i]
+        spec_bin_slopes = bin_slopes[:,i]
+        spec_dnda_vals = np.zeros([num_part, num_bins*bin_subsamples])
 
         for j in range(num_bins):
-            bin_num = spec_bin_num[:,j]
-            bin_center = bin_centers[j]
-            closest_radius = closest_radii[j]
+            bin_num = spec_bin_nums[:,j]
+            bin_slope = spec_bin_slopes[:,j]
+            
+            if bin_subsamples == 1: x_points = np.array([bin_centers[j]])
+            else: x_points = np.logspace(np.log10(bin_edges[j]*1.02),np.log10(bin_edges[j+1]*0.98),bin_subsamples) # shave off the very edges of each bin since they can be near zero
+            grain_size_vals[j*bin_subsamples:(j+1)*bin_subsamples] = x_points
 
-            Qext_acenter = Qext[grain_radii==closest_radius]
-            Qext_V_acenter = Qext[(grain_radii==closest_radius) & (wavelengths == V_wavelength)]
+            spec_dnda_vals[:,j*bin_subsamples:(j+1)*bin_subsamples] = (bin_num[:,np.newaxis]/(bin_edges[j+1]-bin_edges[j])+bin_slope[:,np.newaxis]*(x_points[np.newaxis,:]-bin_centers[j]))
+            
+        dnda_vals[:,i,:] = spec_dnda_vals
+        
 
-            A_lambda_spec += bin_center*bin_center*bin_num[:,np.newaxis]*Qext_acenter # Add extra dimension for numpy math below
-            A_V_spec += bin_center*bin_center*bin_num*Qext_V_acenter
+    # Calculate extinction coefficient interpolation functions for each dust species from Qext data tables
+    spec_Qext = []
+    for i in range(num_species):
+        # Load in Q extinction data for the given species
+        optical_property = optical_properties[i]
+        Qext = optical_property['Q_ext'].values
+        table_grain_radii = optical_property['radius(micron)'].values
+        table_wavelengths = optical_property['w(micron)'].values
+        # RGI interpolator expects the 0th dimension to be strictly in ascending order
+        # Interpolation of 2 variable Qext function requires we reorganize Qext data into a 2D grid
+        # of grain radii and wavelengths and a 2D matrix of Qext values corresponding to the grid points
+        # Make 2D grid from grain radii and wavelengths
+        unique_table_radii = np.sort(pd.unique(table_grain_radii))
+        unique_table_wavelengths = np.sort(pd.unique(table_wavelengths))
+        # Make 2D matrix of Qext values corresponding to the grid points
+        Qext_matrix = np.zeros([len(unique_table_radii),len(unique_table_wavelengths)])
+        for k in range(len(unique_table_radii)):
+            for l in range(len(unique_table_wavelengths)):
+                Qext_matrix[k,l] = Qext[(table_grain_radii==unique_table_radii[k]) & (table_wavelengths == unique_table_wavelengths[l])]
+        # Create the interpolation function
+        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=False) 
+        spec_Qext += [Qext]
+
+
+    # Calculate the extinction curve for each particle
+    A_lambda_total = np.zeros([num_part,N_wave_bins])
+    A_V_total = np.zeros(num_part) # Extinction in V band (5470 Angstrom)
+    for i,spec_ind in enumerate(spec_indices):
+        # Calculate the dust species A_lambda and A_V 
+        A_lambda_spec = np.zeros([num_part,N_wave_bins])
+        A_V_spec =  np.zeros(num_part) # Extinction in V band (5470 Angstrom) for one species
+        Qext = spec_Qext[i]
+        spec_dnda = dnda_vals[:,i,:]
+
+        # We are approximating the integral Qext(a,lambda) * dn/da(a) da from a_min to a_max 
+        # as a sum over grain bins Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower)
+        for j in range(num_bins):
+            bin_upper = bin_edges[j+1]
+            bin_lower = bin_edges[j]
+
+            # Need to know the extent of the bin (or subsamples of the bin) and the centers of the bin
+            # (or centers of the subsamples) to calculate the extinction curve
+            in_bin_mask = (grain_size_vals >= bin_lower) & (grain_size_vals < bin_upper)
+            grain_sizes_in_bin = grain_size_vals[in_bin_mask]
+            if (len(grain_sizes_in_bin) == 1): # Only one point in each bin which is the center
+                size_diff_in_bin = np.array([bin_upper-bin_lower])
+                grain_centers_in_bin = grain_sizes_in_bin
+            else:
+                size_diff_in_bin = grain_sizes_in_bin[1:] - grain_sizes_in_bin[:-1]
+                grain_centers_in_bin = (grain_sizes_in_bin[1:] + grain_sizes_in_bin[:-1])/2
+            dnda_in_bin = spec_dnda[:,in_bin_mask]
+
+            # Calculate A_lambda only for species we are not excluding
+            if spec_ind not in exclude_spec_ind:
+                grain_wave_vals = np.zeros([N_wave_bins,2])
+                for l,grain_size_center in enumerate(grain_centers_in_bin):
+                    grain_wave_vals[:,0] = grain_size_center
+                    grain_wave_vals[:,1] = unique_wavelengths
+                    A_lambda_spec += grain_size_center*grain_size_center*dnda_in_bin[:,l,np.newaxis]*size_diff_in_bin[l]*Qext([grain_wave_vals])[0][np.newaxis,:]
+                    
+            # Calculate A_V for all species since we normalize by total A_V and want to know the relative contributions of each species
+            for l,grain_size_center in enumerate(grain_centers_in_bin):
+                A_V_spec += grain_size_center*grain_size_center*dnda_in_bin[:,l]*size_diff_in_bin[l]*Qext([grain_size_center,lambda_V])[0]
+
 
         A_lambda_total += A_lambda_spec
         A_V_total += A_V_spec
 
-    A_lambda_norm = A_lambda_total/A_V_total[:,np.newaxis] # Normalize by A_V
+    # Normalize by A_V for each particle
+    A_lambda_norm = A_lambda_total/A_V_total[:,np.newaxis] 
 
-    # If we have more than one particle want to return an average extinction
-    if num_part > 1:
-        # Weight each particle by their the total dust species mass
-        if species == 'all':
-            weights = G.get_property('M_dust')[mask]
-        else:
-            weights = G.get_property('M_gas')[mask] * G.get_property('dust_spec')[mask,spec_ind[0]]
-        mean_dist_points = np.zeros(len(unique_wavelengths)); std_dist_points = np.zeros([len(unique_wavelengths),2]);
-        # Get the mean and std for each x point
-        for i in range(len(unique_wavelengths)):
-            points = A_lambda_norm[:,i]
-            mean_dist_points[i], std_dist_points[i,0], std_dist_points[i,1] = weighted_percentile(points, percentiles=np.array(percentiles), weights=weights, ignore_invalid=True)
-        return unique_wavelengths, mean_dist_points, std_dist_points
-    else: 
-        std_dist_points = np.array([A_lambda_norm[0],A_lambda_norm[0]])
-        return unique_wavelengths, A_lambda_norm[0], std_dist_points # Get rid of extra dimension if only one particle
+    # Calculate the percentiles for each wavelength point across all particles
+    percentile_A_lambda = np.zeros([len(percentiles),N_wave_bins])
+    for i in range(N_wave_bins):
+        weights = dust_masses # Weight each particle extinction by their the total dust mass
+        A_lambda_vals = A_lambda_norm[:,i]
+        percentile_A_lambda[:,i] = weighted_percentile(A_lambda_vals, percentiles=percentiles, weights=weights, ignore_invalid=True)
+
+
+    return unique_wavelengths, percentile_A_lambda
+    

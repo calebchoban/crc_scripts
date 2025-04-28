@@ -402,6 +402,7 @@ PROP_INFO  				= {
 					    'wind_E': [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]',[1E-5,1E6],	True],
 					'cum_wind_E': [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]',	[6E17,5E18],	True],
 **dict.fromkeys(['lambda','wavelength'], [r'$\lambda \, [\mu m]$', 										[6E-2,1E3], 	True]),
+**dict.fromkeys(['lambda_angstrom','wavelength_angstrom'], [r'$\lambda \, [\AA]$', 						[6E2,1E7], 	    True]),
 **dict.fromkeys(['1/lambda','inverse_wavelength'], [r'$\lambda^{-1} \, [\mu m^{-1}]$', 					[0,10], 	    False]),
 **dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
 					'grain_size': [r'a ($\mu m$)',														[7E-4,2E0],		True],
