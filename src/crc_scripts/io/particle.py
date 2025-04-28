@@ -1,5 +1,7 @@
 import h5py
 import numpy as np
+from scipy.special import erfc,erf
+
 
 from .. import config
 from ..utils import coordinate_utils
@@ -288,6 +290,27 @@ class Particle:
         
         self.k = 1
         return
+    
+
+    def append_particle(self, particle):
+        """
+        Append data from another particle object. 
+        Only used to join star particles ptype=4 and dummy stars ptype=2 for IC runs.
+
+        Parameters
+        ----------
+        particle : Particle
+            Particle object to append data from.
+
+        Returns
+        -------
+        None
+
+        """        
+        if particle.npart == 0: return
+        for prop in self.data.keys():
+            self.data[prop] = np.append(self.data[prop],particle.data[prop],axis=0)
+
         
 
     def mask(self, mask):
@@ -422,6 +445,16 @@ class Particle:
                 prop_data = (data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS)*data['H_neutral_fraction']
             elif case_insen_compare(property,['T','temperature']):
                 prop_data = data['temperature']
+            elif case_insen_compare(property,['clumping_factor']):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = 1 + b*b*M*M
+            elif case_insen_compare(property,['T_clumping_factor']):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    nmax = 1E4; nH = data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+                    sigma = np.sqrt(np.log(1+b*b*M*M))
+                    prop_data = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nmax/nH)) / (np.sqrt(2)*sigma))))
             
             # METALLICITY AND ABUNDANCES
             elif case_insen_compare(property,'Z'):
@@ -606,17 +639,11 @@ class Particle:
                     elif case_insen_compare(property,'carb_dm/da'):
                         N_total = np.sum(data['grain_bin_num'],axis=2)[:,1,np.newaxis]
                         prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'SiC_dn/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
-                        prop_data = data['grain_bin_num'][:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'SiC_dm/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
-                        prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,2,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
                     elif case_insen_compare(property,'iron_dn/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,3,np.newaxis]
+                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
                         prop_data = data['grain_bin_num'][:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
                     elif case_insen_compare(property,'iron_dm/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,3,np.newaxis]
+                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
                         prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
 
         elif self.ptype in [1,2,3]:
