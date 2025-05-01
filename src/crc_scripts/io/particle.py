@@ -147,6 +147,8 @@ class Particle:
             # parameters for grain size bins with linear slopes. Each species has N grain size bins specified at sim runtime
             # total number of dust grains in grain size bin
             'DustBinNumbers': 'grain_bin_num',
+            # total mass of dust grain in grain size bin
+            'DustBinMasses': 'grain_bin_mass',
             # slope of grain size bin
             'DustBinSlopes': 'grain_bin_slope'
         }
@@ -242,12 +244,12 @@ class Particle:
         if 'size' in self.data:
             self.data['size'] *= length_conversion
             # size in snapshot is full extent of the kernal (radius of compact support)
-            # convert to mean interparticle spacing = volume^(1/3)
+            # convert to mean inter-particle spacing = volume^(1/3)
             self.data['size'] *= (np.pi / 3) ** (1 / 3) / 2  # 0.5077
         if 'density' in self.data:
             self.data['density'] *= density_conversion
         if 'temperature' in self.data:
-            # Get temperature from interal energy, make sure to convert it to physical energy first
+            # Get temperature from internal energy, make sure to convert it to physical energy first
             self.data['temperature'] = approx_gas_temperature(self.data['temperature']*internal_energy_conversion,self.data['electron_fraction'])
         if 'potential' in self.data:
             # convert to [km^2 / s^2 physical]
@@ -260,33 +262,36 @@ class Particle:
             self.data['pressure'] *= (mass_conversion / length_conversion / time_conversion**2)
 
         # Special dust conversions below
-        if (sp.Flag_DustSpecies) and (sp.Flag_DustSpecies<1):
-            # For dust evo model which does not tracak specific dust species, 'Elemental' in Choban et al. (2022)
+        if  ('dust_Z' in self.data) and (sp.Flag_DustSpecies) and (sp.Flag_DustSpecies<1):
+            # For dust evo model which does not track specific dust species, 'Elemental' in Choban et al. (2022)
             # Build carbonaceous and silicates from their respective elements for the
             self.data['dust_spec'] = np.zero(npart,2)-1
             self.data['dust_spec'][:,0] = self.data['dust_Z'][:,4]+self.data['dust_Z'][:,6]+self.data['dust_Z'][:,7]+self.data['dust_Z'][:,10]
             self.data['dust_spec'][:,1] = self.data['dust_Z'][:,2]
 
-        if 'grain_bin_num' in self.data and 'grain_bin_slope' in self.data:
-            # Need to convert to actual linear values. 
-            # Grain numbers are in log10 form 
-            # Grain slopes are in log10 form but the sign represents if it's positive or negative
-            # THIS WILL PROBABLY CHANGE TO BE MASS INSTEAD OF SLOPE FOR FINAL RUNS
+
+        if 'grain_bin_num' in self.data:
+            # Grain numbers and mass are stored in log10. Need to convert to linear values. 
             self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
-            self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
-            self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']),dtype='double') / (config.cm_to_um*config.cm_to_um)
-            # No dust grains are denoted by -1 in snapshots
-            no_dust =  self.data['grain_bin_num']==0.1 
-            self.data['grain_bin_num'][no_dust] = 0; self.data['grain_bin_slope'][no_dust] = 0;
+            # No dust grains are denoted by 10^-1 = 0.1 in snapshots. Also some bins with < 1 grain due to numerical errors 
+            # So set anything < 1 to 0 
+            no_dust = self.data['grain_bin_num'] < 1
+            self.data['grain_bin_num'][no_dust] = 0; 
             # Since dn/da is normalized to the dust mass in the code, need to multiply by h factor
             self.data['grain_bin_num'] *= hubble
-            self.data['grain_bin_slope'] *= hubble
 
-            # Catch any bins with < 1 grain due to numerical errors and set to 0
-            low_N_mask = self.data['grain_bin_num']<1
-            self.data['grain_bin_num'][low_N_mask] = 0
-            self.data['grain_bin_slope'][low_N_mask] = 0
-
+            # Snapshots usually have grain bin mass, but some old snapshots only have slopes
+            if 'grain_bin_mass' in self.data:
+                self.data['grain_bin_mass'] = np.power(10,self.data['grain_bin_mass'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
+                self.data['grain_bin_mass'][no_dust] = 0;
+                self.data['grain_bin_mass'] *= hubble
+            # Snapshots can also have bin slope as an optional output
+            if 'grain_bin_slope' in self.data:
+                # Grain slopes are in log10 form but the sign represents if it's positive or negative
+                self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+                self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']),dtype='double') / (config.cm_to_um*config.cm_to_um)
+                self.data['grain_bin_slope'][no_dust] = 0;
+                self.data['grain_bin_slope'] *= hubble
         
         self.k = 1
         return
@@ -378,7 +383,6 @@ class Particle:
         return
 
 
-    # Gets derived properties from particle data
     def get_property(self, property):
         """
         Returns given particle property data if property is supported (not case sensitive). Will return array of -1 if not supported.
@@ -422,6 +426,14 @@ class Particle:
         elif case_insen_compare(property,['v','vel','velocity']):
             prop_data = data['velocity']
 
+        # If property is already in the snapshot data return it
+        if case_insen_compare(property,data.keys()):
+            return data[property].copy()
+
+        #####
+        # DERIVED PROPERTIES
+        ####
+        
         elif self.ptype == 0:
             # GENERAL GAS PROPERTIES
             if case_insen_compare(property,['h','size','scale_length']):
@@ -615,7 +627,9 @@ class Particle:
                     if case_insen_compare(property,'grain_bin_num'):
                         prop_data = data['grain_bin_num'];
                     elif case_insen_compare(property,'grain_bin_slope'):
-                        prop_data = data['grain_bin_slope'];
+                        prop_data = gsu.get_grain_bin_slope(self)
+                    elif case_insen_compare(property,'grain_bin_mass'):
+                        prop_data = gsu.get_grain_bin_mass(self)
                     # Note all dust grain size distribution data is normalized by the total grain number
                     elif case_insen_compare(property,'N_grain_total'):
                         prop_data = np.sum(data['grain_bin_num'],axis=2)

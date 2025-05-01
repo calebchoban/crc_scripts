@@ -7,6 +7,7 @@ from scipy.integrate import quad
 from ... import config
 from ...config import dust_species_properties
 from ...io.snapshot import Snapshot
+from ...io.particle import Particle
 from ..math_utils import weighted_percentile
 
 
@@ -20,37 +21,60 @@ def lognorm_dnda(a, a_norm=0.1*config.um_to_cm, sigma_a=0.6):
     return 1/a * np.exp(-np.power(np.log(a/a_norm),2) / (2*sigma_a*sigma_a))
 
 
-# Returns the mass in grain bins determined from their number and slope
-def get_grain_bin_mass(snap: Snapshot, species='silicates'):
-    G = snap.loadpart(0)
-    bin_nums = G.get_property('grain_bin_num')
-    bin_slopes = G.get_property('grain_bin_slope')
-    bin_edges = snap.Grain_Bin_Edges
+# Returns the mass in grain bins determined from their number and slope for the given particles in the given Particle object
+def get_grain_bin_mass(particle: Particle):
+    snap = particle.sp
+    bin_nums = particle.get_property('grain_bin_num')
+    bin_slopes = particle.get_property('grain_bin_slope')
+    upper_edges = snap.Grain_Bin_Edges[1:]
+    lower_edges = snap.Grain_Bin_Edges[:-1]
     bin_centers = snap.Grain_Bin_Centers
-    num_bins = snap.Flag_GrainSizeBins
 
-    if species == 'silicates': spec_ind = 0
-    elif species == 'carbonaceous': spec_ind = 1
-    elif species == 'iron': spec_ind = 2
-    else: assert 0, "Dust species not supported"
+    species = ['silicates', 'carbonaceous', 'iron']
+    spec_indices=[0,1,2]
 
-    spec_props = dust_species_properties(species)
-    rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+    # Calculate grain bin mass from numbers and slopes
+    grain_bin_mass = np.zeros((particle.npart, snap.Flag_DustSpecies, snap.Flag_GrainSizeBins),dtype='double')
+    for i,spec in enumerate(species):
+        spec_ind = spec_indices[i]
+        spec_bin_numbers = bin_nums[:,spec_ind,:]; spec_bin_slopes = bin_slopes[:,spec_ind,:]
+        spec_props = config.dust_species_properties(spec)
+        rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+        no_dust = (spec_bin_numbers <= 0)
+        spec_bin_mass = 4*np.pi*rho_c/3*((spec_bin_numbers/(4*(upper_edges-lower_edges))-spec_bin_slopes*bin_centers/4)*(np.power(upper_edges,4)-np.power(lower_edges,4))+spec_bin_slopes/5*(np.power(upper_edges,5)-np.power(lower_edges,5)))
+        spec_bin_mass[no_dust] = 0
+        grain_bin_mass[:,spec_ind,:] = spec_bin_mass
 
-    bin_masses = np.zeros([G.npart,num_bins])
+    return grain_bin_mass
 
-    for i in range(num_bins):
-        bin_num = bin_nums[:,spec_ind][:,i]; 
-        bin_slope = bin_slopes[:,spec_ind][:,i]; 
 
-        bin_upper = bin_edges[i+1]
-        bin_lower = bin_edges[i]
-        bin_center = bin_centers[i]
-        bin_mass = 4*np.pi*rho_c/3*((bin_num/(4*(bin_upper-bin_lower))-bin_slope*bin_center/4)*(np.power(bin_upper,4)-np.power(bin_lower,4))+bin_slope/5*(np.power(bin_upper,5)-np.power(bin_lower,5)))
+# Returns the slope in grain bins determined from their grain number and mass for the given particles in the given Particle object
+def get_grain_bin_slope(particle: Particle):
+    snap = particle.sp
+    bin_nums = particle.get_property('grain_bin_num')
+    bin_masses = particle.get_property('grain_bin_mass')
+    upper_edges = snap.Grain_Bin_Edges[1:]
+    lower_edges = snap.Grain_Bin_Edges[:-1]
+    bin_centers = snap.Grain_Bin_Centers
 
-        bin_masses[:,i] = bin_mass
+    species = ['silicates', 'carbonaceous', 'iron']
+    spec_indices=[0,1,2]
 
-    return bin_masses
+    # Calculate grain bin mass from numbers and slopes
+    grain_bin_slopes = np.zeros((particle.npart, snap.Flag_DustSpecies, snap.Flag_GrainSizeBins),dtype='double')
+    for i,spec in enumerate(species):
+        spec_ind = spec_indices[i]
+        spec_bin_numbers = bin_nums[:,spec_ind,:]; spec_bin_masses = bin_masses[:,spec_ind,:]
+        spec_props = config.dust_species_properties(spec)
+        rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+        no_dust = (spec_bin_numbers <= 0) | (spec_bin_masses <= 0)
+
+        spec_bin_slopes = (3*spec_bin_masses/(4*np.pi*rho_c)-spec_bin_numbers/(4*(upper_edges-lower_edges))*(pow(upper_edges,4)-pow(lower_edges,4))) / ((pow(upper_edges,5)-pow(lower_edges,5))/5-bin_centers/4*(pow(upper_edges,4)-pow(lower_edges,4)));
+        spec_bin_slopes[no_dust] = 0
+        grain_bin_slopes[:,spec_ind,:] = spec_bin_slopes
+
+    return grain_bin_slopes
+
 
 
 def get_grain_size_distribution(snap: Snapshot,
