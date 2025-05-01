@@ -84,6 +84,11 @@ mpl.rcParams['xtick.major.pad'] = 5
 
 # Make the axes linewidths bigger                                                  
 mpl.rcParams['axes.linewidth'] = AXIS_BORDER_WIDTH
+
+# Set the zorder of the axis to be above everything (this sets axis z_order=2.5)
+mpl.rcParams['axes.axisbelow'] = False
+
+
 																					
 # Make the x and y ticks bigger                                                    
 mpl.rcParams['xtick.labelsize'] = SMALL_FONT
@@ -155,6 +160,8 @@ m_to_um						= 1E6
 um_to_m						= 1/m_to_um
 cm_to_nm					= 1E7
 nm_to_cm					= 1/cm_to_nm
+angstrom_to_um				= 1E-4
+um_to_angstrom				= 1/angstrom_to_um
 Ergs_per_joule				= 1E7
 grams_to_Msolar				= 5.02785e-34
 SOLAR_GAL_RADIUS			= 8 # kpc
@@ -405,11 +412,13 @@ PROP_INFO  				= {
 **dict.fromkeys(['lambda_angstrom','wavelength_angstrom'], [r'$\lambda \, [\AA]$', 						[6E2,1E7], 	    True]),
 **dict.fromkeys(['1/lambda','inverse_wavelength'], [r'$\lambda^{-1} \, [\mu m^{-1}]$', 					[0,10], 	    False]),
 **dict.fromkeys(['SED','flux'], [r'$\lambda L_{\lambda} \,[L_{\odot}]$',								[1E8,2E12],		True]),
-					'grain_size': [r'a ($\mu m$)',														[7E-4,2E0],		True],
-**dict.fromkeys(['dn/da','sil_dn/da','carb_dn/da','SiC_dn/da','iron_dn/da'],
-								  [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True]),
-**dict.fromkeys(['dm/da','sil_dm/da','carb_dm/da','SiC_dm/da','iron_dm/da'],
-								  [r'$a^4\frac{\partial n}{\partial a}$',								[1E20,1E55],	True]),
+					'grain_size': [r'a [$\mu m$]',														[7E-4,2E0],		True],
+					     'dn/da': [r'$\frac{\partial n}{\partial a}$',									[1E20,1E55],	True],
+				    'dn/da_norm': [r'$\frac{\partial n}{\partial a}$ (normalized)',				    	[1E20,1E55],	True],
+**dict.fromkeys(['dm/da','dm/dloga'],
+								  [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$',     [1E20,1E55],	True]),
+**dict.fromkeys(['dm/da_norm','dm/dloga_norm'],
+								  [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', 				[0.01,1],	True]),
 **dict.fromkeys(['extinction','A_lambda'],
 								  [r'$A_{\lambda}/A_V$',								                [0,10],	        False]),
 					 'cool_rate': [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]',			[2E-25,2E-22],	True],

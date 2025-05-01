@@ -61,7 +61,7 @@ class Figure(object):
     def set_axis(self, axis_num, x_prop, y_prop, twin_time_axis=True, **kwargs):
         """
         Set specific axis in figure given the properties you want you plot on the x and y axis 
-        Can also give more arguements for axis such as setting log/linear and the limits.
+        Can also give more arguments for axis such as setting log/linear and the limits.
 
         Parameters
         ----------
@@ -72,7 +72,7 @@ class Figure(object):
         y_prop : string
             Property for each y axis.
         axes_kwargs : dict
-            Additional arguements for plot_utils.setup_axis()
+            Additional arguments for plot_utils.setup_axis()
         """
         
         plot_utils.setup_axis(self.axes[axis_num], x_prop, y_prop, **kwargs)
@@ -142,7 +142,7 @@ class Figure(object):
             'ms': config.BASE_MARKERSIZE**0.5, 
             'mew': config.BASE_ELINEWIDTH,
             'mfc': 'xkcd:white',
-            'zorder': 3,
+            'zorder': 2,
             'alpha': 1}
         
         for kwarg in default_kwargs:
@@ -191,7 +191,7 @@ class Figure(object):
             'c': config.BASE_COLOR, 
             'marker': 'o', 
             's': config.BASE_MARKERSIZE, 
-            'zorder': 3}
+            'zorder': 2}
         
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
@@ -206,7 +206,7 @@ class Figure(object):
         default_kwargs = {
             'density': True, 
             'histtype': 'step', 
-            'zorder': 3}
+            'zorder': 2}
         
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
