@@ -25,12 +25,22 @@ def weighted_percentile(a, percentiles=np.array([50, 16, 84]), weights=None, ign
         The values associated with the specified percentiles.  
     """
 
+    # convert to numpy arrays
+    a = np.asarray(a) 
+    percentiles = np.asarray(percentiles) # convert to numpy array
+    if weights is None: weights = np.ones(a.size)
+    else: weights = np.asarray(weights)
+
     # First deal with empty array
     if len(a)==0:
         return np.full(len(percentiles), 0.)
-
-    if weights is None:
-        weights = np.ones(a.size)
+    # Check that array is one dimensional
+    if a.ndim != 1:
+        raise ValueError("Input array must be one-dimensional.")
+    # Make sure weights are the same size as a
+    if len(weights) != len(a):
+        raise ValueError("weights must be same size as input array.")
+    
     if ignore_invalid:
         mask_a = np.ma.masked_invalid(a) 
         weights = weights[~mask_a.mask]
@@ -148,7 +158,7 @@ def quick_lookback_time(a, sp=None, redshift=False):
 def get_time_conversion_spline(time_name_get, time_name_input, sp=None):
     """
     Calculates an interpolation spline from one time measure to the other. 
-    Accepted time measures are 'time','time_lookback','redshift','reshift_plus_1'.
+    Accepted time measures are 'time','time_lookback','redshift','redshift_plus_1'.
 
     Parameters
     ----------
@@ -361,7 +371,7 @@ def approx_gas_temperature(u, ne, keV=0):
     u : ndarray
         Internal energy for gas particles
     ne : ndarray
-        Electrong density for gas particles
+        Electron density for gas particles
     keV : bool, optional
         Output in keV instead of Kelvin
     
@@ -455,7 +465,7 @@ def fit_bulge_and_disk(x_data, y_data, guess=None, bounds=None, bulge_profile='d
     y_data : ndarray
         Surface density data
     guess : list, optional
-        Inital guesses for curve_fit
+        Initial guesses for curve_fit
     bouds : list, optional
         Bounds for values curve_fit can use
     bulge_profile : string, optional

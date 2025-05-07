@@ -288,7 +288,7 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         Limits for y axis
     y_log : boolean, optional
         Explicitly set y axis to linear or log space, otherwise go with default for y_param
-    artitst_to_add : list, optional
+    artist_to_add : list, optional
         List of matplotlib artists objects to be added to axis
     face_color : string, optional
         Axis background color

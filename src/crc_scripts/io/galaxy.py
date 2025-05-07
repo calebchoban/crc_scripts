@@ -55,7 +55,6 @@ class Halo(object):
         return
 
 
-    # Set zoom-in region if you don't want all data in rvir
     def set_zoom(self, rout=None, kpc=False):
         """
         Set the radius of zoom-in region around the halo center. This will determine the extent of the region you want to get particle data for. Default is the virial radius.
@@ -132,6 +131,10 @@ class Halo(object):
         Parameters
         ----------
         mode : string, optional
+            Set how halo information will be determined. 
+            Default is 'AHF' which will load halo properties from a AHF halo file if it can be found. 
+            Set to 'young_stars' to determine halo center from the position of <1 Gyr stars
+            Set to 'dense_gas' to determine halo center from the position of nH>10 cm^-3 gas.
             Set to 'AHF' to load AHF halo file information if available. Else, the center of gas particles 
             and snapshot volume is used to define the extent of the halo.
 
@@ -182,9 +185,23 @@ class Halo(object):
                 self.zc = sp.boxsize/2.
                 self.rvir = sp.boxsize*2.
                 self.Lhat = np.array([0,0,1.])
+        elif mode == 'young_stars':
+            print("Centering galaxy on median position of star particles with age < 1 Gyr.")
+            self.k = 1
+            self.time = sp.time
+            self.redshift = sp.redshift
+            self.catalog = None
+            # Get center from average of star particles
+            part = self.sp.loadpart(4)
+            age_indx = part.get_property('age')<1.0
+            self.xc = np.median(part.get_property('position')[age_indx,0])
+            self.yc = np.median(part.get_property('position')[age_indx,1])
+            self.zc = np.median(part.get_property('position')[age_indx,2])
+            self.rvir = sp.boxsize*2.
+            self.Lhat = np.array([0,0,1.])
         # Default for non-cosmological and no AHF to center of star mass
-        else:
-            print("No halo file given so galaxy centered on median position of gas particles with nH>10 cm^-3. This may not always work.")
+        elif mode is None or mode == 'dense_gas':
+            print("Centering galaxy on median position of gas particles with nH>10 cm^-3.")
             self.k = 1
             self.time = sp.time
             self.redshift = sp.redshift
@@ -201,77 +218,6 @@ class Halo(object):
         self.center_position = [self.xc,self.yc,self.zc]
     
         return
-
-
-    def get_rmax(self):
-        """ Returns the radius of the halo """ 
-        return self.rvir
-
-
-    def get_half_mass_radius(self, ptype=4, within_radius=None, rvir_frac=1.0, geometry='spherical', mass_weight=None):
-        """
-        Determines the half mass radius for a given particle type within the halo.
-
-        Parameters
-        ----------
-        ptype : int, optional
-            Particle type you want the half mass radius for. Default is stars.
-        within_radius : double, optional
-            Maximum physical radius [kpc] you want to considered particles when calculating the half mass radius. 
-            Use this or rvir_frac to set the radius. This takes precedence over rvir_frac.
-        rvir_frac : double, optional
-            Maximum radius as a fraction of the virial radius you want to considered particles when calculating the half mass radius. 
-            Use this or within_radius to set the radius.
-        geometry : string, optional
-            The geometry you want to use given the maximum radius. Supports 'spherical','cylindrical', and 'scale_height'
-        mass_weight : ndarray, optional
-            Weight for each particle mass. Use this when you want to mask certain particles or for things like neutral gas mass by supplying neutral mass fractions.
-            
-        Returns
-        -------
-        half_mass_radius: double
-            The half mass radius for the given particle type.
-
-        """
-
-        within_radius = self.rvir*rvir_frac if within_radius is None else within_radius
-
-        part = self.loadpart(ptype)
-        if mass_weight is None:
-            mass_weight = np.full(part.npart,1)
-        coords = part.get_property('coords')
-        masses = part.get_property('M')*mass_weight
-
-
-        edges = np.linspace(0, within_radius, 5000, endpoint=True)
-
-        if geometry in ['cylindrical', 'scale_height']:
-            radii = np.sum(coords[:, :2] ** 2, axis=1) ** 0.5
-        elif geometry == 'spherical':
-            radii = np.sum(coords ** 2, axis=1) ** 0.5
-
-        within_mask = radii <= within_radius
-
-        ## let's co-opt this method to calculate a scale height as well
-        if geometry == 'scale_height':
-            ## take the z-component
-            radii = np.abs(coords[:, -1])
-            edges = np.linspace(0, 10 * within_radius, 5000, endpoint=True)
-
-        h, edges = np.histogram(
-            radii[within_mask],
-            bins=edges,
-            weights=masses[within_mask])
-        edges = edges[1:]
-        h /= 1.0 * np.sum(h)
-        cdf = np.cumsum(h)
-
-        # Find closest edge to the middle of the cdf
-        argmin = np.argmin((cdf - 0.5) ** 2)
-        half_mass_radius = edges[argmin]
-        print("Ptype %i half mass radius: %e kpc"%(ptype, half_mass_radius))
-
-        return half_mass_radius
 
 
     # load all particles in the halo/galaxy centered on halo center
@@ -294,15 +240,16 @@ class Halo(object):
         # If the particles have previously been loaded and orientated we are done here
         if not part.k or not part.orientated:
             part.load()
-            part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-            if self.zoom:
-                rmax = self.rout*self.rvir if not self.outkpc else self.rout
-            else:
-                rmax = self.rvir
-            in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
-            if np.all(in_halo==False):
-                print("WARNING: No particle of ptype %i in the zoom in region when loading particle data."%ptype)
-            part.mask(in_halo)
+            if part.npart>0:
+                part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
+                if self.zoom:
+                    rmax = self.rout*self.rvir if not self.outkpc else self.rout
+                else:
+                    rmax = self.rvir
+                in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
+                if np.all(in_halo==False):
+                    print("WARNING: No particle of ptype %i in the zoom in region when loading particle data."%ptype)
+                part.mask(in_halo)
 
         return part
 
@@ -556,8 +503,3 @@ class Disk(Halo):
             part.mask(in_disk)
 
         return part
-
-
-    # Returns the maximum radius
-    def get_rmax(self):
-        return self.rmax

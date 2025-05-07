@@ -7,8 +7,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from . import config
 from .utils import plot_utils
-from .utils import math_utils
-from .utils import data_calc_utils as calc
 
 
 class Figure(object):
@@ -61,7 +59,7 @@ class Figure(object):
     def set_axis(self, axis_num, x_prop, y_prop, twin_time_axis=True, **kwargs):
         """
         Set specific axis in figure given the properties you want you plot on the x and y axis 
-        Can also give more arguements for axis such as setting log/linear and the limits.
+        Can also give more arguments for axis such as setting log/linear and the limits.
 
         Parameters
         ----------
@@ -72,7 +70,7 @@ class Figure(object):
         y_prop : string
             Property for each y axis.
         axes_kwargs : dict
-            Additional arguements for plot_utils.setup_axis()
+            Additional arguments for plot_utils.setup_axis()
         """
         
         plot_utils.setup_axis(self.axes[axis_num], x_prop, y_prop, **kwargs)
@@ -142,7 +140,7 @@ class Figure(object):
             'ms': config.BASE_MARKERSIZE**0.5, 
             'mew': config.BASE_ELINEWIDTH,
             'mfc': 'xkcd:white',
-            'zorder': 3,
+            'zorder': 2,
             'alpha': 1}
         
         for kwarg in default_kwargs:
@@ -191,7 +189,7 @@ class Figure(object):
             'c': config.BASE_COLOR, 
             'marker': 'o', 
             's': config.BASE_MARKERSIZE, 
-            'zorder': 3}
+            'zorder': 2}
         
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
@@ -206,7 +204,7 @@ class Figure(object):
         default_kwargs = {
             'density': True, 
             'histtype': 'step', 
-            'zorder': 3}
+            'zorder': 2}
         
         for kwarg in default_kwargs:
             if kwarg not in kwargs:
@@ -599,7 +597,7 @@ class Projection(Figure):
             self.axis_colorbar[axis_num] = cbar
 
 
-    def plot_image(self, axis_num, data, dynamic_range=1E3, v_log=True, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, **kwargs):
+    def plot_image(self, axis_num, data, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, **kwargs):
         """
         Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
 
@@ -609,10 +607,6 @@ class Projection(Figure):
             The number of the axis to plot image data.
         data : ndarray (N,M) or (N,M,3)
             Image data for each pixel.
-        dynamic_range : float, optional
-            Set dynamic range for single frame image. Does nothing for RGB image.
-        v_log : bool, optional
-            Set color map to log scale for single frame image. Overrides default choices.
         fov_kpc : optional, float
             Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
         fov_arcsec : optional, float
@@ -634,15 +628,6 @@ class Projection(Figure):
 
         axis = self.axes[axis_num][0]
         self.axis_fov_kpc[axis_num] = fov_kpc
-
-        if len(data.shape) != 3:
-            # Change default projection limits
-            v_limits = [np.max(data)/dynamic_range,np.max(data)]
-            if v_log:
-                norm = mpl.colors.LogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True)
-            else:
-                norm = mpl.colors.Normalize(vmin=v_limits[0], vmax=v_limits[1], clip=True)
-            kwargs['norm'] = norm
 
         # Default to kpc if both kpc and arsec fov are given
         if fov_kpc is not None:

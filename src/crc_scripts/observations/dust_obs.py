@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from astropy.io import ascii
+from scipy.interpolate import interp1d,CubicSpline
 import os
 from ..utils.math_utils import quick_lookback_time
 from .. import config
@@ -836,3 +837,64 @@ def Chiang23_DZ_vs_param(param, bin_data=True, bin_nums=10, log=True, goodSNR=Tr
 				data[gal_name] = [gal_vals,DZ_vals]
 
 	return data
+
+
+
+
+def Salim20_compiled_extinction_curve(galaxy='MW', subsample=2):
+	"""
+	Compiled mean extinction curves from Salim & Narayanan (2020) for the Milky Way, LMC, LMC 30 Dor, and SMC.
+	
+	Parameters
+	----------
+	galaxy : string
+		Specify which galaxy you want sightline data for. Options are 'MW', 'LMC', 'LMC_30Dor', and 'SMC'.
+	subsample : int
+		Subsample the data by this factor to smooth out the extinction curve. Only used for SMC and LMC.
+
+	Returns
+	-------
+	wavelengths : np.array
+		Wavelengths in μm
+	percentile_ext : np.array
+		Percentile extinction values for the specified galaxy. The first row is the median, second is the lower limit, and third is the upper limit. Only MW has upper/lower limits.
+
+	"""	
+
+	# MW extinction curves taken from Fitzpatrick & Massa (2007) compilation includes 
+	# median Rv=3.1 and upper/lower limits Rv=5.5/2.3
+	if galaxy == 'MW':
+		median_data = np.loadtxt(config.OBS_DIR+"Salim20/mw_rv31.dat")
+		lower_data = np.loadtxt(config.OBS_DIR+"Salim20/mw_rv23.dat")
+		upper_data = np.loadtxt(config.OBS_DIR+"Salim20/mw_rv55.dat")
+		wavelengths = median_data[:,0]
+		median_ext = median_data[:,1]
+		lower_ext = lower_data[:,1]
+		upper_ext = upper_data[:,1]
+		percentile_ext = np.array([median_ext, lower_ext, upper_ext])
+	else:
+		if galaxy == 'LMC': filename = 'lmc_ave.dat'
+		elif galaxy == 'LMC_30Dor': filename = 'lmc_30dor.dat'
+		elif galaxy == 'SMC': filename = 'smc.dat'
+		data = np.loadtxt(config.OBS_DIR+"Salim20/"+filename)
+		wavelengths = data[:,0]
+		median_ext = data[:,1]
+
+		# Get rid of last few data points since it is very high
+		if galaxy=='SMC':
+			wavelengths = wavelengths[:-6]
+			median_ext = median_ext[:-6]
+
+		# Data is noisy below 0.3 microns so smooth out by subsampling
+		mask = wavelengths*config.angstrom_to_um < 0.3
+		subsample_wavelengths = wavelengths[mask][::subsample]
+		subsample_ext = median_ext[mask][::subsample]
+		wavelengths = np.concatenate((wavelengths[~mask],subsample_wavelengths))
+		median_ext = np.concatenate((median_ext[~mask],subsample_ext))
+
+		percentile_ext = np.array([median_ext, median_ext, median_ext])
+
+	# All wavelengths are in angstroms
+	wavelengths *= config.angstrom_to_um
+	return wavelengths, percentile_ext
+
