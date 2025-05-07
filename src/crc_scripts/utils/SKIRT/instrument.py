@@ -5,7 +5,6 @@ from astropy.convolution import convolve_fft,Gaussian2DKernel
 from astropy.nddata import block_reduce
 import numpy as np
 
-from ..math_utils import quick_cosmological_calc
 from ... import config
 from ...figure import Figure, Projection
 
@@ -108,9 +107,10 @@ class SKIRT_Instrument(object):
             print("Pixel resolution", self.pixel_res_angle, self.pixel_res_physical)
             print("Image FOV",self.fov_physical,self.fov_angle)
             print("There are %i photometric images"%len(self.pivot_wavelengths))
-            print("Filter Name \t\t Pivot Wavelength (microns)")
+            print(f"{'Filter Name':<20} {'Pivot Wavelength':<15}")
+            print("-" * 50)
             for i,wavelength in enumerate(self.pivot_wavelengths):
-                print(self.filters[i], "\t\t", self.pivot_wavelengths[i])
+                print(f"{self.filters[i]:<20} {wavelength:<15.5f}")
             if self.unknown_filter:
                 print("WARNING: %i filters in the FITS file do not match any known SKIRT filter. Check the SKIRT .ski file to see if they are custom filters."%self.unknown_filter)
 
