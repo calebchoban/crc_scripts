@@ -12,58 +12,140 @@ import time
 # This is a class that compiles the evolution data of a Snapshot/Halo
 # over a specified time for a simulation
 
-class Buffer(object):
+class MultiSnapDataIO(object):
+    """
+    This class handles the initialization and IO of reducing gas and star particle data from given snapshot numbers. 
+    The specified gas and star properties along with specified particle subsamples are calculated by and stored in 
+    a MultiSnapReducedData object which is a file to disk.
+    The file can be loaded and updated with new snapshots or properties.
+    """
 
-    def __init__(self, sdir, snap_nums, cosmological=1, gas_props=None, gas_subsamples=None, 
-                 star_props=None, star_subsamples=None,data_dirc='reduced_data/', 
-                save_w_sims=True, halohist_file=None, base_FIRE=False):
-        # Set property totals and property medians you want from each snapshot. Also set median masks which will
-        # take subsampled medians based on gas properties
-        if gas_props is None:
-            if not base_FIRE:
-                self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_dust','M_metals','M_sil','M_carb',
-                                'M_SiC','M_iron','M_ORes','M_SNeIa_dust','M_SNeII_dust','M_AGB_dust','M_acc_dust',
-                                'D/Z','Z','dz_acc','dz_SNeIa','dz_SNeII','dz_AGB','dz_sil','dz_carb',
-                                'dz_SiC','dz_iron','dz_ORes','CinCO','fdense','fH2',
-                                'Z_C','Z_O','Z_Mg','Z_Si','Z_Fe',
-                                'C/H','C/H_gas','O/H','O/H_gas','Mg/H','Mg/H_gas','Si/H','Si/H_gas','Fe/H','Fe/H_gas']
-            else:
-                self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_metals','Z','fH2']
-        else: 
-            self.gas_properties = gas_props
-        self.gas_subsamples = ['all','cold','warm','hot','coronal','neutral','molecular','ionized'] if gas_subsamples is None else gas_subsamples
+    def __init__(self, 
+                 sdir:str, 
+                 snap_nums:list, 
+                 gas_props:list=None, 
+                 gas_subsamples:list=None, 
+                 star_props:list=None, 
+                 star_subsamples:list=None, 
+                 save_dir:str=None, 
+                 halohist_file:str=None):
+        """
+        Parameters
+        ----------
+        sdir : str
+            Directory where the simulation snapshots are stored.
+        snap_nums : list
+            List of snapshot numbers to reduce.
+        gas_props : list, optional 
+            List of gas properties to reduce. If None, defaults to commonly used values, determined based on simulation flags (mainly for dust).
+        gas_subsamples : list, optional
+            List of gas subsamples to reduce. If None, defaults to ['all','cold','warm','hot','coronal','neutral','molecular','ionized'].
+        star_props : list, optional
+            List of star properties to reduce. If None, defaults to ['M_star','M_form_10Myr','M_form_100Myr','r1/2_stars'].
+        star_subsamples : list, optional
+            List of star subsamples to reduce. If None, defaults to ['all'].
+        save_dir : str, optional
+            Directory to save the reduced data. If None, defaults to the directory where the snapshots are stored.
+        halohist_file : str, optional
+            Path to the AHF halo history file used to determine where the galaxy center is for each snapshot. 
+            This is necessary for simulations where the main halo between snapshots such as dwarf-mass galaxies and at high-z.
+            If None, defaults to determining the rough galactic center from dense gas/young star locations.
+        """
         
-        if star_props is None:
-            self.star_properties = ['M_star','M_form_10Myr','M_form_100Myr','r_1/2']
-        else: 
-            self.star_properties = star_props
-        self.star_subsamples = ['all']  if star_subsamples is None else star_subsamples
-
+        self.loaded = False
         self.sdir = sdir
         self.snap_nums = np.sort(snap_nums)
         self.num_snaps = len(snap_nums)
-        self.cosmological = cosmological
         self.halohist_file = halohist_file
 
-        # Determines if you want to look at the Snapshot/Halo
+        # Determines if you want to look at the entire Snapshot or a specific Halo
         self.setHalo=False
 
         # Get the basename of the directory the snapshots are stored in
         self.basename = os.path.basename(os.path.dirname(os.path.normpath(sdir)))
         self.name = self.basename+'_reduced_data'
-        if save_w_sims:
-            self.data_dirc = sdir[:-7]+data_dirc
+        # Set the basename of the directory the reduced data is saved to
+        if save_dir is None:
+            self.data_dirc = sdir[:-7]+'reduced_data/'
         else:
-            self.data_dirc = './'+data_dirc
-        
+            self.data_dirc = './'+save_dir
 
-        self.k = 0
+
+        # Open up the first provided snapshot to get load the header info on the simulation
+        if not check_snap_exist(self.sdir,self.snap_nums[0]):
+            raise ValueError("The first snapshot number does not exist. Check the snap directory and numbers given.")
+        self.snap = Snapshot(self.sdir, self.snap_nums[0])
+        self.cosmological = self.snap.cosmological
+    
+
+        if gas_props is None:
+            self.gas_properties = ['M_gas','M_H2','M_gas_neutral','M_metals','Z','fH2','O/H','r1/2_gas','r1/2_neutral','r1/2_H2']
+            if self.snap.Flag_DustSpecies:
+                # All dust simulations have these
+                self.gas_properties += ['M_dust','D/Z','O/H_gas','r1/2_dust',
+                                        'M_SNeIa_dust','M_SNeII_dust','M_AGB_dust','M_acc_dust',
+                                        'dz_SNeIa','dz_SNeII','dz_AGB','dz_acc']
+                if self.snap.Flag_DustSpecies >= 2:
+                    # silicates and carbonaceous dust
+                    self.gas_properties += ['M_sil','M_carb','dz_sil','dz_carb']
+                if self.snap.Flag_DustSpecies >= 3:
+                    # Metallic iron dust
+                    self.gas_properties += ['M_iron','dz_iron']
+                if self.snap.Flag_DustSpecies >= 5:
+                    # Silicon carbide dust and O reservoir dust species
+                    self.gas_properties += ['M_SiC','M_ORes','dz_SiC','dz_ORes']
+
+                if not self.snap.Flag_GrainSizeBins:
+                    # Only tracked for fixed grain size simulations
+                    self.gas_properties += ['CinCO','fdense']
+                else:
+                    # For simulations with evolving grain sizes
+                    self.gas_properties += ['M_grain_small', 'M_grain_large','f_STL',
+                                            'M_grain_small_sil','M_grain_large_sil','M_grain_small_carb','M_grain_large_carb','M_grain_small_iron','M_grain_large_iron']
+        else:
+            self.gas_properties = gas_props
+
+        # Subsampling of gas properties
+        self.gas_subsamples = ['all','cold','warm','hot','coronal','neutral','molecular','ionized'] if gas_subsamples is None else gas_subsamples
+        
+        if star_props is None:
+            self.star_properties = ['M_star','Z','M_form_10Myr','M_form_100Myr','r1/2_stars']
+        else: 
+            self.star_properties = star_props
+        self.star_subsamples = ['all']  if star_subsamples is None else star_subsamples
+
 
         return
 
 
     # Set data to only include particles in specified halo
-    def set_halo(self, mode='AHF', hdir='', rout=1, kpc=False, use_halfmass_radius=False):
+    def set_halo(self, 
+                 mode:str='AHF', 
+                 rout:float=1, 
+                 kpc:bool=False, 
+                 use_halfmass_radius:bool=False):
+        """
+        Set the halo arguments you want when loading each snapshot to determined which particles 
+        are in the galactic halo. These arguments will be used when loading each snapshot.
+        This function must be called before loading snapshot data.
+
+
+        Parameters
+        ----------
+        mode : str
+            Set how the galactic halo properties will be determined. Default 'AHF' uses AHF halo files.
+        rout : float
+            The radius of the halo to include in kpc or Rvir. Default is 1.
+        kpc : bool
+            If True, rout is in kpc. If False, rout is in Rvir.
+        use_halfmass_radius : bool
+            If True, use the half mass radius of the halo instead of the virial radius. Default is False.
+        """
+
+        if mode =='AHF' and not self.cosmological:
+            raise ValueError("AHF mode only works for cosmological simulations. Use 'dense_gas' or 'young_star' mode instead.")
+
+
         # Make a unique name given parameters so we can tell what part of the halo was considered
         self.name += '_'+ mode + '_'
         if kpc and not use_halfmass_radius:
@@ -73,7 +155,7 @@ class Buffer(object):
         else:
             self.name += str(rout) + 'Rvir'
         self.name += '.pickle'
-        # Store the arguements so we can pass them on later
+        # Store the arguments so we can pass them on later
         args = locals()
         args.pop('self')
         self.halo_args = args
@@ -82,20 +164,37 @@ class Buffer(object):
         return
 
 
-    def load(self, increment=2, override=False, verbose=True):
+    def load(self, 
+             increment:int=2, 
+             overwrite:bool=False, 
+             verbose:bool=True):
+        """
+        Parameters
+        ----------
+        increment : int
+            Number of snapshots between periodic saves of the reduced data. Default is 2.
+        overwrite : bool
+            If True, overwrite the existing reduced data file. Default is False.
+        verbose : bool
+            If True, print out the progress of the loading. Default is True.
+        """
 
-        if self.k: return
+        # Check if the data has already been loaded
+        if self.loaded: return
 
         # Check if object file has already been created if so load that first instead of creating a new one
-        if not os.path.isfile(self.data_dirc+self.name) or override:
-            self.reduced_data = Reduced_Data(self.sdir, self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
-                                             self.star_subsamples, cosmological=self.cosmological,halohist_file=self.halohist_file)
-            self.reduced_data.set_halo(**self.halo_args)
+        if not os.path.isfile(self.data_dirc+self.name) or overwrite:
+            self.reduced_data = MultiSnapReducedData(self.sdir, self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
+                                             self.star_subsamples,halohist_file=self.halohist_file)
+            if self.setHalo:
+                self.reduced_data.set_halo(**self.halo_args)
+            else:
+                raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
         else:
             with open(self.data_dirc+self.name, 'rb') as handle:
                 self.reduced_data = pickle.load(handle)
             print("Reduced data already exists for the given halo setup so loading that first....")
-            self.reduced_data.check_props_and_snaps(self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
+            self.reduced_data.compare_and_update_props_and_snaps(self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
                                              self.star_subsamples)
 
         if increment < 1:
@@ -109,15 +208,19 @@ class Buffer(object):
             self.save()
 
         print("All done reducing snapshot data. Please clap.....")
-        self.k = 1
+        self.loaded=True
         return
 
 
     def save(self):
+        """
+        Saves the reduced data to a pickle file. The file is saved in the directory specified by self.data_dirc.
+        """
+
         # First create directory if needed
         if not os.path.isdir(self.data_dirc):
             os.mkdir(self.data_dirc)
-            print("Directory " + self.data_dirc +  " Created ")
+            print("Directory " + self.data_dirc +  " created for reduced data file.")
 
         with open(self.data_dirc+self.name, 'wb') as handle:
             pickle.dump(self.reduced_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -281,10 +384,43 @@ class Buffer(object):
 
 
 
-class Reduced_Data(object):
+class MultiSnapReducedData(object):
+    """
+    This class reduces and stores gas and star particle data from snapshots. 
+    MultiSnapDataIO deals with the initialization and IO of this class and saves it
+    to disk for easy access and modification.
+    """
 
-    def __init__(self, sdir, snap_nums, gas_props=None, gas_subsamples=['all'], star_props=None, star_subsamples=['all'],
-                  cosmological=1, halohist_file=None):
+    def __init__(self, 
+                 sdir:str, 
+                 snap_nums:list, 
+                 gas_props:list, 
+                 gas_subsamples:list, 
+                 star_props:list, 
+                 star_subsamples:list,
+                 halohist_file:str):
+        """
+        Parameters
+        ----------
+        sdir : str
+            Directory where the simulation snapshots are stored.
+        snap_nums : list
+            List of snapshot numbers to reduce.
+        gas_props : list 
+            List of gas properties to reduce. If None, defaults to commonly used values, determined based on simulation flags (mainly for dust).
+        gas_subsamples : list
+            List of gas subsamples to reduce. If None, defaults to ['all','cold','warm','hot','coronal','neutral','molecular','ionized'].
+        star_props : list
+            List of star properties to reduce. If None, defaults to ['M_star','M_form_10Myr','M_form_100Myr','r1/2_stars'].
+        star_subsamples : list
+            List of star subsamples to reduce. If None, defaults to ['all'].
+        halohist_file : str
+            Path to the AHF halo history file used to determine where the galaxy center is for each snapshot. 
+            This is necessary for simulations where the main halo between snapshots such as dwarf-mass galaxies and at high-z.
+            If None, defaults to determining the rough galactic center from dense gas/young star locations.
+        """
+        
+
         self.sdir = sdir
         self.snaps = np.sort(snap_nums)
         self.num_snaps = len(self.snaps)
@@ -295,22 +431,24 @@ class Reduced_Data(object):
         for snap_num in snap_nums:
             if not check_snap_exist(sdir,snap_num):
                 missing_file = True
+                break
         if missing_file: 
-            print("The above files are missing. Check the snap directory and numbers given.")
+            print(f"Snapshot {snap_num} is missing. Check the snap directory and numbers given.")
             return
 
         # Load first snap to get cosmological parameters
-        self.cosmological = cosmological
-        sp = Snapshot(self.sdir, self.snaps[0], cosmological=self.cosmological)
+        sp = Snapshot(self.sdir, self.snaps[0])
+        self.cosmological = sp.cosmological
         self.FIRE_ver = sp.FIRE_ver
-        self.hubble = sp.hubble
-        self.omega = sp.omega
         self.time = np.zeros(self.num_snaps)
         if self.cosmological:
+            self.hubble = sp.hubble
+            self.omega = sp.omega
             self.redshift = np.zeros(self.num_snaps)
             self.scale_factor = np.zeros(self.num_snaps)
 
-        # Populate the data dictionaries
+        # The reduced data is stored in a dictionary with keys corresponding to each property
+        # for each subsample
         prop_list = []
         for prop in gas_props:
             for sample in gas_subsamples:
@@ -325,11 +463,14 @@ class Reduced_Data(object):
         self.star_subsamples = star_subsamples
         self.data = {key : np.zeros(self.num_snaps) for key in prop_list}
 
+        # Arguments used for each snapshot when determining the halo and what particles are within the halo
         self.setHalo=False
         self.load_kwargs = {}
         self.set_kwargs = {}
         self.use_halfmass_radius = False
-        # Used when dominate halo changes during sim
+
+        # If an AHF halo history file is given use it to determine the halo ID of the main halo for each snapshot
+        # used to determine the center of the halo and its virial radius
         self.halohist_file = halohist_file
         if self.halohist_file is None:
             self.haloIDs = np.array([-1]*self.num_snaps,dtype=int)
@@ -346,7 +487,7 @@ class Reduced_Data(object):
                     self.haloIDs[i] = halo_IDs[halo_snums==snap_num]
                 else:
                     print("WARNING: The requested snapshot %i is not included in the provided halo history file!"%snap_num +
-                          "Either fix the file or don't specify a file to assume the largest halo for every snap.")
+                          "Either fix the file or don't specify an AHF halo history file to assume the largest halo for every snap.")
                     return
 
         self.all_snaps_loaded=False
@@ -354,8 +495,32 @@ class Reduced_Data(object):
         return
 
 
-    def check_props_and_snaps(self, snap_nums, gas_props, gas_subsamples, star_props, star_subsamples):
-        # Deal with new snap numbers being added
+    def compare_and_update_props_and_snaps(self, 
+                                            snap_nums:list, 
+                                            gas_props:list, 
+                                            gas_subsamples:list, 
+                                            star_props:list, 
+                                            star_subsamples:list):
+        """
+        Compares snapshot numbers and properties stored by the object with the ones given by the user.
+        If new snapshots and/or properties are specified, the object will update to include them.
+
+        Parameters
+        ----------
+        snap_nums : list
+            List of snapshot numbers to reduce.
+        gas_props : list   
+            List of gas properties to reduce.
+        gas_subsamples : list
+            List of gas subsamples to reduce.
+        star_props : list  
+            List of star properties to reduce.
+        star_subsamples : list
+            List of star subsamples to reduce.
+        """
+
+
+        # Check snapshot number and add any new snap numbers
         new_snaps = np.setdiff1d(snap_nums,self.snaps)
         if len(new_snaps)>0:
             print("New snaps listed below added. Will need to load these in")
@@ -415,12 +580,31 @@ class Reduced_Data(object):
         return
 
 
-    # Set to include particles in specified halo
-    # Give array of halo IDs equal to number of snapshots if the halo ID for the final main halo changes during the sim
-    def set_halo(self, mode='AHF', hdir='', rout=1, kpc=False, use_halfmass_radius=False):
+    def set_halo(self, 
+                 mode:str='AHF', 
+                 rout:float=1, 
+                 kpc:bool=False, 
+                 use_halfmass_radius:bool=False):
+        """
+        Set the halo arguments you want when loading each snapshot to determined which particles 
+        are in the galactic halo. These arguments will be used when loading each snapshot.
+
+
+        Parameters
+        ----------
+        mode : str
+            Set how the galactic halo properties will be determined. Default 'AHF' uses AHF halo files.
+        rout : float
+            The radius of the halo to include in kpc or Rvir. Default is 1.
+        kpc : bool
+            If True, rout is in kpc. If False, rout is in Rvir.
+        use_halfmass_radius : bool
+            If True, use the half mass radius of the halo instead of the virial radius. Default is False.
+        """
+
         if not self.setHalo:
             self.setHalo=True
-            self.load_kwargs = {'mode':mode, 'hdir':hdir}
+            self.load_kwargs = {'mode':mode}
             self.set_kwargs = {'rout':rout, 'kpc':kpc}
             self.use_halfmass_radius = use_halfmass_radius
             return 1
@@ -428,17 +612,24 @@ class Reduced_Data(object):
             return 0
 
 
-    def load(self, increment=5, verbose=True):
-        # Load total masses of different gases/stars and then calculated the median and 16/86th percentiles for
-        # gas properties for each snapshot. Only loads set increment number of snaps at a time.
+    def load(self, 
+             increment:int=5, 
+             verbose:bool=True):
+        """
+        Loads a N incremental number of snapshots and reduces the data for each. The N number of snapshots loaded are the
+        lowest Nth number snapshots which have not been loaded.
 
-        if not self.setHalo:
-            print("Need to call set_halo() to specify halo to load time evolution data.")
-            return 0
+        Parameters
+        ----------
+        increment : int
+            Number of snapshots to load at a time. Default is 5.
+        verbose : bool
+            If True, print out the progress of the loading. Default is True.
+        """
 
+        # Keep track of how many snapshots we have loaded
         snaps_loaded=0
         for i, snum in enumerate(self.snaps):
-
 
             # Stop loading if already loaded set increment so it can be saved
             if snaps_loaded >= increment:
@@ -447,44 +638,87 @@ class Reduced_Data(object):
             if self.snap_loaded[i]:
                 continue
 
+            # load in snapshot and general time data
             if verbose: print('Loading snap',snum,'...')
             start=time.time()
-            sp = Snapshot(self.sdir, snum, cosmological=self.cosmological)
-            self.hubble = sp.hubble
-            self.omega = sp.omega
-            self.time[i] = sp.time
-            if self.cosmological:
+            sp = Snapshot(self.sdir, snum)
+            if sp.cosmological:
                 self.redshift[i] = sp.redshift
                 self.scale_factor[i] = sp.scale_factor
                 self.time[i] = quick_lookback_time(sp.time, sp=sp)
-            # Calculate the data fields for either all particles in the halo
+            else:
+                self.time[i] = sp.time
+
+            # Get the specified halo object from the snapshot which is used to get particles in the halo
             if self.setHalo:
                 self.load_kwargs['id'] = self.haloIDs[i]
-                if verbose: print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
+                if verbose and self.cosmological: print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
                 gal = sp.loadhalo(**self.load_kwargs)
                 if self.use_halfmass_radius:
-                    half_mass_radius = gal.get_half_mass_radius(rvir_frac=0.5)
+                    half_mass_radius = calc_utils.calc_half_mass_radius(0, gal, within_radius=None, geometry='spherical', rvir_frac=0.5)
                     gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
                 else:
                     gal.set_zoom(**self.set_kwargs)
+            else:
+                raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
 
 
-            # First do totals
+            # Calculate each gas particle property for each subsample
+            ptype=0
             for subsample in self.gas_subsamples:
-                # Only need to get the mask once
-                sample_mask = calc_utils.get_particle_mask(0,gal,mask_criteria=subsample)
-                for prop in self.gas_props:
-                    data_key = prop + '_' + subsample
-                    self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
-            for subsample in self.star_subsamples:
-                sample_mask = calc_utils.get_particle_mask(4,gal,mask_criteria=subsample)
-                for prop in self.star_props:
-                    data_key = prop + '_' + subsample
-                    if prop == 'r_1/2':
-                        self.data[data_key][i] = gal.get_half_mass_radius(within_radius=None, geometry='spherical', ptype=4, rvir_frac=0.5)
+                # Get subsample mask
+                sample_mask = calc_utils.get_particle_mask(ptype,gal,mask_criteria=subsample)
+                for property in self.gas_props:
+                    data_key = property + '_' + subsample
+                    # If no particles match the subsample mask, set the value to NaN
+                    if np.all(sample_mask==False): galaxy_value = np.nan
+                    elif 'r1/2' in property:
+                        gas_particles = gal.loadpart(ptype)
+                        if 'H2' in property: weights = gas_particles.get_property('H2_fraction')
+                        elif 'neutral' in property: weights = gas_particles.get_property('H_neutral_fraction')
+                        else: weights = None
+                        galaxy_value = calc_utils.calc_half_mass_radius(ptype, gal, within_radius=None, 
+                                                                                  geometry='spherical', rvir_frac=0.5, mass_weight = weights)
                     else:
-                        self.data[data_key][i] = calc_utils.calc_gal_int_params(prop,gal,mask=sample_mask)
-            # snap all loaded
+                        P = gal.loadpart(ptype)
+                        prop_vals = P.get_property(property)[sample_mask]
+                        if prop_vals.ndim != 1:
+                            raise ValueError(f"Property {property} array must be one-dimensional.")
+                        # Galaxy-integrated masses are total masses so this is a simple sum
+                        if 'M_' in property:
+                            galaxy_value = np.sum(prop_vals)
+                        # For all other properties we want the mass-weighted median
+                        else:
+                            weights = P.get_property('M')
+                            weights=weights[sample_mask]
+                            galaxy_value = weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
+                        
+                    self.data[data_key][i] = galaxy_value
+
+            # Calculate each star particle property for each subsample
+            ptype=4
+            for subsample in self.star_subsamples:
+                sample_mask = calc_utils.get_particle_mask(ptype,gal,mask_criteria=subsample)
+                for property in self.star_props:
+                    data_key = property + '_' + subsample
+                    if 'r1/2' in property:
+                        galaxy_value = calc_utils.calc_half_mass_radius(ptype, gal, within_radius=None, geometry='spherical', rvir_frac=0.5)
+                    else:
+                        P = gal.loadpart(ptype)
+                        prop_vals = P.get_property(property)[sample_mask]
+                        if prop_vals.ndim != 1:
+                            raise ValueError(f"Property {property} array must be one-dimensional.")
+                        # Galaxy-integrated masses are total masses so this is a simple sum
+                        if 'M_' in property:
+                            galaxy_value = np.sum(prop_vals)
+                        # For all other properties we want the mass-weighted median
+                        else:
+                            weights = P.get_property('M')
+                            weights=weights[sample_mask]
+                            galaxy_value = weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
+                    self.data[data_key][i] = galaxy_value
+
+            # Track which snapshots have been loaded
             self.snap_loaded[i]=True
             snaps_loaded+=1
 

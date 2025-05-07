@@ -3,6 +3,8 @@ from scipy.stats import binned_statistic_2d
 
 from .. import config
 from . import math_utils
+from ..io.snapshot import Snapshot
+from ..io.galaxy import Halo,Disk
 
 
 
@@ -128,7 +130,9 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	return phase_data
 
 
-def get_particle_mask(ptype, snap, mask_criteria='all'):
+def get_particle_mask(ptype:int, 
+					  snap:Snapshot | Halo, 
+					  mask_criteria:str='all'):
 	"""
 	Creates a boolean array for the given particle type in the given 
 	snapshot to mask particles which meet the mask_criteria.
@@ -137,7 +141,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 	----------
 	ptype : int
 		Particle type: 0=gas and 4=stars 
-	snap : snapshot/galaxy
+	snap : Snapshot/Halo
 		Snapshot or Galaxy object from which particle data can be loaded
 	mask_criteria : string
 		Criteria for the mask (e.g. neutral, molecular, hot, warm, cold, young, old)
@@ -145,12 +149,14 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 
 	Returns
 	-------
-	mask: ndarray
+	mask: list
 		Boolean array to mask particles
 	"""	
 
 	P = snap.loadpart(ptype)
 	mask = np.ones(P.npart, dtype=bool)
+	if P.npart == 0: # Nothing to do if no particles
+		return mask
 	# Don't actually need a mask here
 	if mask_criteria=='all': return mask
 	mask_identified = 0;
@@ -205,7 +211,7 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 			print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
 
 	if np.all(mask == False):
-		print(f"Warning: no particles match the mask criteria ({mask_criteria})!")
+		print(f"Warning: no ptype {ptype} particles match the mask criteria ({mask_criteria})!")
 
 	return mask
 
@@ -440,54 +446,80 @@ def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, p
 	return bin_vals, mean_vals, std_vals, pixel_data
 
 
-def calc_gal_int_params(property, snap, criteria='all', mask=None):
-	"""
-	Calculate the galaxy-integrated values given center and virial radius for multiple simulations/snapshots
+def calc_half_mass_radius(ptype:int, 
+						  halo: Halo, 
+						  within_radius:float=None, 
+						  rvir_frac:float=1.0, 
+						  geometry:str='spherical',
+						  mass_weight:list=None) -> float:
+        """
+        Determines the half mass radius for a given property within the given halo.
 
-	Parameters
-	----------
-	property: string
-		Property to calculate the galaxy-integrated value for (D/Z, Z, M_gas, etc)
-	snap : snapshot/galaxy
-		Snapshot or Galaxy object from which particle data can be loaded
-	criteria : string, optional
-		Criteria for what gas/star particles to use for the given galaxy_integrated property and D/Z.
-		Default is all particles.
-		cold/neutral : Use only cold/neutral gas T<1000K
-		hot/ionized: Use only ionized/hot gas
-		molecular: Use only molecular gas
-	mask : array, optional
-		Array for masking data if you have your on mask in mind.
+        Parameters
+        ----------
+		ptype : int
+			Type of particle you want to calculate the half mass radius for.
+        halo : Halo
+            Halo object from which particle data can be loaded.
+        within_radius : float, optional
+            Maximum physical radius [kpc] you want to considered particles when calculating the half mass radius. 
+            Use this or rvir_frac to set the radius. This takes precedence over rvir_frac.
+        rvir_frac : float, optional
+            Maximum radius as a fraction of the virial radius you want to considered particles when calculating the half mass radius. 
+            Use this or within_radius to set the radius.
+        geometry : string, optional
+            The geometry you want to use given the maximum radius. Supports 'spherical','cylindrical', and 'scale_height'
+        mass_weight : list, optional
+            Weight for each particle mass. Use this when you want to mask certain particles or for things like neutral gas mass by supplying neutral mass fractions.
+            
+        Returns
+        -------
+        half_mass_radius: float
+            The half mass radius for the given particle type.
+
+        """
+
+        within_radius = halo.rvir*rvir_frac if within_radius is None else within_radius
+
+        part = halo.loadpart(ptype)
+        if part.npart == 0:
+            print("No particles of type %i in this halo, so no half mass radius can be calculated."%ptype)
+            return 0
+        if mass_weight is None:
+            mass_weight = np.full(part.npart,1)
+        coords = part.get_property('coords')
+        masses = part.get_property('M')*mass_weight
 
 
-	Returns
-	-------
-	val : double
-		Galaxy-integrated values for given property
+        edges = np.linspace(0, within_radius, 5000, endpoint=True)
 
-	"""
+        if geometry in ['cylindrical', 'scale_height']:
+            radii = np.sum(coords[:, :2] ** 2, axis=1) ** 0.5
+        elif geometry == 'spherical':
+            radii = np.sum(coords ** 2, axis=1) ** 0.5
 
-	if 'M_star' in property or 'sfr' in property or 'M_stellar' in property or 'M_form' in property:
-		ptype = 4
-	else:
-		ptype = 0
+        within_mask = radii <= within_radius
 
-	P = snap.loadpart(ptype)
-	if mask is None:
-		mask = get_particle_mask(ptype,snap,mask_criteria=criteria)
-	if np.all(mask==False):
-		return np.nan
-	prop_vals = P.get_property(property)[mask]
+        ## let's co-opt this method to calculate a scale height as well
+        if geometry == 'scale_height':
+            ## take the z-component
+            radii = np.abs(coords[:, -1])
+            edges = np.linspace(0, 10 * within_radius, 5000, endpoint=True)
 
-	# Galaxy-integrated masses are just total masses so just add them up
-	if 'M_' in property:
-		val = np.sum(prop_vals)
-	else:
-		weights = P.get_property('M')
-		weights=weights[mask]
-		prop_vals=prop_vals
-		val = math_utils.weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
-	return val
+        h, edges = np.histogram(
+            radii[within_mask],
+            bins=edges,
+            weights=masses[within_mask])
+        edges = edges[1:]
+        h /= 1.0 * np.sum(h)
+        cdf = np.cumsum(h)
+
+        # Find closest edge to the middle of the cdf
+        argmin = np.argmin((cdf - 0.5) ** 2)
+        half_mass_radius = edges[argmin]
+
+        return half_mass_radius
+
 
 
 
