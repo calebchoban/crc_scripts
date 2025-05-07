@@ -7,9 +7,10 @@ from .. import config
 from ..utils import coordinate_utils
 from ..utils.snap_utils import get_snap_file_name
 from ..utils.math_utils import approx_gas_temperature,get_stellar_ages,case_insen_compare
+from ..utils.grain_size import grain_size_utils as gsu
 
 class Particle:
-    """Particle object that loads and stores particle data for a given particle type. Can be used to get select properties from paticles."""
+    """Particle object that loads and stores particle data for a given particle type. Can be used to get select properties from particles."""
 
     def __init__(self, sp, ptype):
         """
@@ -32,7 +33,7 @@ class Particle:
         self.sp = sp
         self.k = -1 if sp.k==-1 else 0
         self.ptype = ptype
-
+        self.npart = self.sp.npart[ptype]
         self.time = sp.time
         if sp.cosmological:
             self.scale_factor = sp.scale_factor
@@ -69,10 +70,9 @@ class Particle:
 
         # class basic info
         sp = self.sp
-
         ptype = self.ptype
-        npart = sp.npart[ptype]
-        self.npart = npart
+        npart = self.npart
+
 
         # no particle in this ptype
         if (npart==0): return
@@ -360,7 +360,10 @@ class Particle:
 
         """
 
-        if self.orientated: return
+        # Nothing to do here if particles have already been orientated or there are no particles
+        if self.orientated or self.npart == 0: 
+            self.orientated=1
+            return
 
         if center_vel is not None and center_pos is not None:
             # convert to be relative to galaxy center [km / s]
@@ -409,7 +412,7 @@ class Particle:
 
         # PROPERTIES ALL PARTICLE HAVE
         # If it corresponds to a data key just pull that
-        # Except for Z since you usually only want Z_total
+        # Except for Z since we usually only want Z_total
         if case_insen_compare(property,data.keys()) and not case_insen_compare(property,'Z'):
             # Make case insensitive
             casefold_keys = [item.casefold() for item in data.keys()]
@@ -425,10 +428,6 @@ class Particle:
             prop_data = np.sum(data['position'][:, :2] ** 2, axis=1) ** 0.5
         elif case_insen_compare(property,['v','vel','velocity']):
             prop_data = data['velocity']
-
-        # If property is already in the snapshot data return it
-        if case_insen_compare(property,data.keys()):
-            return data[property].copy()
 
         #####
         # DERIVED PROPERTIES
@@ -519,39 +518,76 @@ class Particle:
                 elif case_insen_compare(property,'M_spec'):
                     prop_data = data['dust_spec']*data['mass'][:,np.newaxis]               
                 elif case_insen_compare(property,'M_sil'):
-                    prop_data = data['dust_spec'][:,0]*data['mass']
+                    if 'silicates' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('silicates')
+                        prop_data = data['dust_spec'][:,spec_index]*data['mass']
                 elif case_insen_compare(property,'M_carb'):
-                    prop_data = data['dust_spec'][:,1]*data['mass']
+                    if 'carbonaceous' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('carbonaceous')
+                        prop_data = data['dust_spec'][:,spec_index]*data['mass']
                 elif case_insen_compare(property,'M_SiC'):
-                    if self.sp.Flag_DustSpecies>2 and not self.sp.Flag_GrainSizeBins:
-                        prop_data = data['dust_spec'][:,2]*data['mass']
+                    if 'SiC' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('SiC')
+                        prop_data = data['dust_spec'][:,spec_index]*data['mass']
                 elif case_insen_compare(property,'M_iron'):
-                    if self.sp.Flag_DustSpecies>5:
-                        prop_data = (data['dust_spec'][:,3]+data['dust_spec'][:,5])*data['mass']
-                    elif self.sp.Flag_DustSpecies>2 and not self.sp.Flag_GrainSizeBins:
-                        prop_data = data['dust_spec'][:,3]*data['mass']
-                    elif self.sp.Flag_DustSpecies>2 and self.sp.Flag_GrainSizeBins:
-                        prop_data = data['dust_spec'][:,2]*data['mass']
+                    spec_data = np.zeros(self.npart)
+                    if 'iron' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron')
+                        spec_data = data['dust_spec'][:,spec_index]*data['mass']
+                    if 'iron inclusions' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron inclusions')
+                        spec_data += data['dust_spec'][:,spec_index]*data['mass']
+                    prop_data = spec_data
                 elif case_insen_compare(property,'M_ORes'):
-                    if self.sp.Flag_DustSpecies>=5:
-                        prop_data = data['dust_spec'][:,4]*data['mass']
+                    if 'O reservoir' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('O reservoir')
+                        prop_data = data['dust_spec'][:,spec_index]*data['mass']
+
                 elif case_insen_compare(property,'M_sil+'):
-                    prop_data = (data['dust_spec'][:,0]+np.sum(data['dust_spec'][:,2:],axis=1))*data['mass']
+                    spec_data = np.zeros(self.npart)
+                    if 'silicates' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('silicates')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    if 'iron' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    if 'iron inclusions' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron inclusions')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    if 'O reservoir' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('O reservoir')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    if 'silicates+iron' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('silicates+iron')
+                        spec_data = data['dust_spec'][:,spec_index]
+                    prop_data = spec_data*data['mass']
+
                 elif case_insen_compare(property,'dz_sil'):
-                    prop_data = data['dust_spec'][:,0]/data['dust_Z'][:,0]
+                    if 'silicates' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('silicates')
+                        prop_data = data['dust_spec'][:,spec_index]/data['dust_Z'][:,0]
                 elif case_insen_compare(property,'dz_carb'):
-                    prop_data = data['dust_spec'][:,1]/data['dust_Z'][:,0]
+                    if 'carbonaceous' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('carbonaceous')
+                        prop_data = data['dust_spec'][:,spec_index]/data['dust_Z'][:,0]
                 elif case_insen_compare(property,'dz_SiC'):
-                    if self.sp.Flag_DustSpecies>2:
-                        prop_data = data['dust_spec'][:,2]/data['dust_Z'][:,0]
+                    if 'SiC' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('SiC')
+                        prop_data = data['dust_spec'][:,spec_index]/data['dust_Z'][:,0]
                 elif case_insen_compare(property,'dz_iron'):
-                    if self.sp.Flag_DustSpecies>5:
-                        prop_data = (data['dust_spec'][:,3]+data['dust_spec'][:,5])/data['dust_Z'][:,0]
-                    elif self.sp.Flag_DustSpecies>2:
-                        prop_data = data['dust_spec'][:,3]/data['dust_Z'][:,0]
+                    spec_data = np.zeros(self.npart)
+                    if 'iron' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    if 'iron inclusions' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('iron inclusions')
+                        spec_data += data['dust_spec'][:,spec_index]
+                    prop_data = spec_data/data['dust_Z'][:,0]
                 elif case_insen_compare(property,'dz_ORes'):
-                    if self.sp.Flag_DustSpecies>=5:
-                        prop_data = data['dust_spec'][:,4]/data['dust_Z'][:,0]
+                    if 'O reservoir' in self.sp.dust_species:
+                        spec_index = self.sp.dust_species.index('O reservoir')
+                        prop_data = data['dust_spec'][:,spec_index]/data['dust_Z'][:,0]
+
                 elif case_insen_compare(property,'M_acc_dust'):
                     prop_data = data['dust_source'][:,0]*data['dust_Z'][:,0]*data['mass']
                 elif case_insen_compare(property,'M_SNeIa_dust'):
@@ -633,32 +669,62 @@ class Particle:
                     # Note all dust grain size distribution data is normalized by the total grain number
                     elif case_insen_compare(property,'N_grain_total'):
                         prop_data = np.sum(data['grain_bin_num'],axis=2)
-                    elif case_insen_compare(property,'dn/da'):
-                        # Gives normalized dn/da at the center of the grain bins 
-                        N_total = np.sum(data['grain_bin_num'],axis=2)
-                        prop_data = data['grain_bin_num']/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'dm/da'):
-                        # Gives a^4 dn/da at the center of the grain bins (note this is in the usual observer convention of mass probability density per log a dm/dloga where the extra factor of a comes from the 1/loga)
-                        N_total = np.sum(data['grain_bin_num'],axis=2)
-                        prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num']/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'sil_dn/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,0,np.newaxis]
-                        prop_data = data['grain_bin_num'][:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'sil_dm/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,0,np.newaxis]
-                        prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,0,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'carb_dn/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,1,np.newaxis]
-                        prop_data = data['grain_bin_num'][:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'carb_dm/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,1,np.newaxis]
-                        prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,1,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'iron_dn/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
-                        prop_data = data['grain_bin_num'][:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
-                    elif case_insen_compare(property,'iron_dm/da'):
-                        N_total = np.sum(data['grain_bin_num'],axis=2)[:,2,np.newaxis]
-                        prop_data = np.power(self.sp.Grain_Bin_Centers,4)*data['grain_bin_num'][:,3,:]/np.ediff1d(self.sp.Grain_Bin_Edges)/N_total;
+                    elif case_insen_compare(property,'M_grain_total'):
+                        prop_data = np.sum(gsu.get_grain_bin_mass(self),axis=2)                    
+                    elif case_insen_compare(property,['M_grain_small','M_grain_small_all','M_grain_small_sil','M_grain_small_carb','M_grain_small_iron']):
+                        grain_bin_mass = gsu.get_grain_bin_mass(self)
+                        # Small grains are assumed to be any grain bins with bins centers smaller than the logarithmic center of the grain size distribution
+                        small_bins = self.sp.Grain_Bin_Centers < np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
+                        # Mass for all dust
+                        if case_insen_compare(property,'M_grain_small'): small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=(1,2))
+                        # Mass for each species
+                        elif case_insen_compare(property,'M_grain_small_all'): small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=2)
+                        # Mass for each species
+                        else:
+                            if case_insen_compare(property,'M_grain_small_sil'): spec_index = self.sp.dust_species.index('silicates')
+                            elif case_insen_compare(property,'M_grain_small_carb'): spec_index = self.sp.dust_species.index('carbonaceous')
+                            elif case_insen_compare(property,'M_grain_small_iron'): spec_index = self.sp.dust_species.index('iron')
+                            small_grain_bin_mass = np.sum(grain_bin_mass[:,spec_index,small_bins],axis=1)
+                        prop_data = small_grain_bin_mass
+                    elif case_insen_compare(property,['M_grain_large','M_grain_large_all','M_grain_large_sil','M_grain_large_carb','M_grain_large_iron']):
+                        grain_bin_mass = gsu.get_grain_bin_mass(self)
+                        # Large grains are assumed to be any grain bins with bins centers larger than the logarithmic center of the grain size distribution
+                        large_bins = self.sp.Grain_Bin_Centers > np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
+                        # Mass for all dust
+                        if case_insen_compare(property,'M_grain_large'): large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=(1,2))
+                        # Mass for each species
+                        elif case_insen_compare(property,'M_grain_large_all'): large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=2)
+                        # Mass for each species
+                        # Mass for each species
+                        else:
+                            if case_insen_compare(property,'M_grain_large_sil'): spec_index = self.sp.dust_species.index('silicates')
+                            elif case_insen_compare(property,'M_grain_large_carb'): spec_index = self.sp.dust_species.index('carbonaceous')
+                            elif case_insen_compare(property,'M_grain_large_iron'): spec_index = self.sp.dust_species.index('iron')
+                            large_grain_bin_mass = np.sum(grain_bin_mass[:,spec_index,large_bins],axis=1)
+                        prop_data = large_grain_bin_mass
+                    elif case_insen_compare(property,['f_STL','f_STL_all','f_STL_sil','f_STL_carb','f_STL_iron']):
+                        # Small to large grain mass ratio
+                        grain_bin_mass = gsu.get_grain_bin_mass(self)
+                        large_bins = self.sp.Grain_Bin_Centers > np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
+                        small_bins = ~large_bins
+                        # Mass for all dust
+                        if case_insen_compare(property,'f_STL'): 
+                            large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=(1,2))
+                            small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=(1,2))
+                        # Mass for each species
+                        elif case_insen_compare(property,'f_STL_all'): 
+                            large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=2)
+                            small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=2)
+                        # Mass for each species
+                        else:
+                            if case_insen_compare(property,'f_STL_sil'):  spec_index = self.sp.dust_species.index('silicates')
+                            elif case_insen_compare(property,'f_STL_carb'): spec_index = self.sp.dust_species.index('carbonaceous')
+                            elif case_insen_compare(property,'f_STL_iron'): spec_index = self.sp.dust_species.index('iron')
+                            large_grain_bin_mass = np.sum(grain_bin_mass[:,spec_index,large_bins],axis=1)
+                            small_grain_bin_mass = np.sum(grain_bin_mass[:,spec_index,small_bins],axis=1)
+                        prop_data = small_grain_bin_mass / large_grain_bin_mass
+                    
+
 
         elif self.ptype in [1,2,3]:
             if case_insen_compare(property,['h','size','scale_length']):

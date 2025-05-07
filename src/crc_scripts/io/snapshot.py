@@ -9,7 +9,7 @@ from ..utils.snap_utils import check_snap_exist,get_snap_file_name
 class Snapshot:
     """Snapshot object that reads and stores snapshot data, and implements various methods to load halo and particle data."""
 
-    def __init__(self, sdir, snum, cosmological=True):
+    def __init__(self, sdir, snum, cosmological=None):
         """
         Construct a Snapshot instance.
 
@@ -21,7 +21,8 @@ class Snapshot:
             Number of snapshot file to be loaded
         cosmological : bool, optional
             Set if snapshot is from a cosmological or non-cosmological simulation. 
-            This can be determined from the header of new simulation snapshots but not old simulations.
+            For new simulations set to None since it can be determined from the snapshot header, but 
+            need to specify for old simulations.
 
         Returns
         -------
@@ -42,10 +43,9 @@ class Snapshot:
         f = h5py.File(snapfile, 'r')
         if 'ComovingIntegrationOn' in f['Header'].attrs.keys():
             self.cosmological=f['Header'].attrs['ComovingIntegrationOn']
-            if cosmological!=self.cosmological: 
-                print("WARNING: Snapshot is either cosmological and you specified it as non-cosmological or vice versa.")
-                print("Defaulting to snapshot.")
         else:
+            if cosmological is None:
+                raise ValueError("Snapshot does not have cosmological flag and cosmological is not specified.")
             self.cosmological=cosmological
         self.npart = f['Header'].attrs['NumPart_Total']
         self.time = f['Header'].attrs['Time']
@@ -93,6 +93,22 @@ class Snapshot:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Dust_Species',0)
         else:
             self.Flag_DustSpecies = f['Header'].attrs.get('Flag_Species', 0)
+
+        # Define the dust species in the snapshot and their relative indices 
+        self.dust_species = []
+        self.dust_species_indices = []
+        if self.Flag_DustSpecies == 2:
+            self.dust_species = ['silicates','carbonaceous']
+            self.dust_species_indices = [0,1]
+        if self.Flag_DustSpecies == 3:
+            self.dust_species += ['silicates','carbonaceous','iron']
+            self.dust_species_indices += [0,1,2]
+        if self.Flag_DustSpecies == 6:
+            self.dust_species += ['silicates','carbonaceous','SiC', 'iron', 'O reservoir', 'iron inclusions']
+            self.dust_species_indices += [0,1,2,3,4,5]
+
+
+
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
 
         # Check if there is info on the chemical composition of silicates since this can change
@@ -102,7 +118,6 @@ class Snapshot:
             self.Silicates_Element_Number = f['Header'].attrs['Silicates_Element_Number'] # The number of each element in silicates
 
         if f['Header'].attrs.get('ISMDustChem_Num_Grain_Size_Bins',0):
-            print("This snap has grain size bins!")
             self.Grain_Size_Max = f['Header'].attrs['ISMDustChem_Grain_Size_Max'] * config.cm_to_um
             self.Grain_Size_Min = f['Header'].attrs['ISMDustChem_Grain_Size_Min'] * config.cm_to_um
             self.Flag_GrainSizeBins = f['Header'].attrs['ISMDustChem_Num_Grain_Size_Bins']

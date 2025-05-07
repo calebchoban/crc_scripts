@@ -210,52 +210,6 @@ def get_particle_mask(ptype, snap, mask_criteria='all'):
 	return mask
 
 
-def calc_binned_grain_distribution(distrib, mask_criteria, snap):
-	"""
-	Calculates median and 16/84th-percentiles of given distribution for the given snapshot gas data. 
-	Currently only works for grain size distribution of gas particles.
-
-	Parameters
-	----------
-	distrib: string
-		Name of distribution to calculate median and percentiles for. Supported properties
-		'SPEC_grain_num_prob','SPEC_grain_mass_prob' w/ SPEC = sil, carb, SiC, or iron 
-	mask_criteria: string
-		Mask criteria you want to apply to the gas particle data (i.e hot, cold, etc)
-	snap : snapshot/galaxy
-		Snapshot or Galaxy object from which particle data can be loaded
-
-	Returns
-	-------
-	bin_vals: ndarray
-		Bins for grain size
-	mean_vals : ndarray
-		Median of distrib across grain size bins
-	std_vals : ndarray
-		16/84th-percentiles of distrib across grain size bins
-
-	"""
-
-	ptype = 0
-	P = snap.loadpart(ptype)
-	# All grain size bin are the same for all particles so use the center of the bins as the x data points
-	bin_nums = snap.Flag_GrainSizeBins
-	mean_vals = np.zeros(bin_nums)
-	# 16th and 84th percentiles
-	std_vals = np.zeros([bin_nums,2])
-
-	mask = get_particle_mask(ptype,snap,mask_criteria=mask_criteria)
-	bin_vals = snap.Grain_Bin_Centers
-	y_data =  P.get_property(distrib)[mask]
-	weights = P.get_property('M')[mask]
-
-	for i in range(bin_nums):
-		values = y_data[:,i]
-		mean_vals[i],std_vals[i,0],std_vals[i,1] = math_utils.weighted_percentile(values, weights=weights)
-
-	return bin_vals, mean_vals, std_vals
-
-
 def calc_binned_obs_property_vs_property(property1, property2, snap, r_max=20, pixel_res=2, bin_nums=10, prop_lims=None,
 										 mask_prop=None, prop1_criteria='all', prop2_criteria='all'):
 	"""
