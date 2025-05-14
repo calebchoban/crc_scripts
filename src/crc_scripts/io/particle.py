@@ -229,7 +229,7 @@ class Particle:
         length_conversion = ascale / hubble  # multiply for [kpc physical]
         time_conversion = 1 / hubble  # multiply by this for [Gyr]
         velocity_conversion = np.sqrt(ascale) # multiply for km/s
-        density_conversion = self.sp.UnitDensity_in_CGS * 1/hubble/(length_conversion**3)
+        density_conversion = (mass_conversion)/(length_conversion**3) * config.Msolar_to_g/(config.kpc_to_cm**3)  #  [M_sun / kpc^3] to [g/cm^3]
         internal_energy_conversion = self.sp.UnitVelocity_In_CGS**2
         
         if 'position' in self.data:
@@ -243,7 +243,7 @@ class Particle:
             self.data['mass'] *= mass_conversion
         if 'size' in self.data:
             self.data['size'] *= length_conversion
-            # size in snapshot is full extent of the kernal (radius of compact support)
+            # size in snapshot is full extent of the kernel (radius of compact support)
             # convert to mean inter-particle spacing = volume^(1/3)
             self.data['size'] *= (np.pi / 3) ** (1 / 3) / 2  # 0.5077
         if 'density' in self.data:

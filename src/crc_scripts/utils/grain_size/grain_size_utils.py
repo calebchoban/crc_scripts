@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 from scipy.interpolate import RegularGridInterpolator as RGI
-from scipy.integrate import quad
+from scipy.special import erfc,erf
 
 from ... import config
 from ...config import dust_species_properties
@@ -74,6 +74,136 @@ def get_grain_bin_slope(particle: Particle):
         grain_bin_slopes[:,spec_ind,:] = spec_bin_slopes
 
     return grain_bin_slopes
+
+
+
+
+
+def get_dust_accretion_rate(particles:Particle, 
+                            T_cutoff:float=300,
+                            scaling_factor:float=1.0, 
+                            bin_subsampling:int=1,
+                            factor_clumping:bool=True):
+    """
+    Determines the rate of the given grain process for gas particles based on their properties.
+    Parameters:
+    - particles (Particle): The particle object containing properties of the gas particles.
+    - T_cutoff (float): The temperature cutoff for accretion in Kelvin.
+    - scaling_factor (float): A scaling factor for the accretion rate.
+    - bin_subsampling (int): The number of subsampled points for each bin in the grain size distribution.
+    Set > 1 for small number of bins
+    - factor_clumping (bool): Whether to include the clumping factor in the calculation.
+
+    Returns:
+    - list: A list of accretion rates for each particle in the particles object.
+    """
+
+    # Get the physical properties of each particle needed to calcualte rates
+    npart = particles.npart
+    nH = particles.get_property('nH')
+    rho = particles.get_property('density')
+    temp = particles.get_property('temperature')
+    M = particles.get_property('mach_number')
+    b = 0.5 # turbulence mode ratio assumed to be constant in sims
+    sigma = np.sqrt(np.log(1+b*b*M*M))
+    metallicity = particles.get_property('Z_all')
+    dust_metallicity = particles.get_property('dust_Z')
+    dust_bin_numbers = particles.get_property('grain_bin_num')
+    dust_bin_slopes = particles.get_property('grain_bin_slope')
+
+    # Global bin properties
+    bin_num = particles.sp.Flag_GrainSizeBins
+    # All grain sizes need to be in units of cm
+    a_min = particles.sp.Grain_Size_Min * config.um_to_cm 
+    a_max = particles.sp.Grain_Size_Max * config.um_to_cm 
+    a_edges = particles.sp.Grain_Bin_Edges * config.um_to_cm 
+    a_centers = particles.sp.Grain_Bin_Centers * config.um_to_cm 
+
+    # The rate change in grain size for each bin for each gas particle
+    dadt = np.zeros([npart,bin_num])
+    # The rate change in mass for each bin for each gas particle
+    dMbin_dt = np.zeros([npart,bin_num])
+
+    # Need to step though each 
+    species = ['silicates' , 'carbonaceous', 'iron']
+    for i,spec in enumerate(species):
+        spec_bin_number = dust_bin_numbers[:,i]
+        spec_bin_slope = dust_bin_slopes[:,i]
+
+        # Physical properties of dust species needed for calculations
+        spec_props = dust_species_properties(spec)
+        key_element_index = spec_props['key_element_index']
+        dust_atomic_weight = spec_props['dust_atomic_weight']
+        key_mass = spec_props['key_mass']
+        key_num_atoms = spec_props['key_num_atoms'] 
+        rho_c = spec_props['rho_c']
+        nH_max = spec_props['nH_max']
+
+        # number abundance of key element factoring in depletion into dust
+        key_abundance = metallicity[:,key_element_index]
+        key_depl_frac = dust_metallicity[:,key_element_index]/metallicity[:,key_element_index]
+        key_num_dens = rho * key_abundance * (1 - key_depl_frac) / (key_mass*config.PROTONMASS)
+
+        # Determine clumping factor due to subresolved gas-dust clumping using assumed Mach number
+        if factor_clumping:
+            temp_clump_factor = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nH_max/nH)) / (np.sqrt(2)*sigma))))
+            eff_clump_factor = np.exp(sigma*sigma)/2 * erfc((3/2*sigma*sigma-np.log(nH_max/nH)) / (np.sqrt(2)*sigma))
+        else:
+            temp_clump_factor = np.ones(npart)
+            eff_clump_factor = np.ones(npart)
+
+        # Dense gas fraction used for calculating the effective Coulomb enhancement factor
+        # In dense molecular gas all gas-phase metals are neutral so no Coulomb enhancement
+        nH_dense = 1E3
+        fdense = 1/2+1/2*erf((sigma*sigma/2 - np.log(nH_dense/nH))/(np.sqrt(2)*sigma));
+
+        # Simple prescription for Coulomb enhancement in each grain size bin
+        Coulomb_enhancement = np.ones(len(a_centers))
+        if species == 'silicates':
+            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 10
+            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0.5
+        elif species == 'carbonaceous':
+            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 3
+            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0
+        elif species == 'iron':
+            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 20
+            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 1
+
+        Coulomb_enhancement = (1-fdense[:,np.newaxis])*Coulomb_enhancement[np.newaxis,:] + fdense[:,np.newaxis]
+
+        # Accretion occurs below a critical temperature
+        temp_mask = temp*temp_clump_factor <= T_cutoff
+        dadt_ref = 1.91249E-4 # reference change in grain size in cm/Gyr assuming purely hard-sphere type encounters
+        # Change in grain size for each bin in cm/Gyr
+        dadt[temp_mask] = scaling_factor * dadt_ref * (dust_atomic_weight / (key_num_atoms * np.sqrt(key_mass))) * key_num_dens[temp_mask,np.newaxis] * np.sqrt(temp[temp_mask,np.newaxis] * temp_clump_factor[temp_mask,np.newaxis]) / rho_c * Coulomb_enhancement[temp_mask] * eff_clump_factor[temp_mask,np.newaxis];
+
+        # Change in mass 
+        # For simplicity assume all grains in a bin have the same size as the bin center
+        for j in range(bin_num):
+            dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers[j],2) * spec_bin_number[:,j] # g/Gyr
+
+    # Convert to more useful units Msol/yr
+    dMbin_dt *= config.grams_to_Msolar / 1E9
+    dM_total = np.sum(dMbin_dt,axis=1) # total change in mass for each gas particle
+    return dM_total
+    
+
+        # Sputtering starts to become efficient above 10^5 K
+        # elif temp > 1E4:
+        #     b = 0.5
+        #     eff_clump_factor = (1+b*b*M*M)
+        #     logt = np.log10(temp)
+        #     # Determine sputtering erosion rate (um yr^-1 cm^3)
+        #     if species == 'silicates':
+        #         Y_sput = np.power(10,-226.95 + 127.94*logt - 29.920*np.power(logt,2) + 3.5354*np.power(logt,3) - 0.21055*np.power(logt,4) + 0.0050362*np.power(logt,5));
+        #     elif species == 'carbonaceous':
+        #         Y_sput = np.power(10,-226.85 + 133.44*logt - 32.572*np.power(logt,2) + 4.0057*np.power(logt,3) - 0.24747*np.power(logt,4) + 0.0061212*np.power(logt,5));
+        #     elif species == 'iron':
+        #         Y_sput = np.power(10,-156.88 +  82.110*logt - 18.238*np.power(logt,2) + 2.0692*np.power(logt,3) - 0.11933*np.power(logt,4) + 0.0027788*np.power(logt,5));
+
+        #     dadt = np.full(len(a_centers),-eff_clump_factor * nH * Y_sput * config.um_to_cm / 1E-9); # change to cm/Gyr
+        # else:
+        #     dadt = np.zeros(len(a_centers))
 
 
 
