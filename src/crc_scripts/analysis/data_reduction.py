@@ -184,8 +184,9 @@ class MultiSnapDataIO(object):
 
         # Check if object file has already been created if so load that first instead of creating a new one
         if not os.path.isfile(self.data_dirc+self.name) or overwrite:
-            self.reduced_data = MultiSnapReducedData(self.sdir, self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
-                                             self.star_subsamples,halohist_file=self.halohist_file)
+            self.reduced_data = MultiSnapReducedData(self.sdir, self.snap_nums, 
+                                self.gas_properties, self.gas_subsamples, self.star_properties, 
+                                self.star_subsamples,halohist_file=self.halohist_file)
             if self.setHalo:
                 self.reduced_data.set_halo(**self.halo_args)
             else:
@@ -194,8 +195,9 @@ class MultiSnapDataIO(object):
             with open(self.data_dirc+self.name, 'rb') as handle:
                 self.reduced_data = pickle.load(handle)
             print("Reduced data already exists for the given halo setup so loading that first....")
-            self.reduced_data.compare_and_update_props_and_snaps(self.snap_nums, self.gas_properties, self.gas_subsamples, self.star_properties, 
-                                             self.star_subsamples)
+            self.reduced_data.compare_and_update_props_and_snaps(self.snap_nums, 
+                    self.gas_properties, self.gas_subsamples, 
+                    self.star_properties, self.star_subsamples)
 
         if increment < 1:
             increment = 1
@@ -227,8 +229,34 @@ class MultiSnapDataIO(object):
 
         return
 
+    def get_stored_properties_and_subsamples(self):
+        """
+        Returns the gas/star properties and subsamples of the stored data in the reduced data object.
+        """
+        return list(self.reduced_data.gas_props), list(self.reduced_data.gas_subsamples), list(self.reduced_data.star_props), list(self.reduced_data.star_subsamples)
+
     # Returns the specified data or derived data field if possible
-    def get_data(self, prop, subsample='all',statistic='total',snap_nums=None):
+    def get_data(self, 
+                 prop:str, 
+                 subsample:str='all',
+                 snap_nums:list=None):
+        """
+        Returns the specified data or derived data field if possible.
+
+        Parameters
+        ----------
+        prop : str
+            Property to return. Must be one of the properties specified when creating the object.
+        subsample : str
+            Subsample to return. Must be one of the subsamples specified when creating the object.
+        snap_nums : list
+            List of snapshot numbers to return. If None, returns all snapshots.
+        
+        Return
+        -------
+        data : np.ndarray
+            The data for the specified property and subsample. If the property is not found, returns None.
+        """
 
         if not self.reduced_data.all_snaps_loaded:
             print("Warning: Not all snapshots have been loaded! All unloaded values will be zero!")
@@ -255,112 +283,6 @@ class MultiSnapDataIO(object):
             elif 'neutral' in prop: data = reduced_data['M_gas_neutral_all']/reduced_data['M_gas_all']
             elif 'coronal' in prop: data = reduced_data['M_gas_coronal']/reduced_data['M_gas_all']
             elif 'ionized' in prop: data = reduced_data['M_gas_ionzed']/reduced_data['M_gas_all']
-        elif 'source' in prop:
-            if 'total' in statistic:
-                if 'source_frac' in prop:
-                    data = [reduced_data['M_acc_dust_'+subsample],reduced_data['M_acc_dust_'+subsample],reduced_data['M_AGB_dust_'+subsample],
-                            reduced_data['M_SNeIa_dust_'+subsample]]/reduced_data['M_dust_'+subsample]
-                elif 'source_acc' in prop:
-                    data = reduced_data['M_acc_dust_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'source_SNeII' in prop:
-                    data = reduced_data['M_SNeII_dust_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'source_AGB' in prop:
-                    data = reduced_data['M_AGB_dust_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'source_SNeIa' in prop:
-                    data = reduced_data['M_SNeIa_dust_'+subsample]/reduced_data['M_dust_'+subsample]
-                else:
-                    print(prop," is not in the dataset.")
-                    return None
-                data[np.isnan(data)] = 0
-            elif 'median' in statistic:
-                if 'source_frac' in prop:
-                    data = [reduced_data['dz_acc_'+subsample],reduced_data['dz_SNeII_'+subsample],reduced_data['dz_AGB_'+subsample],
-                            reduced_data['dz_SNeIa_'+subsample]]
-                elif 'source_acc' in prop:
-                    data = reduced_data['dz_acc_'+subsample]
-                elif 'source_SNeII' in prop:
-                    data = reduced_data['dz_SNeII_'+subsample]
-                elif 'source_AGB' in prop:
-                    data = reduced_data['dz_AGB_'+subsample]
-                elif 'source_SNeIa' in prop:
-                    data = reduced_data['dz_SNeIa_'+subsample]
-                else:
-                    print(prop," is not in the dataset.")
-                    return None
-            else:
-                print(prop," is not in the dataset.")
-                return None
-        elif 'spec' in prop:
-            if 'total' in statistic:
-                if 'spec_frac' in prop:
-                    if 'spec_frac+'==prop:
-                        data = [reduced_data['M_sil_'+subsample]+reduced_data['M_SiC_'+subsample]+reduced_data['M_iron_'+subsample]+\
-                                reduced_data['M_ORes_'+subsample],reduced_data['M_carb_'+subsample],]/reduced_data['M_dust_'+subsample]
-                    else:
-                        data = [reduced_data['M_sil_'+subsample],reduced_data['M_carb_'+subsample],reduced_data['M_SiC_'+subsample],
-                                reduced_data['M_iron_'+subsample],reduced_data['M_ORes_'+subsample]]/reduced_data['M_dust_'+subsample]
-                elif 'spec_sil' in prop:
-                    data = reduced_data['M_sil_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'spec_carb' in prop:
-                    data = reduced_data['M_carb_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'spec_SiC' in prop:
-                    data = reduced_data['M_SiC_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'spec_iron' in prop and 'spec_ironIncl' not in prop:
-                    data = reduced_data['M_iron_'+subsample]/reduced_data['M_dust_'+subsample]
-                elif 'spec_ORes' in prop:
-                    data = reduced_data['M_ORes_'+subsample]/reduced_data['M_dust_'+subsample]
-                else:
-                    print(prop," is not in the dataset.")
-                    return None
-                data[np.isnan(data)] = 0
-            elif 'median' in statistic:
-                if 'spec_frac' in prop:
-                    if 'spec_frac+'==prop:
-                        data = [reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+reduced_data['dz_iron_'+subsample]+\
-                                reduced_data['dz_ORes_'+subsample],reduced_data['dz_carb_'+subsample]]
-                    else:
-                        data = [reduced_data['dz_sil_'+subsample],reduced_data['dz_carb_'+subsample],reduced_data['dz_SiC_'+subsample],
-                            reduced_data['dz_iron_'+subsample],reduced_data['dz_ORes_'+subsample]]
-                elif 'spec_sil' in prop:
-                    data = reduced_data['dz_sil_'+subsample]
-                elif 'spec_carb' in prop:
-                    data = reduced_data['dz_carb_'+subsample]
-                elif 'spec_SiC' in prop:
-                    data = reduced_data['dz_SiC_'+subsample]
-                elif 'spec_iron' in prop and 'spec_ironIncl' not in prop:
-                    data = reduced_data['dz_iron_'+subsample]
-                elif 'spec_ORes' in prop:
-                    data = reduced_data['dz_ORes_'+subsample]
-                elif 'spec_sil+' in prop:
-                    data = reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+\
-                            reduced_data['dz_iron_'+subsample]+reduced_data['dz_ORes_'+subsample]
-                else:
-                    print(prop," is not in the dataset.")
-                    return None
-            else:
-                print(prop," is not in the dataset.")
-                return None
-        elif prop in ['C/H_dust','O/H_dust','Mg/H_dust','Si/H_dust','Fe/H_dust']:
-            base_name = prop.split('_')[0]
-            total = reduced_data[base_name+'_'+subsample]
-            gas = reduced_data[base_name+'_gas_'+subsample]
-            data = 12 + np.log10(np.power(10,total-12) - np.power(10,gas-12))
-        elif prop in ['Z_C_dust','Z_O_dust','Z_Mg_dust','Z_Si_dust','Z_Fe_dust']:
-            base_name = prop.split('_')[0] + '_' + prop.split('_')[1]
-            total = reduced_data[base_name+'_'+subsample]
-            gas = reduced_data[base_name+'_gas_'+subsample]
-            data = total-gas
-        elif 'Si/C' in prop:
-            if 'total' in statistic:
-                data = (reduced_data['M_sil_'+subsample]+reduced_data['M_SiC_'+subsample]+ \
-                        reduced_data['M_iron_'+subsample]+reduced_data['M_ORes_'+subsample])/reduced_data['M_carb_'+subsample]
-            elif 'median' in statistic:
-                data = (reduced_data['dz_sil_'+subsample]+reduced_data['dz_SiC_'+subsample]+\
-                            reduced_data['dz_iron_'+subsample]+reduced_data['dz_ORes_'+subsample]) \
-                            / reduced_data['dz_carb_'+subsample]
-            else:
-                print(prop," with subsample",subsample, "is not in the dataset with given statistic.")
-                return None
         else:
             print(prop," is not in the dataset.")
             return None
