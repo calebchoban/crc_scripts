@@ -76,13 +76,10 @@ def get_grain_bin_slope(particle: Particle):
     return grain_bin_slopes
 
 
-
-
-
 def get_dust_accretion_rate(particles:Particle, 
                             T_cutoff:float=300,
                             scaling_factor:float=1.0, 
-                            bin_subsampling:int=1,
+                            bin_subsamples:int=1,
                             factor_clumping:bool=True):
     """
     Determines the rate of the given grain process for gas particles based on their properties.
@@ -90,7 +87,7 @@ def get_dust_accretion_rate(particles:Particle,
     - particles (Particle): The particle object containing properties of the gas particles.
     - T_cutoff (float): The temperature cutoff for accretion in Kelvin.
     - scaling_factor (float): A scaling factor for the accretion rate.
-    - bin_subsampling (int): The number of subsampled points for each bin in the grain size distribution.
+    - bin_subsamples(int): The number of subsampled points for each bin in the grain size distribution.
     Set > 1 for small number of bins
     - factor_clumping (bool): Whether to include the clumping factor in the calculation.
 
@@ -180,31 +177,123 @@ def get_dust_accretion_rate(particles:Particle,
         # Change in mass 
         # For simplicity assume all grains in a bin have the same size as the bin center
         for j in range(bin_num):
-            dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers[j],2) * spec_bin_number[:,j] # g/Gyr
+            # Assume all grains in a bin have the same size as the bin center
+            if bin_subsamples==1: dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers[j],2) * spec_bin_number[:,j] # g/Gyr
+            # Subsample each bin into M linearly spaced points. Using bin number and slope, find number of grains in subsample
+            # and assume they have a single size equal to the subsample center
+            else:
+                # For subsampling, we need to sum over all the subsampled points in the bin
+                a_edges_in_bin = np.linspace(a_edges[j], a_edges[j+1], bin_subsamples+1)
+                size_diff_in_bin = a_edges_in_bin[1:] - a_edges_in_bin[:-1]
+                a_centers_in_bin = (a_edges_in_bin[1:] + a_edges_in_bin[:-1])/2
+                for k in range(bin_subsamples):
+                    number_in_subsample = (spec_bin_number[:,j]/(a_edges[j+1]-a_edges[j]) + spec_bin_slope[:,j]*a_centers[j]) * (size_diff_in_bin[k]) + spec_bin_slope[:,j]*(np.square(a_edges_in_bin[k+1])-np.square(a_edges_in_bin[k]))/2
+                    dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers_in_bin[k],2) * number_in_subsample # g/Gyr
 
     # Convert to more useful units Msol/yr
     dMbin_dt *= config.grams_to_Msolar / 1E9
     dM_total = np.sum(dMbin_dt,axis=1) # total change in mass for each gas particle
     return dM_total
-    
+
+
+
+def get_dust_sputtering_rate(particles:Particle, 
+                             T_cutoff:float=1E4,
+                             scaling_factor:float=1.0, 
+                             bin_subsamples:int=1,
+                             factor_clumping:bool=True):
+    """
+    Determines the rate of the given grain process for gas particles based on their properties.
+    Parameters:
+    - particles (Particle): The particle object containing properties of the gas particles.
+    - T_cutoff (float): The temperature cutoff for accretion in Kelvin.
+    - scaling_factor (float): A scaling factor for the accretion rate.
+    - bin_subsamples (int): The number of subsampled points for each bin in the grain size distribution.
+    Set > 1 for small number of bins
+    - factor_clumping (bool): Whether to include the clumping factor in the calculation.
+
+    Returns:
+    - list: A list of accretion rates for each particle in the particles object.
+    """
+
+    # Get the physical properties of each particle needed to calculate rates
+    npart = particles.npart
+    nH = particles.get_property('nH')
+    rho = particles.get_property('density')
+    temp = particles.get_property('temperature')
+    M = particles.get_property('mach_number')
+    b = 0.5 # turbulence mode ratio assumed to be constant in sims
+    sigma = np.sqrt(np.log(1+b*b*M*M))
+    metallicity = particles.get_property('Z_all')
+    dust_metallicity = particles.get_property('dust_Z')
+    dust_bin_numbers = particles.get_property('grain_bin_num')
+    dust_bin_slopes = particles.get_property('grain_bin_slope')
+
+    # Global bin properties
+    bin_num = particles.sp.Flag_GrainSizeBins
+    # All grain sizes need to be in units of cm
+    a_min = particles.sp.Grain_Size_Min * config.um_to_cm 
+    a_max = particles.sp.Grain_Size_Max * config.um_to_cm 
+    a_edges = particles.sp.Grain_Bin_Edges * config.um_to_cm 
+    a_centers = particles.sp.Grain_Bin_Centers * config.um_to_cm 
+
+    # The rate change in grain size for each bin for each gas particle
+    dadt = np.zeros([npart,bin_num])
+    # The rate change in mass for each bin for each gas particle
+    dMbin_dt = np.zeros([npart,bin_num])
+
+    # Need to step though each 
+    species = ['silicates' , 'carbonaceous', 'iron']
+    for i,spec in enumerate(species):
+        spec_bin_number = dust_bin_numbers[:,i]
+        spec_bin_slope = dust_bin_slopes[:,i]
+
+        # Physical properties of dust species needed for calculations
+        spec_props = dust_species_properties(spec)
+        rho_c = spec_props['rho_c']
+
+        # Determine clumping factor due to subresolved gas-dust clumping using assumed Mach number
+        if factor_clumping:
+            temp_clump_factor = 1/(1+b*b*M*M)
+            eff_clump_factor = (1+b*b*M*M)
+        else:
+            temp_clump_factor = np.ones(npart)
+            eff_clump_factor = np.ones(npart)
 
         # Sputtering starts to become efficient above 10^5 K
-        # elif temp > 1E4:
-        #     b = 0.5
-        #     eff_clump_factor = (1+b*b*M*M)
-        #     logt = np.log10(temp)
-        #     # Determine sputtering erosion rate (um yr^-1 cm^3)
-        #     if species == 'silicates':
-        #         Y_sput = np.power(10,-226.95 + 127.94*logt - 29.920*np.power(logt,2) + 3.5354*np.power(logt,3) - 0.21055*np.power(logt,4) + 0.0050362*np.power(logt,5));
-        #     elif species == 'carbonaceous':
-        #         Y_sput = np.power(10,-226.85 + 133.44*logt - 32.572*np.power(logt,2) + 4.0057*np.power(logt,3) - 0.24747*np.power(logt,4) + 0.0061212*np.power(logt,5));
-        #     elif species == 'iron':
-        #         Y_sput = np.power(10,-156.88 +  82.110*logt - 18.238*np.power(logt,2) + 2.0692*np.power(logt,3) - 0.11933*np.power(logt,4) + 0.0027788*np.power(logt,5));
+        temp_mask = temp*temp_clump_factor > T_cutoff
+        logt = np.log10(temp*temp_clump_factor)
+        # Determine sputtering erosion rate (um yr^-1 cm^3)
+        if spec == 'silicates':
+            Y_sput = np.power(10,-226.95 + 127.94*logt - 29.920*np.power(logt,2) + 3.5354*np.power(logt,3) - 0.21055*np.power(logt,4) + 0.0050362*np.power(logt,5));
+        elif spec == 'carbonaceous':
+            Y_sput = np.power(10,-226.85 + 133.44*logt - 32.572*np.power(logt,2) + 4.0057*np.power(logt,3) - 0.24747*np.power(logt,4) + 0.0061212*np.power(logt,5));
+        elif spec == 'iron':
+            Y_sput = np.power(10,-156.88 +  82.110*logt - 18.238*np.power(logt,2) + 2.0692*np.power(logt,3) - 0.11933*np.power(logt,4) + 0.0027788*np.power(logt,5));
 
-        #     dadt = np.full(len(a_centers),-eff_clump_factor * nH * Y_sput * config.um_to_cm / 1E-9); # change to cm/Gyr
-        # else:
-        #     dadt = np.zeros(len(a_centers))
+        dadt[temp_mask] = (- scaling_factor * eff_clump_factor * nH * Y_sput * config.um_to_cm / 1E-9)[temp_mask,np.newaxis] # change to cm/Gyr
 
+
+        # Change in mass 
+        # For simplicity assume all grains in a bin have the same size as the bin center
+        for j in range(bin_num):
+            # Assume all grains in a bin have the same size as the bin center
+            if bin_subsamples==1: dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers[j],2) * spec_bin_number[:,j] # g/Gyr
+            # Subsample each bin into M linearly spaced points. Using bin number and slope, find number of grains in subsample
+            # and assume they have a single size equal to the subsample center
+            else:
+                # For subsampling, we need to sum over all the subsampled points in the bin
+                a_edges_in_bin = np.linspace(a_edges[j], a_edges[j+1], bin_subsamples+1)
+                size_diff_in_bin = a_edges_in_bin[1:] - a_edges_in_bin[:-1]
+                a_centers_in_bin = (a_edges_in_bin[1:] + a_edges_in_bin[:-1])/2
+                for k in range(bin_subsamples):
+                    number_in_subsample = (spec_bin_number[:,j]/(a_edges[j+1]-a_edges[j]) + spec_bin_slope[:,j]*a_centers[j]) * (size_diff_in_bin[k]) + spec_bin_slope[:,j]*(np.square(a_edges_in_bin[k+1])-np.square(a_edges_in_bin[k]))/2
+                    dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers_in_bin[k],2) * number_in_subsample # g/Gyr
+
+    # Convert to more useful units Msol/yr
+    dMbin_dt *= config.grams_to_Msolar / 1E9
+    dM_total = np.sum(dMbin_dt,axis=1) # total change in mass for each gas particle
+    return dM_total
 
 
 def get_grain_size_distribution(snap: Snapshot,
