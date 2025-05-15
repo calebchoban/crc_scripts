@@ -1,3 +1,11 @@
+
+# Need this to avoid circular imports during type checking
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...io.snapshot import Snapshot
+    from ...io.particle import Particle
+
 import numpy as np
 import pandas as pd
 import os
@@ -6,8 +14,6 @@ from scipy.special import erfc,erf
 
 from ... import config
 from ...config import dust_species_properties
-from ...io.snapshot import Snapshot
-from ...io.particle import Particle
 from ..math_utils import weighted_percentile
 
 

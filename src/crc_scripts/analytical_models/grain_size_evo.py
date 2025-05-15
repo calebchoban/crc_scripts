@@ -1,3 +1,10 @@
+# Need this to avoid circular imports during type checking
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...io.particle import Particle
+
+
 import numpy as np
 from scipy.integrate import quad
 from scipy.interpolate import interp1d,CubicSpline
