@@ -71,14 +71,20 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 
 
 
-def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None, func_override=None):
+def calc_phase_hist_data(property:str|list, 
+						 snap:Snapshot | Halo, 
+						 bin_nums:int=100, 
+						 nH_lims:list=None, 
+						 T_lims:list=None, 
+						 bin_func:str=None, 
+						 factor_clumping:bool=False):
 	"""
 	Calculate the 2D histogram for the given property and data from snapshot particle
 
 	Parameters
 	----------
-	property : string
-		Name of property to calculate phase plot for
+	property : string or list
+		Name of property to calculate phase plot for or an array of the property values for each particle
 	snap : snapshot/galaxy
 		Snapshot or Galaxy object from which particle data can be loaded
 	bin_nums: int, optional
@@ -87,8 +93,11 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 		Shape (2) limits for nH density axis
 	T_lims : list, optional
 		Shape (2) limits for temperature axis
-	func_override: function, optional
-		Specify function to use for calculating values in each pixel instead of default sum/mean function usuually used.
+	bin_func: str, optional
+		Specify function to use for calculating values in each pixel instead of default sum/mean function usually used.
+	factor_clumping : bool, optional
+		Specify whether nH and T should account for sub-resolved clumping. This replaces nH with nH_rms and T with T_eff which 
+		factor in the local clumping factor. 
 
 	Returns
 	-------
@@ -99,8 +108,12 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 
 	# Set up x and y data, limits, and bins
 	G = snap.loadpart(0)
-	nH_data = G.get_property('nH')
-	T_data = G.get_property('T')
+	if not factor_clumping:
+		nH_data = G.get_property('nH')
+		T_data = G.get_property('T')
+	else:
+		nH_data = G.get_property('nH_rms')
+		T_data = G.get_property('T_eff')
 
 	# Get bins for each axis
 	nH_bin_lims = config.get_prop_limits('nH') if nH_lims is None else nH_lims
@@ -114,18 +127,28 @@ def calc_phase_hist_data(property, snap, bin_nums=100, nH_lims=None, T_lims=None
 	else:
 		T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)
 
-	if func_override is None:
+
+	# If a binning function is not given, try to guess for property names
+	if bin_func is None and isinstance(property, str):
 		if 'M_' in property:
+			bin_func = 'sum'
 			func = np.sum
 		else:
+			bin_func = 'median'
 			func = np.mean
+	elif bin_func == 'sum':
+		func = np.sum
+	elif bin_func == 'median':
+		func = np.median
 	else:
-		func = func_override
-	bin_data = G.get_property(property)
+		raise ValueError("bin_func must be 'sum' or 'median' if property is a list.")
+
+	if isinstance(property, str): bin_data = G.get_property(property)
+	else: bin_data = property
 	phase_data = binned_statistic_2d(nH_data, T_data, bin_data, statistic=func, bins=[nH_bins, T_bins])
-	# Need to catch case were np.sum is given empty array which will return zero
-	if 'M_' in property:
-		phase_data.statistic[phase_data.statistic<=0] = np.nan
+	# Set any bin with no particles to NaN to kep track of empty bins
+	count_data = binned_statistic_2d(nH_data, T_data, bin_data, statistic='count', bins=[nH_bins, T_bins])
+	phase_data.statistic[count_data.statistic==0] = np.nan
 
 	return phase_data
 

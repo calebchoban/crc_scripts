@@ -466,6 +466,14 @@ class Particle:
                     nmax = 1E4; nH = data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
                     sigma = np.sqrt(np.log(1+b*b*M*M))
                     prop_data = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nmax/nH)) / (np.sqrt(2)*sigma))))
+            elif case_insen_compare(property,'nH_rms'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = (1+b*b*M*M) * data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+            elif case_insen_compare(property,'T_eff'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = data['temperature']/(1+b*b*M*M) 
             
             # METALLICITY AND ABUNDANCES
             elif case_insen_compare(property,'Z'):

@@ -227,6 +227,35 @@ class Figure(object):
 
 
     def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
+        """
+        Plots a 2D histogram of the given data. This is a wrapper for the matplotlib pcolormesh function.
+
+        Parameters
+        ----------
+        axis_num : int
+            The number of the axis to plot the 2D histogram.
+        z_prop : str
+            Property for the z/color axis.
+        X : ndarray (N,M)
+            X cooridnates for each pixel.
+        Y : ndarray (N,M)
+            Y coordinates for each pixel.
+        Z : ndarray (N,M)
+            Z values for each pixel.
+        cmap : str
+            Colormap to use for the histogram.
+        z_lim : list   
+            Set color map limits. Overrides default choices.
+        z_log : bool
+            Set color map to log scale. Overrides default choices.
+        label : str, optional
+            Add label in top right corner.
+        rescale_font : float
+            Factor you want to rescale text font size by.
+        kwargs : dict
+            Additional arguments for pcolormesh function.
+        """
+
         default_kwargs = {
             'zorder': 1}
         for kwarg in default_kwargs:
@@ -236,13 +265,16 @@ class Figure(object):
         z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
         z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
 
-        if z_log:
-            norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
-        else:
-            norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+        # Set colormap norm if not provided
+        if 'norm' not in kwargs:
+            if z_log:
+                norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+            else:
+                norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+            kwargs['norm'] = norm
 
         axis = self.axes[axis_num]
-        img = axis.pcolormesh(X, Y, Z, cmap=cmap, norm=norm, **kwargs)
+        img = axis.pcolormesh(X, Y, Z, cmap=cmap, **kwargs)
         axis.autoscale('tight')
         self.axis_artists[axis_num] += [img]
 
