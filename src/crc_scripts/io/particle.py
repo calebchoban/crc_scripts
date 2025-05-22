@@ -315,6 +315,7 @@ class Particle:
         if particle.npart == 0: return
         for prop in self.data.keys():
             self.data[prop] = np.append(self.data[prop],particle.data[prop],axis=0)
+        self.npart += particle.npart
 
         
 
@@ -680,7 +681,7 @@ class Particle:
                     elif case_insen_compare(property,'M_grain_total'):
                         prop_data = np.sum(gsu.get_grain_bin_mass(self),axis=2)                    
                     elif case_insen_compare(property,['M_grain_small','M_grain_small_all','M_grain_small_sil','M_grain_small_carb','M_grain_small_iron']):
-                        grain_bin_mass = gsu.get_grain_bin_mass(self)
+                        grain_bin_mass = data['grain_bin_mass']
                         # Small grains are assumed to be any grain bins with bins centers smaller than the logarithmic center of the grain size distribution
                         small_bins = self.sp.Grain_Bin_Centers < np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
                         # Mass for all dust
