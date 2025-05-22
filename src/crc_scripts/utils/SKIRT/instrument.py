@@ -1,6 +1,6 @@
 from astropy import units as u
 from astropy.io import fits
-from astropy.visualization import make_lupton_rgb, LogStretch, ManualInterval
+from astropy.visualization import make_lupton_rgb, make_rgb, LogStretch, LuptonAsinhStretch, AsinhStretch, ManualInterval
 from astropy.convolution import convolve_fft,Gaussian2DKernel
 from astropy.nddata import block_reduce
 import numpy as np
@@ -295,13 +295,14 @@ class SKIRT_Instrument(object):
             img.save(output_name)
     
 
-    def make_lupton_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, minimum=0, label=None, output_name=None, **kwargs):
+    def make_lupton_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, min_percentile=0, max_percentile=100, label=None, output_name=None, **kwargs):
         """
-        Generate a log-scaled RGB image using Lupton's RGB algorithm.
+        Generate an RGB image using Lupton's RGB algorithm which keeps the true color of each pixel.
         Parameters:
         - rgb_filters (list): List of three filter names to use for the red, green, and blue channels.
         - max_frac (float): Fraction of maximum pixel brightness for max limit of scaling.
-        - stretch (int): Stretch factor for the log scaling.
+        - stretch (float): Stretch factor for arcsinh. Sets where you want the color to be linear. Typically want this to be the brightness point at which the cumulative distribution function of pixel brightness rapidly increases.
+        - Q (float): Q parameter for arcsinh. Sets how bright the brightest pixels are. Smaller makes the brightest pixels brighter.
         - label (str): Label for the image.
         - output_name (str): Output file name for the image.
         Returns:
@@ -317,11 +318,24 @@ class SKIRT_Instrument(object):
             g_frame = self.get_filter_image(rgb_filters[1], psf=psf, **kwargs)
             b_frame = self.get_filter_image(rgb_filters[2], psf=psf, **kwargs)
 
+        if not isinstance(max_percentile, list):
+            max_percentile = [max_percentile]*3
+        maximums = [np.percentile(r_frame[r_frame>0].value,max_percentile[0]),np.percentile(g_frame[g_frame>0].value,max_percentile[1]),np.percentile(b_frame[b_frame>0].value,max_percentile[2])]
+        if not isinstance(min_percentile, list):
+            min_percentile = [min_percentile]*3
+        minimums = [np.percentile(r_frame[r_frame>0].value,min_percentile[0]),np.percentile(g_frame[g_frame>0].value,min_percentile[1]),np.percentile(b_frame[b_frame>0].value,min_percentile[2])]
+
+        intervals = [ManualInterval(vmin=minimums[0], vmax=maximums[0]),ManualInterval(vmin=minimums[1], vmax=maximums[1]),ManualInterval(vmin=minimums[2], vmax=maximums[2])]
+
+        if self.verbose:
+            print("RGB maximum values", maximums)
+            print("RGB minimum values", minimums)
+
         RGB_image = make_lupton_rgb(
             r_frame,g_frame,b_frame,
             stretch=stretch,
             Q=Q,
-            minimum=minimum,
+            interval=intervals,
         )
 
         img = Projection(1)
@@ -342,9 +356,9 @@ class SKIRT_Instrument(object):
         rgb_filters : list of strings
             List of 3 filters to use for the RGB image.
         Q_lims : list of floats, optional
-            The range between the min and max Q parameter.
+            The range between the min and max Q parameter binned in linear space.
         stretch_lims : list of floats, optional
-            The range between the min and max stretch parameter.
+            The range between the min and max stretch parameter binned in log space.
         bins : int, optional
             Number of bins between Q and stretch limits.
         output_name : string, optional
@@ -365,7 +379,7 @@ class SKIRT_Instrument(object):
             g_frame = self.get_filter_image(rgb_filters[1], psf=psf, **kwargs)
             b_frame = self.get_filter_image(rgb_filters[2], psf=psf, **kwargs)
 
-        stretchs=np.linspace(stretch_lims[0], stretch_lims[1], bins)
+        stretchs=np.logspace(np.log10(stretch_lims[0]), np.log10(stretch_lims[1]), bins)
         Qs=np.linspace(Q_lims[0], Q_lims[1], bins)
 
         N=bins*bins
@@ -383,13 +397,66 @@ class SKIRT_Instrument(object):
                     Q=Q,
                 )
 
-                label='Q=%1.1f, stretch=%1.1f'%(Q,stretch)
+                label='Q=%1.1f, stretch=%1.1e'%(Q,stretch)
                 img.plot_image(i*bins+j, RGB_image, label = label)
         
         if output_name is not None:
             img.save(output_name)
 
         return
+
+
+    def make_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, min_percentile=0, max_percentile=100, label=None, output_name=None, **kwargs):
+        """
+        Generate an RGB image. This will not keep the true color of pixels above the maximum specified brightness, but can be used to emphasize certain colors unlike the Lupton scheme.
+        Parameters:
+        - rgb_filters (list): List of three filter names to use for the red, green, and blue channels.
+        - max_frac (float): Fraction of maximum pixel brightness for max limit of scaling.
+        - stretch (float): Stretch factor for arcsinh. Sets where you want the color to be linear. Typically want this to be the brightness point at which the cumulative distribution function of pixel brightness rapidly increases.
+        - Q (float): Q parameter for arcsinh. Sets how bright the brightest pixels are. Smaller makes the brightest pixels brighter.
+        - label (str): Label for the image.
+        - output_name (str): Output file name for the image.
+        Returns:
+        - None
+        """
+        if psf is not None:
+            if isinstance(psf, list):
+                r_frame = self.get_filter_image(rgb_filters[0], psf=psf[0], **kwargs)
+                g_frame = self.get_filter_image(rgb_filters[1], psf=psf[1], **kwargs)
+                b_frame = self.get_filter_image(rgb_filters[2], psf=psf[2], **kwargs)
+        else:
+            r_frame = self.get_filter_image(rgb_filters[0], psf=psf, **kwargs)
+            g_frame = self.get_filter_image(rgb_filters[1], psf=psf, **kwargs)
+            b_frame = self.get_filter_image(rgb_filters[2], psf=psf, **kwargs)
+
+        if not isinstance(max_percentile, list):
+            max_percentile = [max_percentile]*3
+        maximums = [np.percentile(r_frame[r_frame>0].value,max_percentile[0]),np.percentile(g_frame[g_frame>0].value,max_percentile[1]),np.percentile(b_frame[b_frame>0].value,max_percentile[2])]
+        if not isinstance(min_percentile, list):
+            min_percentile = [min_percentile]*3
+        minimums = [np.percentile(r_frame[r_frame>0].value,min_percentile[0]),np.percentile(g_frame[g_frame>0].value,min_percentile[1]),np.percentile(b_frame[b_frame>0].value,min_percentile[2])]
+
+        intervals = [ManualInterval(vmin=minimums[0], vmax=maximums[0]),ManualInterval(vmin=minimums[1], vmax=maximums[1]),ManualInterval(vmin=minimums[2], vmax=maximums[2])]
+
+        if self.verbose:
+            print("RGB maximum values", maximums)
+            print("RGB minimum values", minimums)
+
+        stretch=LuptonAsinhStretch(stretch=stretch, Q=Q)
+
+        RGB_image = make_rgb(
+            r_frame,g_frame,b_frame,
+            stretch=stretch,
+            interval=intervals,
+        )
+
+        img = Projection(1)
+        img.set_image_axis(0)
+
+        img.plot_image(0, RGB_image, fov_kpc=self.fov_physical.value, fov_arcsec=self.fov_angle.value, label = label)
+
+        if output_name is not None:
+            img.save(output_name)
 
 
     def make_rgb_hist(self, rgb_filters, psf = None, output_name = None, **kwargs):
