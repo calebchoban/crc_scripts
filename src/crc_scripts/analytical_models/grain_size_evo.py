@@ -441,7 +441,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
                         mcoag_kj = m_coagulation(ai_lower, ai_upper, ak_center, aj_center, vkjrel, v_coag, rho_c)
                         injection_term += vkjrel * mcoag_kj * int_I_kj
 
-            dM_dt[i] = eff_clumping_factor * np.pi * (-removal_term + injection_term)
+            dM_dt[i] = eff_clumping_factor / V_cell * np.pi * (-removal_term + injection_term)
 
 
         dM = dM_dt*dt_cycle/V_cell
@@ -504,15 +504,23 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
 
 
 
-def grain_relative_velocity(a1, a2, rho_c, ISM_phase, scheme='HC23'):
+def grain_relative_velocity(a1:float,
+                            a2:float, 
+                            rho_c:float, 
+                            ISM_phase:str=None, 
+                            scheme='HC23',
+                            gas_particles:Particle=None,
+                            fixed_impact_angle:bool=True):
     """
-    Calculate the relative velocity between two grains.
+    Calculate the relative velocity between two grains. 
 
     Parameters:
     - a1 (float): Size of the first grain in centimeters.
     - a2 (float): Size of the second grain in centimeters.
-    - vrel_case (str): Case determing environment for calculating the relative velocity. Possible values are 'simple' and 'WIM'.
-    - rho_c (float, optional): Density of dust material in grams per cubic centimeter. Default is 1.
+    - rho_c (float): Density of the grains in grams per cubic centimeter.
+    - ISM_phase (str): The interstellar medium phase. Valid options are 'HIM', 'WIM', 'CNM', and 'MC'.
+    - scheme (str): The scheme to use for calculating the relative velocity. Valid options are 'HA19', 'HC23', and 'Li21'.
+    - gas_particles (Particle): A gas Particle object. If provided, it will override ISM_phase, and use the local properties of each gas particle.
 
     Returns:
     - vrel (float): Relative velocity between the two grains in centimeters per second.
@@ -523,19 +531,26 @@ def grain_relative_velocity(a1, a2, rho_c, ISM_phase, scheme='HC23'):
         if a1>0.1*config.um_to_cm and a2>0.1*config.um_to_cm: vrel = 3E5 # cm/s
         else: vrel = 0
         return vrel
-    else:
+    # Assume a single specified ISM phase
+    elif gas_particles is None:
         ISM_phase_props = ISM_phase_properties(ISM_phase)
         nH = ISM_phase_props['nH']
         rho = ISM_phase_props['rho']
         temp = ISM_phase_props['temp']
         M = ISM_phase_props['M']
+    # Use the local properties for each gas particle
+    else:
+        nH = gas_particles.get_property('nH')
+        rho = gas_particles.get_property('density')
+        temp = gas_particles.get_property('temperature')
+        M = gas_particles.get_property('mach_number')
 
 
     # Scheme from Hirashita & Aoyama 2019
     if scheme == 'HA19':
-        # For consitencany in calculation we assume the impact angle is always 90 degrees
-        # cos_imp_angle = 2*(np.random.rand()-0.5)
-        cos_imp_angle=0
+        if not fixed_impact_angle:
+            cos_imp_angle = 2*(np.random.rand()-0.5)
+        else: cos_imp_angle=0
 
         # These are the velocities of indivdiual grains
         M=3.3
@@ -546,9 +561,9 @@ def grain_relative_velocity(a1, a2, rho_c, ISM_phase, scheme='HC23'):
         v12rel = np.sqrt(vgr1*vgr1 + vgr2*vgr2 - 2*vgr1*vgr2*cos_imp_angle) # cm/s
     # Scheme from Hirashita & Chen 2023
     elif scheme == 'HC23':
-        # For consitencany in calculation we assume the impact angle is always 90 degrees
-        # cos_imp_angle = 2*(np.random.rand()-0.5)
-        cos_imp_angle=0
+        if not fixed_impact_angle:
+            cos_imp_angle = 2*(np.random.rand()-0.5)
+        else: cos_imp_angle=0
 
         # Account for sub resolution clumping
         b = 0.5
@@ -596,7 +611,7 @@ def m_shatter(alower, aupper, a1, a2, vrel, P1, rho_c, vshat):
     aupper (float): Upper limit of the size range for integration (cm).
     a1 (float): Size of the impacted particle 1 (cm).
     a2 (float): Size of colliding particle 2 (cm).
-    vrel (float): Relative velocity between the particles (cm/s).
+    vrel (float or list): Relative velocity between the particles (cm/s).
     P1 (float): Critical shock pressure of dust grain (dyn cm^-3).
     rho_c (float): Density of the particle (g cm^-3).
     vshat (float): Shattering velocity above which shattering occurs (cm/s).
@@ -606,8 +621,12 @@ def m_shatter(alower, aupper, a1, a2, vrel, P1, rho_c, vshat):
 
     """
 
+    # Make vrel an array
+    vrel = np.asarray(vrel)
+    npart = len(vrel)
 
-    if (vrel<vshat): return 0
+    shat_mask = vrel>vshat   
+
     ma1 = 4*np.pi/3 * rho_c * np.power(a1,3)
     ma2 = 4*np.pi/3 * rho_c * np.power(a2,3)
 
@@ -629,29 +648,46 @@ def m_shatter(alower, aupper, a1, a2, vrel, P1, rho_c, vshat):
     a_int_lower = alower
     a_int_upper = aupper
 
-    m_shat=0
+    m_shat=np.zeros(npart)
     # The mass of the remnant after ma1 shattering
-    if arem > a_int_lower and arem < a_int_upper:
-        m_shat += mrem
-    if a_int_lower < afrag_max and a_int_upper > afrag_min:
-        if a_int_lower < afrag_min and a_int_upper > afrag_min: a_int_lower = afrag_min
-        if a_int_upper > afrag_max and a_int_lower < afrag_max: a_int_upper = afrag_max
-        # The mass of fragments shattered from ma1
-        m_shat += 4/3*np.pi*rho_c * C_frag * 10/7 * (np.power(a_int_upper,0.7) - np.power(a_int_lower,0.7))
+    remnant_mask = shat_mask & (arem > a_int_lower) & (arem < a_int_upper)
+    m_shat[remnant_mask] += mrem[remnant_mask]
+
+    # Mass of fragments in the given size range
+    fragment_mask = shat_mask & (a_int_lower < afrag_max) & (a_int_upper > afrag_min)
+    a_int_lower = np.full(npart,alower)
+    a_int_upper = np.full(npart,aupper)
+    # Get intersection between fragements sizes and grain size bin edges
+    # Need to account for bins which only partially overlap with fragments sizes
+    lower_intersect_mask = (a_int_lower < afrag_min) & (a_int_upper > afrag_min)
+    a_int_lower[lower_intersect_mask] = afrag_min[lower_intersect_mask]
+    upper_intersect_mask = (a_int_upper > afrag_max) & (a_int_lower < afrag_max)
+    a_int_upper[upper_intersect_mask] = afrag_max[upper_intersect_mask]
+
+    # The mass of fragments shattered from ma1
+    m_shat[fragment_mask] += 4/3*np.pi*rho_c * C_frag[fragment_mask] * 10/7 * (np.power(a_int_upper[fragment_mask],0.7) - np.power(a_int_lower[fragment_mask],0.7))
 
     return m_shat
 
 
-def v_coagulation(a1, a2, rho_c, poisson, youngs, gamma):
+def v_coagulation(a1:float,
+                  a2:float,
+                  rho_c:float,
+                  poisson:float,
+                  youngs:float,
+                  gamma:float,
+                  fudge_factor:bool=True):
     """
-    Calculate the coagulation velocity between two colliding grains.
+    Calculate the coagulation velocity between two colliding grains using prescription from Yan+2004.
     Parameters:
-    a1 (float): Radius of the first grain (cm).
-    a2 (float): Radius of the second grain (cm).
-    rho_c (float): Density of the grains (g cm^-3).
-    poisson (float): Poisson's ratio of the grains.
-    youngs (float): Young's modulus of the grains.
-    gamma (float): Surface tension coefficient of grains.
+    - a1 (float): Radius of the first grain (cm).
+    - a2 (float): Radius of the second grain (cm).
+    - rho_c (float): Density of the grains (g cm^-3).
+    - poisson (float): Poisson's ratio of the grains.
+    - youngs (float): Young's modulus of the grains.
+    - gamma (float): Surface tension coefficient of grains.
+    - fudge_factor (bool): Include factor of 10 fudge factor from Yan+2004.
+
     Returns:
     float: Coagulation velocity between the two colliding grains (cm/s).
     """
@@ -664,13 +700,15 @@ def v_coagulation(a1, a2, rho_c, poisson, youngs, gamma):
     R12 = a1*a2/(a1+a2) # reduced radius of colliding grains
     Estar = 1 / (np.square(1-poisson1)/youngs1 + np.square(1-poisson2)/youngs2) # reduced elastic modules 
     v_coag = 2.14 * np.sqrt((np.power(a1,3)+np.power(a2,3)) / np.power(a1+a2,3)) * np.power(gamma,5/6) / (np.power(Estar,1/3) * np.power(R12,5/6) * np.sqrt(rho_c))
+    if fudge_factor:
+        v_coag *= 10
 
     return v_coag
 
 
 def m_coagulation(alower, aupper, a1, a2, vrel, vcoag, rho_c):
     """
-    Calculate the coagulation mass for two particles.
+    Calculate the coagulation mass for two colliding dust grains.
 
     Parameters:
     alower (float): Lower limit of particle size range (cm).
@@ -685,15 +723,20 @@ def m_coagulation(alower, aupper, a1, a2, vrel, vcoag, rho_c):
     float: Coagulation mass if coagulation occurs, 0 otherwise.
     """
 
-    if (vrel > vcoag): return 0
+    # Make vrel an array
+    vrel = np.asarray(vrel)
+    npart = len(vrel)
+    coag_mask = vrel < vcoag
+
     ma1 = 4*np.pi/3 * rho_c * np.power(a1,3)
     ma2 = 4*np.pi/3 * rho_c * np.power(a2,3)
 
+    m_coag = np.zeros(npart)
+
     a_coag = np.power((ma1+ma2) / (4*np.pi/3 * rho_c),1/3)
     if alower < a_coag and a_coag < aupper:
-        m_coag= (ma1+ma2)/2
-    else:
-        m_coag = 0
+        m_coag[coag_mask] = (ma1+ma2)/2
+
 
     return m_coag
 
