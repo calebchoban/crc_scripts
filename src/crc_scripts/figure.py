@@ -629,7 +629,7 @@ class Projection(Figure):
             self.axis_colorbar[axis_num] = cbar
 
 
-    def plot_image(self, axis_num, data, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, **kwargs):
+    def plot_image(self, axis_num, data, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, invert_x=False, invert_y=False, **kwargs):
         """
         Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
 
@@ -645,6 +645,13 @@ class Projection(Figure):
             Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
         label : str, optional
             Add label in top right corner.
+        rescale_font : float
+            Factor you want to rescale text font size by.
+        invert_x : bool
+            Invert the x axis.
+        invert_y : bool
+            Invert the y axis.
+
         """
 
         default_imshow_kwargs = {
@@ -669,6 +676,11 @@ class Projection(Figure):
         else: 
             extent = None
 
+        if invert_x:
+            data = np.flip(data,axis=1)
+        if invert_y:
+            data = np.flip(data,axis=0)
+
         img = axis.imshow(data, extent = extent, **kwargs)
 
         # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
@@ -689,7 +701,7 @@ class Projection(Figure):
             The number of the axis to plot image data.
         fov_kpc : float
             Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
-        fov_arcsec : \float
+        fov_arcsec : float
             Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
         rescale_font : float, optional
             Factor you want to rescale axis font size by

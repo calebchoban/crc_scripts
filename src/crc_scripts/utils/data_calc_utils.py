@@ -568,6 +568,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         Size resolution of each pixel bin in kpc
     proj : string
         What 2D coordinates you want to project (xy,yz,zx)
+    no_zeros : bool
+        Whether to set all pixels with zero or NaN values to a small value (EPSILON). Useful for log scales.
 
     Returns
     -------
@@ -595,6 +597,9 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
     if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
     elif proj=='yz': coord1 = y; coord2 = z; coord3 = x;
     elif proj=='xz': coord1 = x; coord2 = z; coord3 = y;
+    elif proj=='yx': coord1 = y; coord2 = x; coord3 = z;
+    elif proj=='zy': coord1 = z; coord2 = y; coord3 = x;
+    elif proj=='zx': coord1 = z; coord2 = x; coord3 = y;
     else:
         print("Projection must be xy, yz, or xz for calc_projected_prop()")
         return None
