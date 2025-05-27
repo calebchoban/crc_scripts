@@ -229,7 +229,7 @@ class Particle:
         length_conversion = ascale / hubble  # multiply for [kpc physical]
         time_conversion = 1 / hubble  # multiply by this for [Gyr]
         velocity_conversion = np.sqrt(ascale) # multiply for km/s
-        density_conversion = self.sp.UnitDensity_in_CGS * 1/hubble/(length_conversion**3)
+        density_conversion = (mass_conversion)/(length_conversion**3) * config.Msolar_to_g/(config.kpc_to_cm**3)  #  [M_sun / kpc^3] to [g/cm^3]
         internal_energy_conversion = self.sp.UnitVelocity_In_CGS**2
         
         if 'position' in self.data:
@@ -243,7 +243,7 @@ class Particle:
             self.data['mass'] *= mass_conversion
         if 'size' in self.data:
             self.data['size'] *= length_conversion
-            # size in snapshot is full extent of the kernal (radius of compact support)
+            # size in snapshot is full extent of the kernel (radius of compact support)
             # convert to mean inter-particle spacing = volume^(1/3)
             self.data['size'] *= (np.pi / 3) ** (1 / 3) / 2  # 0.5077
         if 'density' in self.data:
@@ -315,6 +315,7 @@ class Particle:
         if particle.npart == 0: return
         for prop in self.data.keys():
             self.data[prop] = np.append(self.data[prop],particle.data[prop],axis=0)
+        self.npart += particle.npart
 
         
 
@@ -466,6 +467,14 @@ class Particle:
                     nmax = 1E4; nH = data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
                     sigma = np.sqrt(np.log(1+b*b*M*M))
                     prop_data = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nmax/nH)) / (np.sqrt(2)*sigma))))
+            elif case_insen_compare(property,'nH_rms'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = (1+b*b*M*M) * data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+            elif case_insen_compare(property,'T_eff'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = data['temperature']/(1+b*b*M*M) 
             
             # METALLICITY AND ABUNDANCES
             elif case_insen_compare(property,'Z'):
@@ -672,7 +681,7 @@ class Particle:
                     elif case_insen_compare(property,'M_grain_total'):
                         prop_data = np.sum(gsu.get_grain_bin_mass(self),axis=2)                    
                     elif case_insen_compare(property,['M_grain_small','M_grain_small_all','M_grain_small_sil','M_grain_small_carb','M_grain_small_iron']):
-                        grain_bin_mass = gsu.get_grain_bin_mass(self)
+                        grain_bin_mass = data['grain_bin_mass']
                         # Small grains are assumed to be any grain bins with bins centers smaller than the logarithmic center of the grain size distribution
                         small_bins = self.sp.Grain_Bin_Centers < np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
                         # Mass for all dust

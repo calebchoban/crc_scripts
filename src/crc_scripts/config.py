@@ -232,8 +232,9 @@ def dust_species_properties(species):
     # Physical properties of dust species needed for calculations
     if species == 'silicates':
         dust_atomic_weight = SIL_ATOMIC_WEIGHT
-        key_mass = ATOMIC_MASS[7] # Assume Si
-        key_abundance = A09_ABUNDANCES[7]
+        key_element_index = 7
+        key_mass = ATOMIC_MASS[key_element_index] # Assume Si
+        key_abundance = A09_ABUNDANCES[key_element_index]
         key_num_atoms = 1
         P1 = 3E11 # critical shock pressure (dyn cm^-2)
         v_shat = 2.7E5 # shattering velocity threshold (cm/s)
@@ -246,9 +247,10 @@ def dust_species_properties(species):
         delta_sput = 1 * base_delta_sput
         delta_shat = 1 * base_delta_shat
     elif species == 'carbonaceous':
-        dust_atomic_weight = ATOMIC_MASS[2]
+        key_element_index = 2
+        dust_atomic_weight = ATOMIC_MASS[key_element_index]
         key_mass = dust_atomic_weight
-        key_abundance = A09_ABUNDANCES[2]
+        key_abundance = A09_ABUNDANCES[key_element_index]
         key_num_atoms = 1
         P1 = 4E10 # critical shock pressure
         v_shat = 1.2E5 # shattering velocity threshold
@@ -261,9 +263,10 @@ def dust_species_properties(species):
         delta_sput = 0.66 * base_delta_sput
         delta_shat = 1.3 * base_delta_shat
     elif species == 'iron':
-        dust_atomic_weight = ATOMIC_MASS[10]
+        key_element_index = 10
+        dust_atomic_weight = ATOMIC_MASS[key_element_index]
         key_mass = dust_atomic_weight
-        key_abundance = A09_ABUNDANCES[10]
+        key_abundance = A09_ABUNDANCES[key_element_index]
         key_num_atoms = 1
         P1 = 5.5E10 # critical shock pressure
         v_shat = 2.2E5 # shattering velocity threshold
@@ -280,6 +283,7 @@ def dust_species_properties(species):
 
     spec_props = {
         "dust_atomic_weight": dust_atomic_weight,
+        "key_element_index": key_element_index,
         "key_mass": key_mass,
         "key_abundance": key_abundance,
         "key_num_atoms": key_num_atoms,
