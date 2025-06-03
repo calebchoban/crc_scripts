@@ -226,9 +226,9 @@ class Particle:
         ascale = sp.time if (sp.cosmological) else 1.0
 
         mass_conversion = self.sp.UnitMass_in_Msolar / hubble  # multiple by this for [M_sun]
-        length_conversion = ascale / hubble  # multiply for [kpc physical]
+        length_conversion = self.sp.UnitLength_in_kpc * ascale / hubble  # multiply for [kpc physical]
         time_conversion = 1 / hubble  # multiply by this for [Gyr]
-        velocity_conversion = np.sqrt(ascale) # multiply for km/s
+        velocity_conversion = np.sqrt(ascale) # multiply for [km/s]
         density_conversion = (mass_conversion)/(length_conversion**3) * config.Msolar_to_g/(config.kpc_to_cm**3)  #  [M_sun / kpc^3] to [g/cm^3]
         internal_energy_conversion = self.sp.UnitVelocity_In_CGS**2
         
@@ -269,29 +269,43 @@ class Particle:
             self.data['dust_spec'][:,0] = self.data['dust_Z'][:,4]+self.data['dust_Z'][:,6]+self.data['dust_Z'][:,7]+self.data['dust_Z'][:,10]
             self.data['dust_spec'][:,1] = self.data['dust_Z'][:,2]
 
-
         if 'grain_bin_num' in self.data:
-            # Grain numbers and mass are stored in log10. Need to convert to linear values. 
-            self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
-            # No dust grains are denoted by 10^-1 = 0.1 in snapshots. Also some bins with < 1 grain due to numerical errors 
-            # So set anything < 1 to 0 
+            grain_number_conversion = self.sp.UnitGrainNumber  # multiply by this for dust grain number
+            grain_mass_conversion = self.sp.UnitMass_In_CGS / hubble # multiply by this for [g]
+            grain_slope_conversion = self.sp.UnitGrainNumber  / ((self.sp.UnitGrainLength_in_CGS)**2) / (config.cm_to_um*config.cm_to_um) # multiply by this for [1/um^2]
+
+            # Need to convert all grain bin values to doubles to avoid overflow
+            self.data['grain_bin_num'] = self.data['grain_bin_num'].astype('double')
+            # Old sims used CGS units which required storing values as log10. This will eventually be removed.
+            if self.sp.UnitGrainNumber == 1:
+                # Grain numbers and mass are stored in log10. Need to convert to linear values. 
+                self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'])
+            
+            self.data['grain_bin_num'] = self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+            self.data['grain_bin_num'] *= grain_number_conversion
             no_dust = self.data['grain_bin_num'] < 1
             self.data['grain_bin_num'][no_dust] = 0; 
-            # Since dn/da is normalized to the dust mass in the code, need to multiply by h factor
-            self.data['grain_bin_num'] *= hubble
 
             # Snapshots usually have grain bin mass, but some old snapshots only have slopes
             if 'grain_bin_mass' in self.data:
-                self.data['grain_bin_mass'] = np.power(10,self.data['grain_bin_mass'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
+                self.data['grain_bin_mass'] = self.data['grain_bin_mass'].astype('double')
+                if self.sp.UnitGrainNumber == 1:
+                    self.data['grain_bin_mass'] = np.power(10,self.data['grain_bin_mass'])
+
+                self.data['grain_bin_mass'] = self.data['grain_bin_mass'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
                 self.data['grain_bin_mass'][no_dust] = 0;
-                self.data['grain_bin_mass'] *= hubble
+                self.data['grain_bin_mass'] *= grain_mass_conversion
+
             # Snapshots can also have bin slope as an optional output
             if 'grain_bin_slope' in self.data:
-                # Grain slopes are in log10 form but the sign represents if it's positive or negative
+                self.data['grain_bin_slope'] = self.data['grain_bin_slope'].astype('double')
+                if self.sp.UnitGrainNumber == 1:
+                    # Grain slopes are in log10 form but the sign represents if it's positive or negative
+                    self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']))
+
                 self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
-                self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']),dtype='double') / (config.cm_to_um*config.cm_to_um)
                 self.data['grain_bin_slope'][no_dust] = 0;
-                self.data['grain_bin_slope'] *= hubble
+                self.data['grain_bin_slope'] *= grain_slope_conversion
         
         self.k = 1
         return
