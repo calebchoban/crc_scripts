@@ -820,8 +820,148 @@ def calculate_extinction_curve(snap: Snapshot,
 
 
     return unique_wavelengths, percentile_A_lambda
+
+
+
+
+
+def calculate_idealized_extinction_curve(amin:float = 1E-3, 
+                                         amax:float = 1,
+                                         sil_to_carbon_ratio:float = 2.0,
+                                         MRN_slope:float = -3.5,):
+    """
+    Calculates the extinction curve normalized by the extinction in the
+    visible band (A_lambda / A_V) for an idealized MRN grain population. 
+
+    Parameters
+    ----------
+    amin : float
+        Minimum grain size in micron.
+    amax : float
+        Maximum grain size in micron.
+    sil_to_carbon_ratio : float
+        Ratio of silicate to carbonaceous dust mass. Default is 2.0.
+    MRN_slope : float
+        Slope of the MRN grain size distribution. Default is -3.5.
+
+    Returns
+    -------
+    wavelength_points: list
+        Wavelength data points in micron.
+    A_lambda_points : list
+        A_lambda/A_V values at corresponding wavelength points.
+    """	    
+
+    N_wave_bins = 500 # Number of wavelength bins for interpolation
+    N_size_bins = 100
+    MRN_slope = -3.5
+    sil_to_carbon_ratio = 2.0 # Assuming a 2:1 silicate to carbonaceous dust mass ratio
+
+    lambda_V = 0.5470 # V band wavelength in microns
+    # Need wavelengths for A_lambda values. Assuming all dust species tables have the same wavelengths
+    # Make sure this is the same order as appears in the first subtable
+    # WARNING: If using numpy.unique the wavelengths order in the table is not preserved
+    optical_property = get_dust_optical_properties('silicates')
+    unique_wavelengths = optical_property['w(micron)'].values[optical_property['radius(micron)']==np.min(optical_property['radius(micron)'])] # use the smallest grain radius table to get the corresponding Qext wavelengths
+    # Extend the wavelength grid for interpolation of Qext
+    unique_wavelengths = np.logspace(np.log10(np.min(unique_wavelengths)), np.log10(np.max(unique_wavelengths)), N_wave_bins)
+
+    # Assuming MRN size distribution with 2:1 silicate to carbonaceous dust mass ratio
+    # We use a 1st order numerical grain size distribution
+
+
+    dust_species = ['silicates', 'carbonaceous']
+    spec_indices = [0,1]
+    num_species = len(dust_species)
+    optical_properties = [get_dust_optical_properties('silicates'),
+                          get_dust_optical_properties('carbonaceous')]
     
 
+
+    # Determine grain size and dn/da values for each dust species
+    bin_size = np.power(10,np.log10(amax/amin)/N_size_bins)
+    bin_edges = np.zeros(N_size_bins+1)
+    bin_centers = np.zeros(N_size_bins)
+    for i in range(N_size_bins+1):
+        bin_edges[i] = pow(bin_size,i)*amin
+    for i in range(N_size_bincarbonaceouss):
+        bin_centers[i] = (bin_edges[i+1] + bin_edges[i])/2.
+    dNda_vals = np.power(bin_centers, MRN_slope) # dN/da ~ a^(-3.5) grain surface density (since we are normalizing A_lambda by A_V dont need to normalize this)
+
+        
+
+    # Calculate extinction coefficient interpolation functions for each dust species from Qext data tables
+    spec_Qext = []
+    for i in range(num_species):
+        # Load in Q extinction data for the given species
+        optical_property = optical_properties[i]
+        Qext = optical_property['Q_ext'].values
+        table_grain_radii = optical_property['radius(micron)'].values
+        table_wavelengths = optical_property['w(micron)'].values
+        # RGI interpolator expects the 0th dimension to be strictly in ascending order
+        # Interpolation of 2 variable Qext function requires we reorganize Qext data into a 2D grid
+        # of grain radii and wavelengths and a 2D matrix of Qext values corresponding to the grid points
+        # Make 2D grid from grain radii and wavelengths
+        unique_table_radii = np.sort(pd.unique(table_grain_radii))
+        unique_table_wavelengths = np.sort(pd.unique(table_wavelengths))
+        # Make 2D matrix of Qext values corresponding to the grid points
+        Qext_matrix = np.zeros([len(unique_table_radii),len(unique_table_wavelengths)])
+        for k in range(len(unique_table_radii)):
+            for l in range(len(unique_table_wavelengths)):
+                Qext_matrix[k,l] = Qext[(table_grain_radii==unique_table_radii[k]) & (table_wavelengths == unique_table_wavelengths[l])]
+        # Create the interpolation function
+        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=False) 
+        spec_Qext += [Qext]
+
+
+    # Calculate the extinction curve for each particle
+    A_lambda_total = np.zeros(N_wave_bins)
+    A_V_total = 0 # Extinction in V band (5470 Angstrom)
+    for i,spec_ind in enumerate(spec_indices):
+        # Calculate the dust species A_lambda and A_V 
+        A_lambda_spec = np.zeros(N_wave_bins)
+        A_V_spec =  0 # Extinction in V band (5470 Angstrom) for one species
+        Qext = spec_Qext[i]
+        if spec_ind == 0: # silicates
+            rho_c_sil = dust_species_properties('silicates')['rho_c'] # Bulk density of silicates [g/cm^3]
+            rho_c_carb = dust_species_properties('carbonaceous')['rho_c'] # Bulk density of carbonaceous dust [g/cm^3]
+            rho_c_sil = dust_species_properties('silicates')['rho_c'] # Bulk density of silicates [g/cm^3]
+            spec_dNda = dNda_vals * sil_to_carbon_ratio / (rho_c_sil/rho_c_carb) # 
+        else: # carbonaceous
+            spec_dNda = dNda_vals
+
+        # We are approximating the integral Qext(a,lambda) * dn/da(a) da from a_min to a_max 
+        # as a sum over grain bins Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower)
+        for j in range(N_size_bins):
+            bin_upper = bin_edges[j+1]
+            bin_lower = bin_edges[j]
+            size_diff_in_bin = bin_upper-bin_lower
+            bin_center = bin_centers[j]
+    
+            dNda = spec_dNda[j] # Assume dN/da is constant value with a = a at bin center for each bin
+
+            grain_size_wave_vals = np.zeros([N_wave_bins,2])
+            grain_size_wave_vals[:,0] = bin_center
+            grain_size_wave_vals[:,1] = unique_wavelengths
+
+            A_lambda_spec += (bin_center*bin_center) * Qext([grain_size_wave_vals])[0] * size_diff_in_bin * dNda
+                    
+            # Calculate A_V for all species since we normalize by total A_V and want to know the relative contributions of each species
+            A_V_spec += (bin_center*bin_center) * Qext([bin_center,lambda_V])[0] * size_diff_in_bin * dNda
+                
+
+
+        A_lambda_total += A_lambda_spec
+        A_V_total += A_V_spec
+
+    # Normalize by A_V for each particle
+    A_lambda_norm = A_lambda_total/A_V_total
+
+
+
+    return unique_wavelengths, A_lambda_norm
+
+    
 
 
 def shattering_coagulation_polynomial(Ni, Nj, si, sj, ail, aiu, aic, ajl, aju, ajc):
