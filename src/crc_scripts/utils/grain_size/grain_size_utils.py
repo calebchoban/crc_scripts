@@ -794,15 +794,18 @@ def calculate_extinction_curve(snap: Snapshot,
 
             # Calculate A_lambda only for species we are not excluding
             if spec_ind not in exclude_spec_ind:
-                grain_wave_vals = np.zeros([N_wave_bins,2])
+                grain_size_wave_vals = np.zeros([N_wave_bins,2])
                 for l,grain_size_center in enumerate(grain_centers_in_bin):
-                    grain_wave_vals[:,0] = grain_size_center
-                    grain_wave_vals[:,1] = unique_wavelengths
-                    A_lambda_spec += grain_size_center*grain_size_center*dnda_in_bin[:,l,np.newaxis]*size_diff_in_bin[l]*Qext([grain_wave_vals])[0][np.newaxis,:]
+                    grain_size_wave_vals[:,0] = grain_size_center
+                    grain_size_wave_vals[:,1] = unique_wavelengths
+
+                    N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
+                    A_lambda_spec += (grain_size_center*grain_size_center) * Qext([grain_size_wave_vals])[0][np.newaxis,:] * N_in_bin[:,np.newaxis]
                     
             # Calculate A_V for all species since we normalize by total A_V and want to know the relative contributions of each species
             for l,grain_size_center in enumerate(grain_centers_in_bin):
-                A_V_spec += grain_size_center*grain_size_center*dnda_in_bin[:,l]*size_diff_in_bin[l]*Qext([grain_size_center,lambda_V])[0]
+                N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
+                A_V_spec += (grain_size_center*grain_size_center) * Qext([grain_size_center,lambda_V])[0] * N_in_bin
 
 
         A_lambda_total += A_lambda_spec
@@ -884,7 +887,7 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
     bin_centers = np.zeros(N_size_bins)
     for i in range(N_size_bins+1):
         bin_edges[i] = pow(bin_size,i)*amin
-    for i in range(N_size_bincarbonaceouss):
+    for i in range(N_size_bins):
         bin_centers[i] = (bin_edges[i+1] + bin_edges[i])/2.
     dNda_vals = np.power(bin_centers, MRN_slope) # dN/da ~ a^(-3.5) grain surface density (since we are normalizing A_lambda by A_V dont need to normalize this)
 
@@ -961,7 +964,125 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
 
     return unique_wavelengths, A_lambda_norm
 
-    
+
+
+def calculate_idealized_Av(NH:float = 1E21,
+                           DTG:float = 0.014*0.5,
+                           amin:float = 1E-3,
+                           amax:float = 1.0,
+                           sil_to_carbon_ratio:float = 2.0,
+                           MRN_slope:float = -3.5):
+    """
+    Calculates the visible band extinction Av (5470 angstrom) for an idealized sight line 
+    assuming an MRN grain size distribution. Can specify the sight line surface density and
+    dust-to-gas ratio.
+
+    Parameters
+    ----------
+    NH : float
+        Sight line surface density of hydrogen in cm^-2.
+    DTG : float
+        Dust-to-gas mass ratio. Default is 0.014*0.5, assuming solar metallicity with 50% of metals in dust.
+
+    Returns
+    -------
+    Av : list
+        Av values for each gas cell in snapshot.
+    """	    
+
+    lambda_V = 0.5470 # V band wavelength in microns
+
+    N_size_bins=100
+    # Load snapshot gas particle data and grain size bin data
+    amin*=config.um_to_cm
+    amax*=config.um_to_cm
+    bin_size = np.power(10,np.log10(amax/amin)/N_size_bins)
+    bin_edges = np.zeros(N_size_bins+1)
+    bin_centers = np.zeros(N_size_bins)
+    for i in range(N_size_bins+1):
+        bin_edges[i] = pow(bin_size,i)*amin
+    for i in range(N_size_bins):
+        bin_centers[i] = (bin_edges[i+1] + bin_edges[i])/2.
+
+    # Determine mass surface densities for silicates and carbonaceous dust
+    # Then determine the number surface density of grains in each size bin for each assuming an MRN size distribution
+    sigma_dust = DTG * 1.4 * NH * config.PROTONMASS # Dust mass surface density in g/cm^2, assuming hydrogen is ~70% of total gas mass
+    sil_surface_density = sigma_dust * sil_to_carbon_ratio / (1 + sil_to_carbon_ratio) # Silicate dust surface density in g/cm^2
+    carb_surface_density = sigma_dust / (1 + sil_to_carbon_ratio) # Carbonaceous dust surface density in g/cm^2
+    spec_props = dust_species_properties('silicates')
+    sil_rho_c = spec_props['rho_c'] # Bulk density of silicates [g/cm^3]
+    spec_props = dust_species_properties('carbonaceous')
+    carb_rho_c = spec_props['rho_c'] # Bulk density of carbonaceous [g/cm^3]    
+
+    sil_N_bin = np.zeros(N_size_bins)
+    carb_N_bin = np.zeros(N_size_bins)    
+
+    # Determine normalization constant for grain size distribution given total mass of dust species
+    sil_C_norm = (sil_surface_density) * (12 + 3 * MRN_slope) / (
+        4 * np.pi * sil_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(amin, 4 + MRN_slope)))
+    carb_C_norm = (carb_surface_density) * (12 + 3 * MRN_slope) / (
+        4 * np.pi * carb_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(amin, 4 + MRN_slope)))
+
+    for k in range(N_size_bins):
+        alower = bin_edges[k]
+        aupper = bin_edges[k + 1]
+
+        # Calculate number in bin
+        sil_N_bin[k] = sil_C_norm / (MRN_slope + 1) * (np.power(aupper, MRN_slope + 1) - np.power(alower, MRN_slope + 1))
+        carb_N_bin[k] = carb_C_norm / (MRN_slope + 1) * (np.power(aupper, MRN_slope + 1) - np.power(alower, MRN_slope + 1))
+
+    N_in_bins = np.array([sil_N_bin, carb_N_bin])
+
+
+
+    dust_species = ['silicates', 'carbonaceous']
+    spec_indices = [0,1]
+    num_species = len(dust_species)
+    optical_properties = [get_dust_optical_properties('silicates'),
+                          get_dust_optical_properties('carbonaceous')]
+        
+
+    # Calculate extinction coefficient interpolation functions for each dust species from Qext data tables
+    spec_Qext = []
+    for i in range(num_species):
+        # Load in Q extinction data for the given species
+        optical_property = optical_properties[i]
+        Qext = optical_property['Q_ext'].values
+        table_grain_radii = optical_property['radius(micron)'].values
+        table_wavelengths = optical_property['w(micron)'].values
+        # RGI interpolator expects the 0th dimension to be strictly in ascending order
+        # Interpolation of 2 variable Qext function requires we reorganize Qext data into a 2D grid
+        # of grain radii and wavelengths and a 2D matrix of Qext values corresponding to the grid points
+        # Make 2D grid from grain radii and wavelengths
+        unique_table_radii = np.sort(pd.unique(table_grain_radii))
+        unique_table_wavelengths = np.sort(pd.unique(table_wavelengths))
+        # Make 2D matrix of Qext values corresponding to the grid points
+        Qext_matrix = np.zeros([len(unique_table_radii),len(unique_table_wavelengths)])
+        for k in range(len(unique_table_radii)):
+            for l in range(len(unique_table_wavelengths)):
+                Qext_matrix[k,l] = Qext[(table_grain_radii==unique_table_radii[k]) & (table_wavelengths == unique_table_wavelengths[l])]
+        # Create the interpolation function
+        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=False) 
+        spec_Qext += [Qext]
+
+
+    A_V_total = 0 # Total extinction in V band (5470 Angstrom)
+    for i,spec_ind in enumerate(spec_indices):
+        A_V_spec = 0
+        Qext = spec_Qext[i]
+        spec_N_in_bin = N_in_bins[i]
+
+        # We are approximating the integral Qext(a,lambda) * dn/da(a) da from a_min to a_max 
+        # as a sum over grain bins Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower)
+        for j in range(N_size_bins):
+            bin_center = bin_centers[j]
+            SigmaNdust_in_bin = spec_N_in_bin[j] 
+            A_V_spec += (2.5*np.log10(np.exp(1))*np.pi*bin_center*bin_center) * Qext([bin_centers[j]*config.cm_to_um,lambda_V])[0] * SigmaNdust_in_bin 
+
+        A_V_total += A_V_spec
+
+    return A_V_total
+
 
 
 def shattering_coagulation_polynomial(Ni, Nj, si, sj, ail, aiu, aic, ajl, aju, ajc):
