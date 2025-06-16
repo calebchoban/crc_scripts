@@ -2,7 +2,7 @@ import numpy as np
 import h5py
 from .. import config
 from .particle import Particle
-from .galaxy import Halo,Disk
+from .galaxy import Halo
 from .AHF import AHF
 from ..utils.snap_utils import check_snap_exist,get_snap_file_name
 
