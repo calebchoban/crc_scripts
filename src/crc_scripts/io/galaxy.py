@@ -53,6 +53,30 @@ class Halo(object):
         self.principal_axes_ratios = None
 
         return
+    
+
+    def set_disk(self, rmax=20, height=5):
+        """
+        Set the dimensions of the galactic disk. This is used to load particles in the disk.
+        Does not work with set_zoom().
+
+        Parameters
+        ----------
+        rmax : double, optional
+            The maximum radius of the disk in kpc.
+        height : double, optional
+            The height of the disk in kpc.
+
+        Returns
+        -------
+        None
+        """
+
+        self.set_disk = True
+        self.disk_rmax = rmax
+        self.disk_height = height
+
+        return
 
 
     def set_zoom(self, rout=None, kpc=False):
@@ -242,14 +266,23 @@ class Halo(object):
             part.load()
             if part.npart>0:
                 part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-                if self.zoom:
-                    rmax = self.rout*self.rvir if not self.outkpc else self.rout
+                if self.set_disk:
+                    zmag = part.get_property('position')[:,2]
+                    smag = np.sqrt(np.sum(np.power(part.get_property('position')[:,:2],2),axis=1))
+                    in_disk = np.logical_and(np.abs(zmag) <= self.disk_height, smag <= self.disk_rmax)
+                    if np.all(in_disk==False):
+                        print("WARNING: No particle of ptype %i in the galactic disk region when loading particle data."%ptype)
+                    part.mask(in_disk)                    
                 else:
-                    rmax = self.rvir
-                in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
-                if np.all(in_halo==False):
-                    print("WARNING: No particle of ptype %i in the zoom in region when loading particle data."%ptype)
-                part.mask(in_halo)
+                    if self.zoom:
+                        rmax = self.rout*self.rvir if not self.outkpc else self.rout
+                    else:
+                        rmax = self.rvir
+                    in_halo = np.sum(np.power(part.get_property('position'),2),axis=1) <= np.power(rmax,2.)
+
+                    if np.all(in_halo==False):
+                        print("WARNING: No particle of ptype %i in the zoom in region when loading particle data."%ptype)
+                    part.mask(in_halo)
 
         return part
 
@@ -397,109 +430,3 @@ class Halo(object):
               axes_ratios[0], axes_ratios[1], axes_ratios[2]))
 
         return
-
-
-# THE FUNCTIONS BELOW ARE OLD AND NEED TO BE UPDATE. USE AT YOUR OWN RISK
-
-class Disk(Halo):
-
-    def __init__(self, sp, id=0, rmax=20, height=5):
-        super(Disk, self).__init__(sp, id=id)
-        # specify the dimensions of the disk
-        self.rmax = rmax
-        self.height = height
-
-        self.center_position = None
-        self.center_velocity = None
-        self.principal_axes_vectors = None
-        self.principal_axes_ratios = None
-
-
-        return
-
-
-    # load basic info to the class
-    def load(self, mode='AHF'):
-
-        if (self.k!=0): return # already loaded
-
-        sp = self.sp
-        
-        # non-cosmological snapshots
-        if sp.cosmological==0 or mode!='AHF':
-
-            self.k = 1
-            self.time = sp.time
-            # Get center from average of gas particles
-            part = self.sp.loadpart(0)
-            self.xc = np.average(part.get_property('position')[:,0],weights=part.get_property('mass'))
-            self.yc = np.average(part.get_property('position')[:,1],weights=part.get_property('mass'))
-            self.zc = np.average(part.get_property('position')[:,2],weights=part.get_property('mass'))
-            self.rvir = sp.boxsize*2.
-            self.Lhat = np.array([0,0,1.])
-        
-            return
-
-        # cosmological, use AHF
-        if (mode=='AHF'):
-            
-            AHF = sp.loadAHF()
-    
-            # catalog exists
-            if (AHF.k==1):
-                
-                self.k = 1
-                self.time = sp.time
-                self.redshift = sp.redshift
-                self.catalog = 'AHF'
-                self.id = AHF.ID[self.id]
-                self.host = AHF.hostHalo[self.id]
-                self.npart = AHF.npart[self.id]
-                self.ngas = AHF.n_gas[self.id]
-                self.nstar = AHF.n_star[self.id]
-                self.mvir = AHF.Mvir[self.id]
-                self.mgas = AHF.M_gas[self.id]
-                self.mstar = AHF.M_star[self.id]
-                self.xc = AHF.Xc[self.id]
-                self.yc = AHF.Yc[self.id]
-                self.zc = AHF.Zc[self.id]
-                self.rvir = AHF.Rvir[self.id]
-                self.vmax = AHF.Vmax[self.id]
-                self.fhi = AHF.fMhires[self.id]
-                self.Lhat = AHF.Lhat[:,self.id]
-    
-        return
-
-
-    # calculate the center and principle axis of disk from particles instead of just using AHF values
-    def set_disk(self, ptype=4, mass_radius_max=100, velocity_radius_max=15, radius_max=10, age_limits=[0,1]):
-        # ptype: int
-        #   particle types to use to compute disk center and axis
-        # velocity_radius_max: float
-        #   compute average velocity using particles within this radius [kpc]
-        # distance_max : float
-        #   maximum radius to select particles [kpc physical]
-        # age_limits : float
-        #   min and max limits of age to select star particles [Gyr]
-
-
-        self.assign_center(ptype, mass_radius_max, velocity_radius_max)
-        self.assign_principal_axes(ptype, radius_max, age_limits)
-
-        return
-
-
-    # load all particles in the galactic disk
-    def loadpart(self, ptype):
-
-        part = self.part[ptype]
-
-        part.load()
-        if part.npart>0:
-            part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-            zmag = part.get_property('position')[:,2]
-            smag = np.sqrt(np.sum(np.power(part.get_property('position')[:,:2],2),axis=1))
-            in_disk = np.logical_and(np.abs(zmag) <= self.height, smag <= self.rmax)
-            part.mask(in_disk)
-
-        return part
