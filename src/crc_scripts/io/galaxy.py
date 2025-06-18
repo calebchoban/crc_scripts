@@ -43,8 +43,9 @@ class Halo(object):
         self.BH = sp.BH
         self.part = sp.part
 
-        # Set later if you want to zoom in
-        self.zoom = False
+        # Set later if you want to zoom in or set a disk
+        self.zoomset = False
+        self.diskset = False
         self.calc_center = False
 
         self.center_position = None
@@ -72,7 +73,7 @@ class Halo(object):
         None
         """
 
-        self.set_disk = True
+        self.diskset = True
         self.disk_rmax = rmax
         self.disk_height = height
 
@@ -112,7 +113,7 @@ class Halo(object):
         # How far out do you want to load data, default is rvir
         self.rout = rout
         self.outkpc = kpc
-        self.zoom = True
+        self.zoomset = True
 
         return
 
@@ -266,7 +267,7 @@ class Halo(object):
             part.load()
             if part.npart>0:
                 part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
-                if self.set_disk:
+                if self.diskset:
                     zmag = part.get_property('position')[:,2]
                     smag = np.sqrt(np.sum(np.power(part.get_property('position')[:,:2],2),axis=1))
                     in_disk = np.logical_and(np.abs(zmag) <= self.disk_height, smag <= self.disk_rmax)
@@ -274,7 +275,7 @@ class Halo(object):
                         print("WARNING: No particle of ptype %i in the galactic disk region when loading particle data."%ptype)
                     part.mask(in_disk)                    
                 else:
-                    if self.zoom:
+                    if self.zoomset:
                         rmax = self.rout*self.rvir if not self.outkpc else self.rout
                     else:
                         rmax = self.rvir
