@@ -507,7 +507,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
 def grain_relative_velocity(a1:float,
                             a2:float, 
                             rho_c:float, 
-                            ISM_phase:str=None, 
+                            ISM_phase:str|None=None, 
                             scheme='HC23',
                             gas_particles:Particle=None,
                             fixed_impact_angle:bool=True):
@@ -594,7 +594,7 @@ def grain_relative_velocity(a1:float,
 
         v12rel = np.sqrt((vgr1_x-vgr2_x)*(vgr1_x-vgr2_x) + (vgr1_y-vgr2_y)*(vgr1_y-vgr2_y) + (vgr1_z-vgr2_z)*(vgr1_z-vgr2_z))
     else:
-        assert 0, "Scheme not supported"
+        assert 0, "Scheme not supported"; return
 
 
 

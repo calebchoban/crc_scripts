@@ -253,7 +253,7 @@ class MultiSnapDataIO(object):
     def get_data(self, 
                  prop:str, 
                  subsample:str='all',
-                 snap_nums:list=None):
+                 snap_nums:list|None=None):
         """
         Returns the specified data or derived data field if possible.
 

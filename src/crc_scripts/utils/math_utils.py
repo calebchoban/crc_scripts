@@ -391,7 +391,7 @@ def approx_gas_temperature(u, ne, keV=0):
     mu = (1.0+4.0*YHe) / (1.0+YHe+ne)
 
     MeanWeight= mu*config.PROTONMASS
-    T = MeanWeight/config.BoltzMann_ergs * g_minus_1 * u
+    T = MeanWeight/config.BOLTZMANN_CONSTANT * g_minus_1 * u
 
     # do we want units of keV? 
     if (keV==1):

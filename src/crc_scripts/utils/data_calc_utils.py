@@ -656,6 +656,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         elif property == 'sigma_ORes':             proj_data = P.get_property('M_ORes')
         elif property == 'sigma_star':          proj_data = P.get_property('M_star')
         elif property == 'sigma_sfr':              proj_data = P.get_property('M_form_10Myr')
+        elif property == 'sigma_sfr_100Myr':       proj_data = P.get_property('M_form_100Myr')
         elif property == 'T':                    proj_data = P.get_property('T')
         else:
             print("%s is not a supported parameter in calc_obs_projection()."%property)
