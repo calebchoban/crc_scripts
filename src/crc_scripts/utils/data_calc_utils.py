@@ -645,6 +645,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         elif property == 'sigma_gas':             proj_data = P.get_property('M_gas')
         elif property == 'sigma_gas_neutral':     proj_data = P.get_property('M_gas_neutral')
         elif property == 'sigma_gas_ionized':     proj_data = P.get_property('M_gas_ionized')
+        elif property == 'sigma_HII':             proj_data = P.get_property('M_HII')
         elif property == 'sigma_H2':             proj_data = P.get_property('M_H2')
         elif property == 'sigma_metals':         proj_data = P.get_property('M_metals')
         elif property == 'sigma_sil':             proj_data = P.get_property('M_sil')

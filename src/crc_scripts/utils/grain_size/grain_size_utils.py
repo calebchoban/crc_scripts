@@ -203,7 +203,7 @@ def get_dust_accretion_rate(particles:Particle,
         Coulomb_enhancement = (1-fdense[:,np.newaxis])*Coulomb_enhancement[np.newaxis,:] + fdense[:,np.newaxis]
 
         # Accretion occurs below a critical temperature
-        temp_mask = temp*temp_clump_factor <= T_cutoff
+        temp_mask = (temp*temp_clump_factor <= T_cutoff)
         dadt_ref = 1.91249E-4 # reference change in grain size in cm/Gyr assuming purely hard-sphere type encounters
         # Change in grain size for each bin in cm/Gyr
         dadt[temp_mask] = scaling_factor * dadt_ref * (dust_atomic_weight / (key_num_atoms * np.sqrt(key_mass))) * key_num_dens[temp_mask,np.newaxis] * np.sqrt(temp[temp_mask,np.newaxis] * temp_clump_factor[temp_mask,np.newaxis]) / rho_c * Coulomb_enhancement[temp_mask] * eff_clump_factor[temp_mask,np.newaxis];
@@ -318,6 +318,86 @@ def get_dust_sputtering_rate(particles:Particle,
                 for k in range(bin_subsamples):
                     number_in_subsample = (spec_bin_number[:,j]/(a_edges[j+1]-a_edges[j]) + spec_bin_slope[:,j]*a_centers[j]) * (size_diff_in_bin[k]) + spec_bin_slope[:,j]*(np.square(a_edges_in_bin[k+1])-np.square(a_edges_in_bin[k]))/2
                     dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers_in_bin[k],2) * number_in_subsample # g/Gyr
+
+    # Convert to more useful units Msol/yr
+    dMbin_dt *= config.grams_to_Msolar / 1E9
+    dM_total = np.sum(dMbin_dt,axis=1) # total change in mass for each gas particle
+    return dM_total
+
+
+
+def get_photodestruction_rate(particles:Particle, 
+                             max_grain_size:float=5E-3,
+                             scaling_factor:float=1.0, 
+                             bin_subsamples:int=1):
+    """
+    Determines the mass rate of dust destruction from thermal sputtering for the given gas particles.
+    Parameters:
+    - particles (Particle): The particle object containing properties of the gas particles.
+    - max_grain_size (float): Max grain size for photodestruction in microns.
+    - scaling_factor (float): A scaling factor for the photodestruction rate.
+    - bin_subsamples (int): The number of subsampled points for each bin in the grain size distribution.
+    Set > 1 for small number of bins
+
+    Returns:
+    - list: A list of accretion rates for each particle in the particles object.
+    """
+
+    # Largest grain size photodestroyed (5 nm) and typical photodestruction timescale (5 Myr)
+    # Note we only assume grains smaller than the max size are destroyed
+    a_pd = max_grain_size* config.um_to_cm; tau_pd = 5E-3; 
+
+    # Get the physical properties of each particle needed to calculate rates
+    npart = particles.npart
+    HII_delaytime = particles.get_property('HII_delaytime')
+
+    dust_bin_numbers = particles.get_property('grain_bin_num')
+    dust_bin_slopes = particles.get_property('grain_bin_slope')
+
+    # Global bin properties
+    bin_num = particles.sp.Flag_GrainSizeBins
+    # All grain sizes need to be in units of cm
+    a_edges = particles.sp.Grain_Bin_Edges * config.um_to_cm 
+    a_centers = particles.sp.Grain_Bin_Centers * config.um_to_cm 
+
+    # The rate change in grain size for each bin for each gas particle
+    dadt = np.zeros([npart,bin_num])
+    # The rate change in mass for each bin for each gas particle
+    dMbin_dt = np.zeros([npart,bin_num])
+
+    # Need to step though each 
+    species = ['silicates' , 'carbonaceous', 'iron']
+    for i,spec in enumerate(species):
+        spec_bin_number = dust_bin_numbers[:,i]
+        spec_bin_slope = dust_bin_slopes[:,i]
+
+        # Physical properties of dust species needed for calculations
+        spec_props = dust_species_properties(spec)
+        rho_c = spec_props['rho_c']
+
+        # Sputtering starts to become efficient above 10^5 K
+        HII_mask = HII_delaytime != 0
+        # Determine photodestruction erosion rate (um yr^-1 cm^3)
+        dadt[HII_mask] = (- scaling_factor * a_pd / tau_pd)  # change to cm/Gyr
+
+        # Change in mass 
+        # For simplicity assume all grains in a bin have the same size as the bin center
+        for j in range(bin_num):
+            # Assume all grains in a bin have the same size as the bin center
+            if bin_subsamples==1: 
+                if a_centers[j] < a_pd:
+                    dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers[j],2) * spec_bin_number[:,j] # g/Gyr
+            # Subsample each bin into M linearly spaced points. Using bin number and slope, find number of grains in subsample
+            # and assume they have a single size equal to the subsample center
+            else:
+                # For subsampling, we need to sum over all the subsampled points in the bin
+                a_edges_in_bin = np.linspace(a_edges[j], a_edges[j+1], bin_subsamples+1)
+                size_diff_in_bin = a_edges_in_bin[1:] - a_edges_in_bin[:-1]
+                a_centers_in_bin = (a_edges_in_bin[1:] + a_edges_in_bin[:-1])/2
+                for k in range(bin_subsamples):
+                    if a_centers_in_bin[k] < a_pd:
+                        number_in_subsample = (spec_bin_number[:,j]/(a_edges[j+1]-a_edges[j]) + spec_bin_slope[:,j]*a_centers[j]) * (size_diff_in_bin[k]) + spec_bin_slope[:,j]*(np.square(a_edges_in_bin[k+1])-np.square(a_edges_in_bin[k]))/2
+                        dMbin_dt[:,j] += dadt[:,j] * 4 * np.pi * rho_c * np.power(a_centers_in_bin[k],2) * number_in_subsample # g/Gyr
 
     # Convert to more useful units Msol/yr
     dMbin_dt *= config.grams_to_Msolar / 1E9
