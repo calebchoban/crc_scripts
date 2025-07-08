@@ -479,8 +479,9 @@ class MultiSnapReducedData(object):
                 self.snaps = np.insert(self.snaps, index, n)
                 self.snap_loaded = np.insert(self.snap_loaded,index,0)
                 self.time = np.insert(self.time,index,0)
-                self.redshift = np.insert(self.redshift,index,0)
-                self.scale_factor = np.insert(self.scale_factor,index,0)
+                if self.cosmological:
+                    self.redshift = np.insert(self.redshift,index,0)
+                    self.scale_factor = np.insert(self.scale_factor,index,0)
                 for key in self.data.keys():
                     self.data[key] = np.insert(self.data[key],index,0)
                 # Now the data is not loaded so reset this
@@ -607,6 +608,8 @@ class MultiSnapReducedData(object):
                         gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
                     else:
                         gal.set_zoom(**self.set_kwargs)
+                # Orientate the halo
+                gal.set_orientation()
             else:
                 raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
 
