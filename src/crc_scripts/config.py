@@ -298,10 +298,10 @@ DUST_SOURCES                = ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 # Houses various property labels, limits, and if they should be plotted in log space. 
 # Each property is represented by one or multiple shorthand keys
 PROP_INFO = {
-    **dict.fromkeys(['fH2','f_H2']):
-        [r'$f_{\rm H_2}$', [0.,1.05], False],
-    **dict.fromkeys(['fHn','f_neutral']):
-        [r'$f_{\rm neutral}$', [0.,1.05], False],
+    **dict.fromkeys(['fH2','f_H2'],
+        [r'$f_{\rm H_2}$', [0.,1.05], False]),
+    **dict.fromkeys(['fHn','f_neutral'],
+        [r'$f_{\rm neutral}$', [0.,1.05], False]),
     'f_cold':
         [r'$f_{\rm cold}$', [0.,1.05], False],
     'f_warm':
@@ -430,36 +430,36 @@ PROP_INFO = {
         ['[Fe/H]', [1.1E-3,5E0], True],
     'Z_Fe_gas':
         [r'[Fe/H]$_{\rm gas}$', [1.1E-3,5E0], True],
-    **dict.fromkeys(['O/H', 'O/H_all','O/H_offset','O/H_gas_ionized_offset']):
-        ['12+log(O/H)', [8,9], False],
-    **dict.fromkeys(['O/H_gas','O/H_gas_offset']):
-        [r'12+log(O/H)$_{\rm gas}$', [8,9], False],
+    **dict.fromkeys(['O/H', 'O/H_all','O/H_offset','O/H_gas_ionized_offset'],
+        ['12+log(O/H)', [8,9], False]),
+    **dict.fromkeys(['O/H_gas','O/H_gas_offset'],
+        [r'12+log(O/H)$_{\rm gas}$', [8,9], False]),
     'O/H_dust':
         [r'12+log(O/H)$_{\rm dust}$', [8,9], False],
     'O/H_ionized':
         [r'12+log(O/H)$_{\rm ionized}$', [8,9], False],
     'O/H_gas_ionized':
         [r'12+log(O/H)$_{\rm ionized,gas}$', [8,9], False],
-    **dict.fromkeys(['C/H', 'C/H_all']):
-        ['12+log(C/H)', [8,9], False],
+    **dict.fromkeys(['C/H', 'C/H_all'],
+        ['12+log(C/H)', [8,9], False]),
     'C/H_gas':
         [r'12+log(C/H)$_{\rm gas}$', [8,9], False],
     'C/H_dust':
         [r'12+log(C/H)$_{\rm dust}$', [8,9], False],
-    **dict.fromkeys(['Mg/H', 'Mg/H_all']):
-        ['12+log(Mg/H)', [6.5,8.5], False],
+    **dict.fromkeys(['Mg/H', 'Mg/H_all'],
+        ['12+log(Mg/H)', [6.5,8.5], False]),
     'Mg/H_gas':
         [r'12+log(Mg/H)$_{\rm gas}$', [6.5,8.5], False],
     'Mg/H_dust':
         [r'12+log(Mg/H)$_{\rm dust}$', [6.5,8.5], False],
-    **dict.fromkeys(['Si/H', 'Si/H_all']):
-        ['12+log(Si/H)', [6.5,8.5], False],
+    **dict.fromkeys(['Si/H', 'Si/H_all'],
+        ['12+log(Si/H)', [6.5,8.5], False]),
     'Si/H_gas':
         [r'12+log(Si/H)$_{\rm gas}$', [6.5,8.5], False],
     'Si/H_dust':
         [r'12+log(Si/H)$_{\rm dust}$', [6.5,8.5], False],
-    **dict.fromkeys(['Fe/H', 'Fe/H_all']):
-        ['12+log(Fe/H)', [6.5,8.5], False],
+    **dict.fromkeys(['Fe/H', 'Fe/H_all'],
+        ['12+log(Fe/H)', [6.5,8.5], False]),
     'Fe/H_gas':
         [r'12+log(Fe/H)$_{\rm gas}$', [6.5,8.5], False],
     'Fe/H_dust':
@@ -496,8 +496,8 @@ PROP_INFO = {
         [r'Fraction of Gas < $\tau_{\rm g}$', [0,1.05], False],
     'source_frac':
         ['Source Mass\nFraction', [1E-2,1.05], True],
-    **dict.fromkeys(['spec_frac','spec_frac_Si/C']):
-        ['Species Mass\nFraction', [0,1.05], False],
+    **dict.fromkeys(['spec_frac','spec_frac_Si/C'],
+        ['Species Mass\nFraction', [0,1.05], False]),
     'Si/C':
         ['Sil-to-C Ratio', [0,10], False],
     'mass_frac':
@@ -510,32 +510,32 @@ PROP_INFO = {
         [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]', [1E-5,1E6], True],
     'cum_wind_E':
         [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]', [6E17,5E18], True],
-    **dict.fromkeys(['lambda','wavelength']):
-        [r'$\lambda \, [\mu m]$', [6E-2,1E3], True],
-    **dict.fromkeys(['lambda_angstrom','wavelength_angstrom']):
-        [r'$\lambda \, [\AA]$', [6E2,1E7], True],
-    **dict.fromkeys(['1/lambda','inverse_wavelength']):
-        [r'$\lambda^{-1} \, [\mu m^{-1}]$', [0,10], False],
-    **dict.fromkeys(['SED','flux']):
-        [r'$\lambda L_{\lambda} \,[L_{\odot}]$', [1E8,2E12], True],
+    **dict.fromkeys(['lambda','wavelength'],
+        [r'$\lambda \, [\mu m]$', [6E-2,1E3], True]),
+    **dict.fromkeys(['lambda_angstrom','wavelength_angstrom'],
+        [r'$\lambda \, [\AA]$', [6E2,1E7], True]),
+    **dict.fromkeys(['1/lambda','inverse_wavelength'],
+        [r'$\lambda^{-1} \, [\mu m^{-1}]$', [0,10], False]),
+    **dict.fromkeys(['SED','flux'],
+        [r'$\lambda L_{\lambda} \,[L_{\odot}]$', [1E8,2E12], True]),
     'grain_size':
         [r'a [$\mu m$]', [7E-4,2E0], True],
     'dn/da':
         [r'$\frac{\partial n}{\partial a}$', [1E20,1E55], True],
     'dn/da_norm':
         [r'$\frac{\partial n}{\partial a}$ (normalized)', [1E20,1E55], True],
-    **dict.fromkeys(['dm/da','dm/dloga']):
-        [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$', [1E20,1E55], True],
-    **dict.fromkeys(['dm/da_norm','dm/dloga_norm']):
-        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [0.01,1], True],
+    **dict.fromkeys(['dm/da','dm/dloga'],
+        [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$', [1E20,1E55], True]),
+    **dict.fromkeys(['dm/da_norm','dm/dloga_norm'],
+        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [0.01,1], True]),
     'f_STL':
         ['STL', [1E-1,1E1], True],
     'M_grain_small':
         [r'$M_{\rm grain,small}$ $[M_{\odot}]$', [1E5,1E9], True],
     'M_grain_large':
         [r'$M_{\rm grain,large}$ $[M_{\odot}]$', [1E5,1E9], True],
-    **dict.fromkeys(['extinction','A_lambda']):
-        [r'$A_{\lambda}/A_V$', [0,10], False],
+    **dict.fromkeys(['extinction','A_lambda'],
+        [r'$A_{\lambda}/A_V$', [0,10], False]),
     'cool_rate':
         [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
     'heat_rate':
@@ -550,8 +550,8 @@ PROP_INFO = {
         [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
     'photo_heat_rate':
         [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
-    **dict.fromkeys(['T_dust','dust_temp']):
-        [r'$T_{\rm dust}$ [K]', [0,60], False],
+    **dict.fromkeys(['T_dust','dust_temp'],
+        [r'$T_{\rm dust}$ [K]', [0,60], False]),
     'electron_fraction':
         [r'$f_{\rm electron}$', [1E-3,1], True],
     'clumping_factor':
