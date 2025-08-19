@@ -154,7 +154,9 @@ class Particle:
             # total mass of dust grain in grain size bin
             'DustBinMasses': 'grain_bin_mass',
             # slope of grain size bin
-            'DustBinSlopes': 'grain_bin_slope'
+            'DustBinSlopes': 'grain_bin_slope',
+            'DustBinCoagMassRate': 'grain_coag_rate',
+            'DustBinShatMassRate': 'grain_shat_rate',
         }
 
         # First initialize all the arrays
@@ -313,6 +315,15 @@ class Particle:
                 self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
                 self.data['grain_bin_slope'][no_dust] = 0;
                 self.data['grain_bin_slope'] *= grain_slope_conversion
+            
+            if 'grain_shat_rate' in self.data:
+                self.data['grain_shat_rate'] *= mass_conversion/time_conversion * config.grams_to_Msolar / config.sec_to_yr # convert to Msol/yr
+                self.data['grain_shat_rate'] = self.data['grain_shat_rate'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+            if 'grain_coag_rate' in self.data:
+                self.data['grain_coag_rate'] *= mass_conversion/time_conversion * config.grams_to_Msolar  / config.sec_to_yr # convert to Msol/yr
+                self.data['grain_coag_rate'] = self.data['grain_coag_rate'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+
+
         
         self.k = 1
         return
@@ -423,6 +434,35 @@ class Particle:
         return
 
 
+    def add_property(self, property, data):
+        """
+        Adds given particle property data to the particle data dictionary.
+        Useful way to save postprocessed info that takes a while to compute.
+
+        Parameters
+        ----------
+        property : string
+            Particle property data you want to add.
+        data : ndarray
+            Particle property data to add.
+
+        Returns
+        -------
+        None
+
+        """
+        # Nothing to do here if there are no particles
+        numpart = self.npart
+        if numpart == 0:
+            return
+        
+        # Add the data to the particle data dictionary
+        if property in self.data: 
+            print("WARNING: property %s is already in particle dictionary and so data was not added."%property)
+        else:
+            self.data[property] = np.asarray(data)
+
+
     def get_property(self, property):
         """
         Returns given particle property data if property is supported (not case sensitive). Will return array of -1 if not supported.
@@ -512,6 +552,10 @@ class Particle:
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
                     prop_data = np.sqrt(1+b*b*M*M) * data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+            elif case_insen_compare(property,'nH_neutral_rms'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = np.sqrt(1+b*b*M*M) * (data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS)*data['H_neutral_fraction']
             elif case_insen_compare(property,'T_eff'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;

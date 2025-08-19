@@ -194,19 +194,23 @@ def get_particle_mask(ptype:int,
             if 'cold' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
-                mask = mask & (T < 1E3)
-            if 'hot' in mask_criteria:
+                mask = mask & (T < 300)
+            if 'cool' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
-                mask = mask & (T > 1E4)
-            if 'coronal' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T > 3E5)
+                mask = mask & (T < 1E3) & (T >= 300)
             if 'warm' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
                 mask = mask & (T<1E4) & (T>=1E3)
+            if 'hot' in mask_criteria:
+                mask_identified+=1
+                T = P.get_property('T')
+                mask = mask & (T >= 1E4)
+            if 'coronal' in mask_criteria:
+                mask_identified+=1
+                T = P.get_property('T')
+                mask = mask & (T >= 3E5)
             if 'molecular' in mask_criteria:
                 mask_identified+=1
                 fH2 = P.get_property('fH2')
