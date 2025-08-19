@@ -585,8 +585,6 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 
     if 'star' in property or 'stellar' in property or 'sfr' in property:
         P = snap.loadpart(4)
-        if not snap.cosmological:
-            P.append_dummy_stars()
     else:    P = snap.loadpart(0)
     x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
 

@@ -246,7 +246,7 @@ class Halo(object):
 
 
     # load all particles in the halo/galaxy centered on halo center
-    def loadpart(self, ptype):
+    def loadpart(self, ptype, append_dummies=True):
         """
         Load particle data within the Halo object. This data will be orientated to be centered on halo center.
 
@@ -254,6 +254,8 @@ class Halo(object):
         ----------
         ptype : int, optional
             Particle type you want to load.
+        append_dummies : bool, optional
+            If True, will append dummy particles to the particle catalog. This is useful dummy star particles in non-cosmological sims.
 
         Returns
         -------
@@ -265,6 +267,8 @@ class Halo(object):
         # If the particles have previously been loaded and orientated we are done here
         if not part.k or not part.orientated:
             part.load()
+            if append_dummies & (ptype==4) and not self.cosmological:
+                part.append_dummy_stars()
             if part.npart>0:
                 part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
                 if self.diskset:
