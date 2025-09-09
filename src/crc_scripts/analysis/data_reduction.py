@@ -23,12 +23,12 @@ class MultiSnapDataIO(object):
     def __init__(self, 
                  sdir:str, 
                  snap_nums:list, 
-                 gas_props:list=None, 
-                 gas_subsamples:list=None, 
-                 star_props:list=None, 
-                 star_subsamples:list=None, 
-                 save_dir:str=None, 
-                 halohist_file:str=None):
+                 gas_props:list|None=None, 
+                 gas_subsamples:list|None=None, 
+                 star_props:list|None=None, 
+                 star_subsamples:list|None=None, 
+                 save_dir:str|None=None, 
+                 halohist_file:str|None=None):
         """
         Parameters
         ----------
@@ -58,17 +58,19 @@ class MultiSnapDataIO(object):
         self.num_snaps = len(snap_nums)
         self.halohist_file = halohist_file
 
-        # Determines if you want to look at the entire Snapshot or a specific Halo
+        # Determines if you want to look at the entire Snapshot or a specific Halo (can also specify a disk in the halo)
         self.setHalo=False
 
         # Get the basename of the directory the snapshots are stored in
         self.basename = os.path.basename(os.path.dirname(os.path.normpath(sdir)))
         self.name = self.basename+'_reduced_data'
+        # Remove the last folder in the path of sdir
+        parent_dir = os.path.dirname(os.path.normpath(sdir))
         # Set the basename of the directory the reduced data is saved to
         if save_dir is None:
-            self.data_dirc = sdir[:-7]+'reduced_data/'
+            self.data_dirc = os.path.join(parent_dir, 'reduced_data/')
         else:
-            self.data_dirc = './'+save_dir
+            self.data_dirc = './' + save_dir
 
 
         # Open up the first provided snapshot to get load the header info on the simulation
@@ -123,10 +125,15 @@ class MultiSnapDataIO(object):
                  mode:str='AHF', 
                  rout:float=1, 
                  kpc:bool=False, 
-                 use_halfmass_radius:bool=False):
+                 use_halfmass_radius:bool=False,
+                 disk_rmax:float|None=None, 
+                 disk_height:float|None=None,):
         """
         Set the halo arguments you want when loading each snapshot to determined which particles 
         are in the galactic halo. These arguments will be used when loading each snapshot.
+        Providing an rout value will load all particle data in the halo out to that radius.
+        Providing values for disk_rmax and disk_height will load particle data in specified 
+        galactic disk.
         This function must be called before loading snapshot data.
 
 
@@ -140,6 +147,10 @@ class MultiSnapDataIO(object):
             If True, rout is in kpc. If False, rout is in Rvir.
         use_halfmass_radius : bool
             If True, use the half mass radius of the halo instead of the virial radius. Default is False.
+        disk_rmax : float, optional
+            The radius of the galactic disk in kpc. Default is None. If set with disk_height, will override halo arguments.
+        disk_height : float, optional
+            The height of the galactic disk in kpc. Default is None.
         """
 
         if mode =='AHF' and not self.cosmological:
@@ -148,18 +159,21 @@ class MultiSnapDataIO(object):
 
         # Make a unique name given parameters so we can tell what part of the halo was considered
         self.name += '_'+ mode + '_'
-        if kpc and not use_halfmass_radius:
-            self.name += str(rout) + 'kpc'
-        elif use_halfmass_radius:
-            self.name += str(rout) + 'R1/2'
+        if disk_rmax and disk_height:
+            self.name += 'disk_rmax' + str(disk_rmax) + '_z' + str(disk_height)
         else:
-            self.name += str(rout) + 'Rvir'
+            if kpc and not use_halfmass_radius:
+                self.name += str(rout) + 'kpc'
+            elif use_halfmass_radius:
+                self.name += str(rout) + 'R1/2'
+            else:
+                self.name += str(rout) + 'Rvir'
         self.name += '.pickle'
         # Store the arguments so we can pass them on later
         args = locals()
         args.pop('self')
         self.halo_args = args
-        self.setHalo=True
+        self.setHalo = True
 
         return
 
@@ -239,7 +253,7 @@ class MultiSnapDataIO(object):
     def get_data(self, 
                  prop:str, 
                  subsample:str='all',
-                 snap_nums:list=None):
+                 snap_nums:list|None=None):
         """
         Returns the specified data or derived data field if possible.
 
@@ -320,7 +334,7 @@ class MultiSnapReducedData(object):
                  gas_subsamples:list, 
                  star_props:list, 
                  star_subsamples:list,
-                 halohist_file:str):
+                 halohist_file:str|None):
         """
         Parameters
         ----------
@@ -465,8 +479,9 @@ class MultiSnapReducedData(object):
                 self.snaps = np.insert(self.snaps, index, n)
                 self.snap_loaded = np.insert(self.snap_loaded,index,0)
                 self.time = np.insert(self.time,index,0)
-                self.redshift = np.insert(self.redshift,index,0)
-                self.scale_factor = np.insert(self.scale_factor,index,0)
+                if self.cosmological:
+                    self.redshift = np.insert(self.redshift,index,0)
+                    self.scale_factor = np.insert(self.scale_factor,index,0)
                 for key in self.data.keys():
                     self.data[key] = np.insert(self.data[key],index,0)
                 # Now the data is not loaded so reset this
@@ -506,10 +521,13 @@ class MultiSnapReducedData(object):
                  mode:str='AHF', 
                  rout:float=1, 
                  kpc:bool=False, 
-                 use_halfmass_radius:bool=False):
+                 use_halfmass_radius:bool=False,
+                 disk_rmax:float|None=None,
+                 disk_height:float|None=None):
         """
         Set the halo arguments you want when loading each snapshot to determined which particles 
-        are in the galactic halo. These arguments will be used when loading each snapshot.
+        are in the galactic halo out to a specified radius or only in the specified galactic disk.
+        These arguments will be used when loading each snapshot.
 
 
         Parameters
@@ -527,8 +545,14 @@ class MultiSnapReducedData(object):
         if not self.setHalo:
             self.setHalo=True
             self.load_kwargs = {'mode':mode}
-            self.set_kwargs = {'rout':rout, 'kpc':kpc}
-            self.use_halfmass_radius = use_halfmass_radius
+            # determine whether a disk or spherical halo is specified
+            if disk_rmax and disk_height:
+                self.load_disk = True
+                self.set_kwargs = {'rmax':disk_rmax, 'height':disk_height}
+            else:
+                self.load_disk = False
+                self.set_kwargs = {'rout':rout, 'kpc':kpc}
+                self.use_halfmass_radius = use_halfmass_radius
             return 1
         else:
             return 0
@@ -576,11 +600,16 @@ class MultiSnapReducedData(object):
                 self.load_kwargs['id'] = self.haloIDs[i]
                 if verbose and self.cosmological: print("For snap %i using Halo ID %i"%(snum,self.haloIDs[i]))
                 gal = sp.loadhalo(**self.load_kwargs)
-                if self.use_halfmass_radius:
-                    half_mass_radius = calc_utils.calc_half_mass_radius(0, gal, within_radius=None, geometry='spherical', rvir_frac=0.5)
-                    gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
+                if self.load_disk:
+                    gal.set_disk(**self.set_kwargs)
                 else:
-                    gal.set_zoom(**self.set_kwargs)
+                    if self.use_halfmass_radius:
+                        half_mass_radius = calc_utils.calc_half_mass_radius(0, gal, within_radius=None, geometry='spherical', rvir_frac=0.5)
+                        gal.set_zoom(rout=3.*half_mass_radius, kpc=True)
+                    else:
+                        gal.set_zoom(**self.set_kwargs)
+                # Orientate the halo
+                gal.set_orientation()
             else:
                 raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
 

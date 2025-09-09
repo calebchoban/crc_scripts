@@ -38,6 +38,7 @@ class Particle:
         if sp.cosmological:
             self.scale_factor = sp.scale_factor
         else: self.scale_factor = 1
+        self.appended_dummy_stars = False # Used when appending dummy star particles in idealized sims
         self.redshift = sp.redshift
         self.boxsize = sp.boxsize
         self.hubble = sp.hubble
@@ -126,6 +127,8 @@ class Particle:
             # 'time' when star particle formed
             # for cosmological runs, = scale-factor; for non-cosmological runs, = time [Gyr/h]
             'StellarFormationTime': 'sft', # (age [Gyr] is also calculated from this)
+            # Delay time when gas particle is ionized into HII region
+            'DelayTime_HIIRegion_Cooling': 'HII_delaytime',  # [Gyr/h] delay time for HII region cooling
             # dust ----------
             # some dust headers store multiple properties
             # mass fraction of individual elements locked in dust
@@ -150,7 +153,9 @@ class Particle:
             # total mass of dust grain in grain size bin
             'DustBinMasses': 'grain_bin_mass',
             # slope of grain size bin
-            'DustBinSlopes': 'grain_bin_slope'
+            'DustBinSlopes': 'grain_bin_slope',
+            'DustBinCoagMassRate': 'grain_coag_rate',
+            'DustBinShatMassRate': 'grain_shat_rate',
         }
 
         # First initialize all the arrays
@@ -226,9 +231,9 @@ class Particle:
         ascale = sp.time if (sp.cosmological) else 1.0
 
         mass_conversion = self.sp.UnitMass_in_Msolar / hubble  # multiple by this for [M_sun]
-        length_conversion = ascale / hubble  # multiply for [kpc physical]
+        length_conversion = self.sp.UnitLength_in_kpc * ascale / hubble  # multiply for [kpc physical]
         time_conversion = 1 / hubble  # multiply by this for [Gyr]
-        velocity_conversion = np.sqrt(ascale) # multiply for km/s
+        velocity_conversion = np.sqrt(ascale) # multiply for [km/s]
         density_conversion = (mass_conversion)/(length_conversion**3) * config.Msolar_to_g/(config.kpc_to_cm**3)  #  [M_sun / kpc^3] to [g/cm^3]
         internal_energy_conversion = self.sp.UnitVelocity_In_CGS**2
         
@@ -260,6 +265,9 @@ class Particle:
         if 'pressure' in self.data:
              # convert to [M_sun / kpc / Gyr^2]
             self.data['pressure'] *= (mass_conversion / length_conversion / time_conversion**2)
+        if 'HII_delaytime' in self.data:
+            # convert to [Gyr]
+            self.data['HII_delaytime'] *= time_conversion
 
         # Special dust conversions below
         if  ('dust_Z' in self.data) and (sp.Flag_DustSpecies) and (sp.Flag_DustSpecies<1):
@@ -269,38 +277,61 @@ class Particle:
             self.data['dust_spec'][:,0] = self.data['dust_Z'][:,4]+self.data['dust_Z'][:,6]+self.data['dust_Z'][:,7]+self.data['dust_Z'][:,10]
             self.data['dust_spec'][:,1] = self.data['dust_Z'][:,2]
 
-
         if 'grain_bin_num' in self.data:
-            # Grain numbers and mass are stored in log10. Need to convert to linear values. 
-            self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
-            # No dust grains are denoted by 10^-1 = 0.1 in snapshots. Also some bins with < 1 grain due to numerical errors 
-            # So set anything < 1 to 0 
+            grain_number_conversion = self.sp.UnitGrainNumber  # multiply by this for dust grain number
+            grain_mass_conversion = self.sp.UnitMass_In_CGS / hubble # multiply by this for [g]
+            grain_slope_conversion = self.sp.UnitGrainNumber  / ((self.sp.UnitGrainLength_in_CGS)**2) / (config.cm_to_um*config.cm_to_um) # multiply by this for [1/um^2]
+
+            # Need to convert all grain bin values to doubles to avoid overflow
+            self.data['grain_bin_num'] = self.data['grain_bin_num'].astype('double')
+            # Old sims used CGS units which required storing values as log10. This will eventually be removed.
+            if self.sp.UnitGrainNumber == 1:
+                # Grain numbers and mass are stored in log10. Need to convert to linear values. 
+                self.data['grain_bin_num'] = np.power(10,self.data['grain_bin_num'])
+            
+            self.data['grain_bin_num'] = self.data['grain_bin_num'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+            self.data['grain_bin_num'] *= grain_number_conversion
             no_dust = self.data['grain_bin_num'] < 1
             self.data['grain_bin_num'][no_dust] = 0; 
-            # Since dn/da is normalized to the dust mass in the code, need to multiply by h factor
-            self.data['grain_bin_num'] *= hubble
 
             # Snapshots usually have grain bin mass, but some old snapshots only have slopes
             if 'grain_bin_mass' in self.data:
-                self.data['grain_bin_mass'] = np.power(10,self.data['grain_bin_mass'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins)),dtype='double')
+                self.data['grain_bin_mass'] = self.data['grain_bin_mass'].astype('double')
+                if self.sp.UnitGrainNumber == 1:
+                    self.data['grain_bin_mass'] = np.power(10,self.data['grain_bin_mass'])
+
+                self.data['grain_bin_mass'] = self.data['grain_bin_mass'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
                 self.data['grain_bin_mass'][no_dust] = 0;
-                self.data['grain_bin_mass'] *= hubble
+                self.data['grain_bin_mass'] *= grain_mass_conversion
+
             # Snapshots can also have bin slope as an optional output
             if 'grain_bin_slope' in self.data:
-                # Grain slopes are in log10 form but the sign represents if it's positive or negative
+                self.data['grain_bin_slope'] = self.data['grain_bin_slope'].astype('double')
+                if self.sp.UnitGrainNumber == 1:
+                    # Grain slopes are in log10 form but the sign represents if it's positive or negative
+                    self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']))
+
                 self.data['grain_bin_slope'] = self.data['grain_bin_slope'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
-                self.data['grain_bin_slope'] = np.sign(self.data['grain_bin_slope'])*np.power(10,np.abs(self.data['grain_bin_slope']),dtype='double') / (config.cm_to_um*config.cm_to_um)
                 self.data['grain_bin_slope'][no_dust] = 0;
-                self.data['grain_bin_slope'] *= hubble
+                self.data['grain_bin_slope'] *= grain_slope_conversion
+            
+            if 'grain_shat_rate' in self.data:
+                self.data['grain_shat_rate'] *= mass_conversion/time_conversion * config.grams_to_Msolar / config.sec_to_yr # convert to Msol/yr
+                self.data['grain_shat_rate'] = self.data['grain_shat_rate'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+            if 'grain_coag_rate' in self.data:
+                self.data['grain_coag_rate'] *= mass_conversion/time_conversion * config.grams_to_Msolar  / config.sec_to_yr # convert to Msol/yr
+                self.data['grain_coag_rate'] = self.data['grain_coag_rate'].reshape((npart, sp.Flag_DustSpecies,sp.Flag_GrainSizeBins))
+
+
         
         self.k = 1
         return
     
 
-    def append_particle(self, particle):
+    def append_dummy_stars(self):
         """
-        Append data from another particle object. 
-        Only used to join star particles ptype=4 and dummy stars ptype=2 for IC runs.
+        Append data from dummy star particles to star particle object. 
+        Only used to join star particles ptype=4 and dummy stars ptype=2/3 for idealized runs.
 
         Parameters
         ----------
@@ -312,11 +343,31 @@ class Particle:
         None
 
         """        
-        if particle.npart == 0: return
-        for prop in self.data.keys():
-            self.data[prop] = np.append(self.data[prop],particle.data[prop],axis=0)
-        self.npart += particle.npart
+        if self.ptype != 4:
+            print('Particle type is not stars, cannot append dummy star particles.')
+            return
+        if self.appended_dummy_stars: return
+        for ptype in [2,3]:
+            dummy_star = self.sp.loadpart(ptype)
+            # Edge case were no new stars have formed
+            if self.npart == 0:
+                for prop in dummy_star.data.keys():
+                    self.data[prop] = dummy_star.data[prop]
+            else:
+                for prop in self.data.keys():
+                    # Typically Z is not saved for dummy star particles so assume a value
+                    if prop not in dummy_star.data:
+                        dims=np.shape(self.data[prop])
+                        if len(dims) == 1:
+                            dims = [dummy_star.npart]
+                        else:
+                            dims = [dummy_star.npart,dims[1]]
+                        self.data[prop] = np.append(self.data[prop],np.full(dims,np.median(self.data[prop],axis=0)),axis=0)
+                    else:
+                        self.data[prop] = np.append(self.data[prop],dummy_star.data[prop],axis=0)
+            self.npart += dummy_star.npart
 
+        self.appended_dummy_stars = True
         
 
     def mask(self, mask):
@@ -387,6 +438,35 @@ class Particle:
         return
 
 
+    def add_property(self, property, data):
+        """
+        Adds given particle property data to the particle data dictionary.
+        Useful way to save postprocessed info that takes a while to compute.
+
+        Parameters
+        ----------
+        property : string
+            Particle property data you want to add.
+        data : ndarray
+            Particle property data to add.
+
+        Returns
+        -------
+        None
+
+        """
+        # Nothing to do here if there are no particles
+        numpart = self.npart
+        if numpart == 0:
+            return
+        
+        # Add the data to the particle data dictionary
+        if property in self.data: 
+            print("WARNING: property %s is already in particle dictionary and so data was not added."%property)
+        else:
+            self.data[property] = np.asarray(data)
+
+
     def get_property(self, property):
         """
         Returns given particle property data if property is supported (not case sensitive). Will return array of -1 if not supported.
@@ -447,6 +527,11 @@ class Particle:
                 prop_data[prop_data>1] = 1
             elif case_insen_compare(property,'M_gas_ionized'):
                 prop_data = data['mass']*(1-data['H_neutral_fraction'])
+            elif case_insen_compare(property,'M_HII'):
+                HII_mass = np.zeros(self.npart)
+                HII_mask = data['HII_delaytime']!=0
+                HII_mass[HII_mask] = data['mass'][HII_mask]
+                prop_data = HII_mass
             elif case_insen_compare(property,'M_metals'):
                 prop_data = data['mass']*data['Z'][:,0]
             elif case_insen_compare(property,'nH'):
@@ -470,11 +555,23 @@ class Particle:
             elif case_insen_compare(property,'nH_rms'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
-                    prop_data = (1+b*b*M*M) * data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+                    prop_data = np.sqrt(1+b*b*M*M) * data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
+            elif case_insen_compare(property,'nH_neutral_rms'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    prop_data = np.sqrt(1+b*b*M*M) * (data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS)*data['H_neutral_fraction']
             elif case_insen_compare(property,'T_eff'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
                     prop_data = data['temperature']/(1+b*b*M*M) 
+            elif case_insen_compare(property,'f_dense'):
+                if 'mach_number' in data:
+                    M = data['mach_number']; b = 0.5;
+                    n_dense = 1E3 # cm^-3 assuming dense gas is higher than this
+                    s_dense = np.log(n_dense/(data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS))
+                    sigma_squared = np.log(1+b*b*M*M)
+                    f_dense = 1/2 + 1/2 * erf((sigma_squared/2-s_dense)/np.sqrt(2*sigma_squared))
+                    prop_data = f_dense
             
             # METALLICITY AND ABUNDANCES
             elif case_insen_compare(property,'Z'):
@@ -650,7 +747,8 @@ class Particle:
                     Fe = (data['Z'][:,10]-data['dust_Z'][:,10])/config.ATOMIC_MASS[10]; H = (1-(data['Z'][:,0]+data['Z'][:,1]))/config.ATOMIC_MASS[0]
                     prop_data = 12+np.log10(Fe/H)
                 elif case_insen_compare(property,'Si/C'):
-                    prop_data = data['dust_spec'][:,0]/data['dust_spec'][:,1]
+                    carb_index = self.sp.dust_species_indices[self.sp.dust_species.index('carbonaceous')]
+                    prop_data = (np.sum(data['dust_spec'],axis=1)-data['dust_spec'][:,carb_index])/data['dust_spec'][:,carb_index]
                 elif case_insen_compare(property,'D/Z'):
                     prop_data = data['dust_Z'][:,0]/data['Z'][:,0]
                     prop_data[prop_data > 1] = 1.
@@ -735,11 +833,11 @@ class Particle:
                     
 
 
-        elif self.ptype in [1,2,3]:
+        elif self.ptype == 1:
             if case_insen_compare(property,['h','size','scale_length']):
                 prop_data = data['size']
 
-        elif self.ptype==4:
+        elif self.ptype in [2,3,4]:
             # GENERAL STAR PROPERTIES
             # Properties which need formation time stellar masses require some extra work
             if case_insen_compare(property,['M_form', 'M_form_10Myr','M_form_100Myr','M_form_young','sfr']):

@@ -411,7 +411,7 @@ class Figure(object):
             'color': config.BASE_COLOR,
             'fontsize': rescale_font*config.EXTRA_LARGE_FONT,
             'ha': 'center',
-            "va": 'center',
+            'va': 'center',
             'xycoords': 'axes fraction'} 
 
         # Adding outlines to text is not simple so lets make it similar to edges 

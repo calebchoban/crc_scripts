@@ -194,19 +194,23 @@ def get_particle_mask(ptype:int,
             if 'cold' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
-                mask = mask & (T < 1E3)
-            if 'hot' in mask_criteria:
+                mask = mask & (T < 300)
+            if 'cool' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
-                mask = mask & (T > 1E4)
-            if 'coronal' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T > 3E5)
+                mask = mask & (T < 1E3) & (T >= 300)
             if 'warm' in mask_criteria:
                 mask_identified+=1
                 T = P.get_property('T')
                 mask = mask & (T<1E4) & (T>=1E3)
+            if 'hot' in mask_criteria:
+                mask_identified+=1
+                T = P.get_property('T')
+                mask = mask & (T >= 1E4)
+            if 'coronal' in mask_criteria:
+                mask_identified+=1
+                T = P.get_property('T')
+                mask = mask & (T >= 3E5)
             if 'molecular' in mask_criteria:
                 mask_identified+=1
                 fH2 = P.get_property('fH2')
@@ -583,13 +587,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
 
     L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
 
-    if 'star' in property or 'stellar' in property or 'sfr' in property: 
-        
-        if not snap.cosmological:
-            P = snap.loadpart(2)
-            P.append_particle(snap.loadpart(4))
-        else:
-            P = snap.loadpart(4)
+    if 'star' in property or 'stellar' in property or 'sfr' in property:
+        P = snap.loadpart(4)
     else:    P = snap.loadpart(0)
     x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
 
@@ -645,6 +644,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         elif property == 'sigma_gas':             proj_data = P.get_property('M_gas')
         elif property == 'sigma_gas_neutral':     proj_data = P.get_property('M_gas_neutral')
         elif property == 'sigma_gas_ionized':     proj_data = P.get_property('M_gas_ionized')
+        elif property == 'sigma_HII':             proj_data = P.get_property('M_HII')
         elif property == 'sigma_H2':             proj_data = P.get_property('M_H2')
         elif property == 'sigma_metals':         proj_data = P.get_property('M_metals')
         elif property == 'sigma_sil':             proj_data = P.get_property('M_sil')
@@ -655,6 +655,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         elif property == 'sigma_ORes':             proj_data = P.get_property('M_ORes')
         elif property == 'sigma_star':          proj_data = P.get_property('M_star')
         elif property == 'sigma_sfr':              proj_data = P.get_property('M_form_10Myr')
+        elif property == 'sigma_sfr_100Myr':       proj_data = P.get_property('M_form_100Myr')
         elif property == 'T':                    proj_data = P.get_property('T')
         else:
             print("%s is not a supported parameter in calc_obs_projection()."%property)

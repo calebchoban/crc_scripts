@@ -34,12 +34,3 @@ def load_halo(sdir, snum, cosmological=1, id=-1, mode=None, hdir=None):
     halo = sp.loadhalo(id=id, mode=mode, hdir=hdir)
 
     return halo
-
-
-# this returns the primary galactic disk
-def load_disk(sdir, snum, cosmological=1, id=-1, mode=None, hdir=None, rmax=20, height=5):
-
-    sp = load_snap(sdir, snum, cosmological=cosmological)
-    disk = sp.loaddisk(id=id, mode=mode, hdir=hdir, rmax=rmax, height=height)
-
-    return disk

@@ -2,7 +2,7 @@ import numpy as np
 import h5py
 from .. import config
 from .particle import Particle
-from .galaxy import Halo,Disk
+from .galaxy import Halo
 from .AHF import AHF
 from ..utils.snap_utils import check_snap_exist,get_snap_file_name
 
@@ -80,6 +80,7 @@ class Snapshot:
             self.UnitMass_In_CGS = config.UnitMass_in_g
             self.UnitVelocity_In_CGS = config.UnitVelocity_in_cm_per_s
         self.UnitMass_in_Msolar = self.UnitMass_In_CGS / config.Msolar_to_g
+        self.UnitLength_in_kpc = self.UnitLength_In_CGS / config.kpc_to_cm
         self.UnitDensity_in_CGS = self.UnitMass_In_CGS / np.power(self.UnitLength_In_CGS, 3)
 
         self.Flag_Sfr = f['Header'].attrs['Flag_Sfr']
@@ -118,6 +119,12 @@ class Snapshot:
             self.Silicates_Element_Number = f['Header'].attrs['Silicates_Element_Number'] # The number of each element in silicates
 
         if f['Header'].attrs.get('ISMDustChem_Num_Grain_Size_Bins',0):
+            if 'UnitGrainNumber'in f['Header'].attrs.keys():
+                self.UnitGrainNumber = f['Header'].attrs['UnitGrainNumber']
+                self.UnitGrainLength_in_CGS = f['Header'].attrs['UnitGrainLength_in_cm']
+            else:
+                self.UnitGrainNumber = 1.0
+                self.UnitGrainLength_in_CGS = 1.0
             self.Grain_Size_Max = f['Header'].attrs['ISMDustChem_Grain_Size_Max'] * config.cm_to_um
             self.Grain_Size_Min = f['Header'].attrs['ISMDustChem_Grain_Size_Min'] * config.cm_to_um
             self.Flag_GrainSizeBins = f['Header'].attrs['ISMDustChem_Num_Grain_Size_Bins']

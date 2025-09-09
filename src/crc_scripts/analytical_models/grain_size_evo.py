@@ -507,7 +507,7 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
 def grain_relative_velocity(a1:float,
                             a2:float, 
                             rho_c:float, 
-                            ISM_phase:str=None, 
+                            ISM_phase:str|None=None, 
                             scheme='HC23',
                             gas_particles:Particle=None,
                             fixed_impact_angle:bool=True):
@@ -568,9 +568,9 @@ def grain_relative_velocity(a1:float,
         # Account for sub resolution clumping
         b = 0.5
         nH_rms =np.sqrt(1+b*b*M*M)*nH
-        vgr1 = 10*0.32E5 * (M/3) * np.power(a1/1E-4,0.5) * np.power(temp/100,0.25) * \
+        vgr1 = 0.32E5 * (M/3) * np.power(a1/1E-4,0.5) * np.power(temp/100,0.25) * \
                 np.power(nH_rms/1E3,-0.25)*np.power(rho_c/3.5,0.5)
-        vgr2 = 10*0.32E5 * (M/3) * np.power(a2/1E-4,0.5) * np.power(temp/100,0.25) * \
+        vgr2 = 0.32E5 * (M/3) * np.power(a2/1E-4,0.5) * np.power(temp/100,0.25) * \
                 np.power(nH_rms/1E3,-0.25)*np.power(rho_c/3.5,0.5)
         v12rel = np.sqrt(vgr1*vgr1 + vgr2*vgr2 - 2*vgr1*vgr2*cos_imp_angle) # cm/s
     # Scheme from Li+ 2019
@@ -594,7 +594,7 @@ def grain_relative_velocity(a1:float,
 
         v12rel = np.sqrt((vgr1_x-vgr2_x)*(vgr1_x-vgr2_x) + (vgr1_y-vgr2_y)*(vgr1_y-vgr2_y) + (vgr1_z-vgr2_z)*(vgr1_z-vgr2_z))
     else:
-        assert 0, "Scheme not supported"
+        assert 0, "Scheme not supported"; return
 
 
 
