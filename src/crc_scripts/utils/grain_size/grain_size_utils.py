@@ -956,6 +956,10 @@ def calculate_extinction_curve(gas: Particle,
     bin_centers = gas.sp.Grain_Bin_Centers
     bin_edges = gas.sp.Grain_Bin_Edges
     num_bins = gas.sp.Flag_GrainSizeBins
+    bin_max = gas.sp.Grain_Size_Max
+    bin_min = gas.sp.Grain_Size_Min
+
+
 
     dust_species = ['silicates', 'carbonaceous', 'iron']
     spec_indices = [0,1,2]
@@ -1020,8 +1024,13 @@ def calculate_extinction_curve(gas: Particle,
             for l in range(len(unique_table_wavelengths)):
                 Qext_matrix[k,l] = Qext[(table_grain_radii==unique_table_radii[k]) & (table_wavelengths == unique_table_wavelengths[l])]
         # Create the interpolation function
-        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=False) 
+        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=True) 
         spec_Qext += [Qext]
+
+    table_radii_min = np.min(unique_table_radii)
+    table_radii_max = np.max(unique_table_radii)
+    if bin_min<table_radii_min or bin_max>table_radii_max:
+        print("WARNING: The simulated grain sizes are beyond the range of sizes supported by the dust grain optical properties.\n Will truncate grain sizes beyond supported range.")
 
 
     # Calculate the extinction curve for each particle
@@ -1056,8 +1065,13 @@ def calculate_extinction_curve(gas: Particle,
             if spec_ind not in exclude_spec_ind:
                 grain_size_wave_vals = np.zeros([N_wave_bins,2])
                 for l,grain_size_center in enumerate(grain_centers_in_bin):
-                    grain_size_wave_vals[:,0] = grain_size_center
+                    # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
+                    if grain_size_center < table_radii_min: grain_size_wave_vals[:,0] = table_radii_min
+                    elif grain_size_center > table_radii_max: grain_size_wave_vals[:,0] = table_radii_max
+                    else: grain_size_wave_vals[:,0] = grain_size_center
                     grain_size_wave_vals[:,1] = unique_wavelengths
+
+
 
                     N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
                     A_lambda_spec += (grain_size_center*grain_size_center) * Qext([grain_size_wave_vals])[0][np.newaxis,:] * N_in_bin[:,np.newaxis]
@@ -1065,7 +1079,12 @@ def calculate_extinction_curve(gas: Particle,
             # Calculate A_V for all species since we normalize by total A_V and want to know the relative contributions of each species
             for l,grain_size_center in enumerate(grain_centers_in_bin):
                 N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
-                A_V_spec += (grain_size_center*grain_size_center) * Qext([grain_size_center,lambda_V])[0] * N_in_bin
+                # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
+                if grain_size_center < table_radii_min: Qext_vals = Qext([table_radii_min,lambda_V])[0]
+                elif grain_size_center > table_radii_max: Qext_vals = Qext([table_radii_max,lambda_V])[0]
+                else: Qext_vals = Qext([grain_size_center,lambda_V])[0]
+
+                A_V_spec += (grain_size_center*grain_size_center) * Qext_vals * N_in_bin
 
 
         A_lambda_total += A_lambda_spec
@@ -1396,6 +1415,9 @@ def calculate_Av(gas: Particle,
     bin_centers = gas.sp.Grain_Bin_Centers * config.um_to_cm
     bin_edges = gas.sp.Grain_Bin_Edges * config.um_to_cm
     num_bins = gas.sp.Flag_GrainSizeBins         
+    bin_max = gas.sp.Grain_Size_Max
+    bin_min = gas.sp.Grain_Size_Min
+
 
 
     dust_species = ['silicates', 'carbonaceous', 'iron']
@@ -1461,8 +1483,13 @@ def calculate_Av(gas: Particle,
             for l in range(len(unique_table_wavelengths)):
                 Qext_matrix[k,l] = Qext[(table_grain_radii==unique_table_radii[k]) & (table_wavelengths == unique_table_wavelengths[l])]
         # Create the interpolation function
-        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=False) 
+        Qext = RGI((unique_table_radii,unique_table_wavelengths), Qext_matrix, method='cubic', bounds_error=True) 
         spec_Qext += [Qext]
+
+    table_radii_min = np.min(unique_table_radii)
+    table_radii_max = np.max(unique_table_radii)
+    if bin_min<table_radii_min or bin_max>table_radii_max:
+        print("WARNING: The simulated grain sizes are beyond the range of sizes supported by the dust grain optical properties.\n Will truncate grain sizes beyond supported range.")
 
 
     A_V_total = np.zeros(num_part) # Total extinction in V band (5470 Angstrom)
@@ -1496,7 +1523,11 @@ def calculate_Av(gas: Particle,
                     N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
                     # Assume all dust grains in the cell are in a cylindrical slab with a radius equal to the smoothing length
                     SigmaNdust_in_bin = N_in_bin / (np.pi * hsml * hsml) # Grain surface number density [um^-2]
-                    A_V_spec += (2.5*np.log10(np.exp(1))*np.pi*grain_size_center*grain_size_center) * Qext([grain_size_center,lambda_V])[0] * SigmaNdust_in_bin 
+                    # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
+                    if grain_size_center < table_radii_min: Qext_vals = Qext([table_radii_min,lambda_V])[0]
+                    elif grain_size_center > table_radii_max: Qext_vals = Qext([table_radii_max,lambda_V])[0]
+                    else: Qext_vals = Qext([grain_size_center,lambda_V])[0]
+                    A_V_spec += (2.5*np.log10(np.exp(1))*np.pi*grain_size_center*grain_size_center) * Qext_vals * SigmaNdust_in_bin 
 
         A_V_total += A_V_spec
 
