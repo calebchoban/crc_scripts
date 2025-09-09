@@ -30,6 +30,153 @@ def MRN_dmdloga(a, rho_c=1):
 def lognorm_dnda(a, a_norm=0.1*config.um_to_cm, sigma_a=0.6):
     return 1/a * np.exp(-np.power(np.log(a/a_norm),2) / (2*sigma_a*sigma_a))
 
+# Astrodust size distribution from Hensley & Draine 2023
+# Returns only astrodust or PAHs component
+def astrodust_dnda(a,PAHs=False):
+    # PAH parameters
+    B1=7.52E-7; B2=8.09E-10;
+    a01 = 4*config.angstrom_to_um; a02 = 30*config.angstrom_to_um; sigma=0.4;
+    # Astrodust parameters
+    BAd = 3.31E-10; a0_Ad = 63.8*config.angstrom_to_um;
+    sigma_Ad = 0.353; A0 = 2.97E-5;
+    A1=-3.4;A2=-0.807;A3=0.157;A4=7.96E-3;A5=-1.68E-3;
+
+    if PAHs:
+        dnda = B1/a * np.exp(-(np.log(a/a01)**2)/(2*sigma**2)) + B2/a * np.exp(-(np.log(a/a02)**2)/(2*sigma**2))
+    else:
+        dnda = BAd / a * np.exp(-(np.log(a/a0_Ad)**2)/(2*sigma_Ad**2)) + A0/a * np.exp( A1*(np.power(np.log(a*config.um_to_angstrom),1)) + A2*(np.power(np.log(a*config.um_to_angstrom),2)) + A3*(np.power(np.log(a*config.um_to_angstrom),3)) + A4*(np.power(np.log(a*config.um_to_angstrom),4)) + A5*(np.power(np.log(a*config.um_to_angstrom),5)))
+
+    return dnda
+
+def astrodust_dmdloga(a,PAHs=False):
+    if PAHs: rho_c=2 # g/cm^3
+    else: rho_c=2.74
+    rho_c /= config.cm_to_um**3 # g/cm^3 to g/um^3 since grain radii are in um
+    return 4/3*np.pi * rho_c * np.power(a,4)*astrodust_dnda(a,PAHs=PAHs)
+
+
+def DL07_dnda(a, species='silicates'):
+    # PAH values from Drain+Li 2007
+    a01 = 4*config.angstrom_to_um; a02 = 20*config.angstrom_to_um;
+    sigma1 = 0.4; sigma2 = 0.55;
+    amin=3.5*config.angstrom_to_um;
+    rho_c = 2.24 / config.cm_to_um**3; # g/um^3
+    m_c = 1.9944733E-23; # g
+    bc=6E-5 # total C abundance per H nucleus
+    b1 = 0.75*bc; b2 = 0.25*bc
+    # Values for Rv=3.1 and bC=6E5 from Weingartner+Draine 2001
+    # large graphite
+    a_cs=0.1 # micron
+    alpha_g = -1.54; beta_g = -0.165;
+    a_tg = 0.0107; a_cg = 0.428; Cg=9.99E-12;
+    alpha_s = -2.21; beta_s = 0.300; a_ts = 0.164; Cs=1.00E-13
+    if species == 'carbonaceous':
+        aM1 = a01*np.exp(3*sigma1**2)
+        x1 = np.log(aM1/amin)/(np.sqrt(2)*sigma1)
+        n01 = 3/np.power(2*np.pi,3/2) * (np.exp(4.5*sigma1**2)/1+erf(x1)) * (m_c / (rho_c * aM1**3*sigma1)) * b1
+        aM2 = a02*np.exp(3*sigma2**2)
+        x2 = np.log(aM2/amin)/(np.sqrt(2)*sigma2)
+        n02 = 3/np.power(2*np.pi,3/2) * (np.exp(4.5*sigma2**2)/1+erf(x2)) * (m_c / (rho_c * aM2**3*sigma2)) * b2
+
+        dnda_PAH = n01/a * np.exp(-np.power(np.log(a/a01),2)/(2*sigma1**2)) + n02/a * np.exp(-np.power(np.log(a/a02),2)/(2*sigma2**2))
+
+        if beta_g >=0: F_term = 1+beta_g*a/a_tg
+        else: F_term = 1/(1-beta_g*a/a_tg)
+        # exp_term = np.ones(len(a))
+        # exp_term[a>a_tg] = np.exp(-np.power((a-a_tg)/a_cg,3))
+        exp_term = np.piecewise(a, [a <= a_tg, a > a_tg], [lambda x: 1, lambda x: np.exp(-np.power((x-a_tg)/a_cg,3))])
+        dnda = dnda_PAH + Cg/a * np.power(a/a_tg,alpha_g) * F_term * exp_term
+    else:
+        if beta_s >=0: F_term = 1+beta_s*a/a_ts
+        else: F_term = 1/(1-beta_s*a/a_ts)
+        # exp_term = np.ones(len(a))
+        # exp_term[a>a_ts] = np.exp(-np.power((a-a_ts)/a_cs,3))
+        exp_term = np.piecewise(a, [a <= a_ts, a > a_ts], [lambda x: 1, lambda x: np.exp(-np.power((x-a_ts)/a_cs,3))])
+        dnda = Cs/a * np.power(a/a_ts,alpha_s) * F_term * exp_term
+    
+    return dnda
+
+def DL07_dmdloga(a,species='silicates'):
+    if species=='carbonaceous': rho_c=2.24 # g/cm^3
+    else: rho_c=2.74
+    rho_c /= config.cm_to_um**3 # g/cm^3 to g/um^3 since grain radii are in um
+    return 4/3*np.pi * rho_c * np.power(a,4)*DL07_dnda(a,species=species)
+
+
+
+def get_grain_bin_info_assuming_MRN(particle: Particle,
+                                    assume_depletion: bool = False):
+    """
+    Calculates the grain bin numbers and slopes assuming an MRN grain size distribution for the given gas particles.
+    Parameters:
+    - particle (Particle): The particle object containing properties of the gas particles.
+    - assume_depletion (bool): Whether to assume a fixed depletion pattern for the dust species based on total metallicity. If False, uses tracked dust species abundances used.
+    Returns:
+    - tuple: A tuple containing two numpy arrays:
+        - grain_bin_numbers: A 3D array of shape (# of particles, # of dust species, # of grain size bins) representing the number of grains in each bin for each dust species for each gas particle.
+        - grain_bin_slopes: A 3D array of shape (# of particles, # of dust species, # of grain size bins) representing the slope of the grain size distribution in each bin for each dust species for each gas particle.
+    """
+        
+    dust_species = particle.sp.dust_species
+    spec_indicies = particle.sp.dust_species_indices
+    num_part = particle.npart
+    num_bins = particle.sp.Flag_GrainSizeBins
+    a_max = particle.sp.Grain_Size_Max
+    a_min = particle.sp.Grain_Size_Min
+    a_edges = particle.sp.Grain_Bin_Edges
+    a_centers = particle.sp.Grain_Bin_Centers
+    gas_mass = particle.get_property('M_gas')
+    metallicity = particle.get_property('Z_all')
+    dust_spec = particle.get_property('dust_spec').astype(np.float64) # Force double precision here for grain bin mass calculations
+    dust_bin_numbers = np.zeros(np.shape(particle.get_property('grain_bin_num')))
+    dust_bin_slopes = np.zeros(np.shape(particle.get_property('grain_bin_slope')))
+
+    # Instead of using tracked dust species abundances we are calculating them assuming a set depletion pattern
+    if assume_depletion:
+        # Assuming Si and Fe have the same depletion, Mg and O depletion set by Si depletion + assumed silicate stoichiometry, carb determined by silicate to carbonaceous dust mass ratio
+        sil_iron_depl = 0.5; sil_to_carb_ratio = 2;
+        for i, spec in enumerate(dust_species):
+            spec_indx = spec_indicies[i]
+            # Silicate dust
+            if spec=='silicates':
+                sil_elem_key = particle.sp.Silicates_Element_Key
+                sil_elem_num = particle.sp.Silicates_Element_Number
+                # Get ratio of total silicate mass per mass of Si in silicates
+                silicate_atomic_weight = np.sum(sil_elem_num * config.ATOMIC_MASS[sil_elem_key])
+                Si_atomic_weight = config.ATOMIC_MASS[7]
+                Si_dust_metallicity = sil_iron_depl*metallicity[:,7]
+                print(silicate_atomic_weight/Si_atomic_weight)
+                dust_spec[:,spec_indx] = Si_dust_metallicity * silicate_atomic_weight/Si_atomic_weight
+            elif spec=='carbonaceous':
+                dust_spec[:,spec_indx] = dust_spec[:,spec_indicies[dust_species == 'silicates']]/sil_to_carb_ratio
+            elif spec=='iron':
+                dust_spec[:,spec_indx] = sil_iron_depl*metallicity[:,10]
+            else:
+                dust_spec[:,spec_indx] = 0
+    
+    # Assume MRN powerlaw size distribution
+    powerlaw = -3.5; 
+    for i, spec in enumerate(dust_species):
+        spec_indx = spec_indicies[i]
+        spec_props = config.dust_species_properties(spec)
+        bulk_dens = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+        # Determine normalization constant for grain size distribution given total mass of dust species
+        C_norm = (dust_spec[:,spec_indx]*gas_mass*config.Msolar_to_g)*(12+3*powerlaw) / (4 * np.pi * bulk_dens * (np.power(a_max,4+powerlaw)-np.power(a_min,4+powerlaw)));
+        for j in range(num_bins):
+            alower = a_edges[j]; aupper = a_edges[j+1];
+            a_center = a_centers[j]
+            mass_in_bin = 4*np.pi*bulk_dens/(3*(4+powerlaw))*C_norm*(np.power(aupper,4+powerlaw)-np.power(alower,4+powerlaw));
+            number_in_bin = C_norm/(powerlaw+1)*(np.power(aupper,powerlaw+1) - np.power(alower,powerlaw+1));
+            # Calculate slope in bin that has dust
+            no_dust = (mass_in_bin <= 0) | (number_in_bin <= 0)
+            spec_bin_slopes = (3*mass_in_bin/(4*np.pi*bulk_dens)-number_in_bin/(4*(aupper-alower))*(np.power(aupper,4)-np.power(alower,4))) / ((np.power(aupper,5)-np.power(alower,5))/5-a_center/4*(np.power(aupper,4)-np.power(alower,4)));
+            spec_bin_slopes[no_dust] = 0
+
+            dust_bin_numbers[:,i,j] = number_in_bin
+            dust_bin_slopes[:,i,j] = spec_bin_slopes
+
+    return dust_bin_numbers, dust_bin_slopes
+
 
 def get_grain_bin_mass(particle: Particle):
     """
