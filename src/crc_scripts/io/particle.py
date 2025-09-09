@@ -37,9 +37,8 @@ class Particle:
         self.time = sp.time
         if sp.cosmological:
             self.scale_factor = sp.scale_factor
-        elif ptype==4:
-            self.appended_dummy_stars = False # Used when appending dummy star particles in idealized sims
         else: self.scale_factor = 1
+        self.appended_dummy_stars = False # Used when appending dummy star particles in idealized sims
         self.redshift = sp.redshift
         self.boxsize = sp.boxsize
         self.hubble = sp.hubble
@@ -350,17 +349,22 @@ class Particle:
         if self.appended_dummy_stars: return
         for ptype in [2,3]:
             dummy_star = self.sp.loadpart(ptype)
-            for prop in self.data.keys():
-                # Typically Z is not saved for dummy star particles so assume a value
-                if prop not in dummy_star.data:
-                    dims=np.shape(self.data[prop])
-                    if len(dims) == 1:
-                        dims = [dummy_star.npart]
+            # Edge case were no new stars have formed
+            if self.npart == 0:
+                for prop in dummy_star.data.keys():
+                    self.data[prop] = dummy_star.data[prop]
+            else:
+                for prop in self.data.keys():
+                    # Typically Z is not saved for dummy star particles so assume a value
+                    if prop not in dummy_star.data:
+                        dims=np.shape(self.data[prop])
+                        if len(dims) == 1:
+                            dims = [dummy_star.npart]
+                        else:
+                            dims = [dummy_star.npart,dims[1]]
+                        self.data[prop] = np.append(self.data[prop],np.full(dims,np.median(self.data[prop],axis=0)),axis=0)
                     else:
-                        dims = [dummy_star.npart,dims[1]]
-                    self.data[prop] = np.append(self.data[prop],np.full(dims,np.median(self.data[prop],axis=0)),axis=0)
-                else:
-                    self.data[prop] = np.append(self.data[prop],dummy_star.data[prop],axis=0)
+                        self.data[prop] = np.append(self.data[prop],dummy_star.data[prop],axis=0)
             self.npart += dummy_star.npart
 
         self.appended_dummy_stars = True

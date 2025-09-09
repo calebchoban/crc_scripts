@@ -265,9 +265,9 @@ class Halo(object):
 
         part = self.part[ptype]
         # If the particles have previously been loaded and orientated we are done here
-        if not part.k or not part.orientated:
+        if not part.k or not part.orientated or (ptype==4 and part.appended_dummy_stars!=append_dummies):
             part.load()
-            if append_dummies & (ptype==4) and not self.cosmological:
+            if append_dummies and (ptype==4) and not self.cosmological:
                 part.append_dummy_stars()
             if part.npart>0:
                 part.orientate(self.center_position,self.center_velocity,self.principal_axes_vectors)
