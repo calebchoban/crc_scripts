@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..io.snapshot import Snapshot
-    from ..io.galaxy import Halo,Disk
+    from ..io.galaxy import Halo
+    from ..io.particle import Particle
 
 
 import numpy as np
@@ -14,26 +15,33 @@ from . import math_utils
 
 
 
-def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, prop_lims=None, mask_criteria='all'):
+def calc_binned_property_vs_property(particles:Particle, 
+                                     property1:str|list, 
+                                     property2:str|list,
+                                     weights:str|list='mass',
+                                     bin_nums:int=50, 
+                                     prop_lims:list=None,
+                                     mask:list=None):
     """
     Calculates median and 16/84th-percentiles of property1 in relation to binned property2 for
-    the given snapshot gas data
+    the given particle data.
 
     Parameters
     ----------
-    property1: string
-        Name of property to calculate median and percentiles for. Supported properties
-        ('D/Z','Z','nH','T','r','fH2','X_depletion')
-    property2: string
-        Name of property for property1 to be binned over
-    snap : snapshot/galaxy
-        Snapshot or Galaxy object from which particle data can be loaded
+    particles : Particle
+        Particle object from which particle data can be loaded
+    property1: string or list
+        Name of property (to be loaded from particle data) or list of numerical values to calculate median and percentiles for 
+    property2: string or list
+        Name of property (to be loaded from particle data) or list of numerical values to be binned over
+    weights : string or list, optional
+        Weights (property name or numerical values) for each particle when calculating the binned statistics. Default is mass weighting.
     bin_nums : int, optional
-        Number of bins to use for property2
-    prop_lims : ndarray, optional
-        Limits for property2 binning
-    mask_criteria : string, optional
-        Mask for particles to be given to get_particle_mask()
+        Number of bins to used for property2
+    prop_lims : list, optional
+        Limits for property2 binning. Defaults to the limits in config.py for the given property2
+    mask : list, optional
+        Optional mask for particle data
 
     Returns
     -------
@@ -46,23 +54,21 @@ def calc_binned_property_vs_property(property1, property2, snap, bin_nums=50, pr
 
     """
 
-    if property1 in ['sigma_star','sigma_stellar','stellar_Z','age'] or \
-       property2 in ['sigma_star','sigma_stellar','stellar_Z','age']:
-        ptype = 4
-    else:
-        ptype = 0
-
-    P = snap.loadpart(ptype)
-
-    mask = get_particle_mask(ptype, snap, mask_criteria=mask_criteria)
-
+    if mask is None: mask = np.ones(particles.npart, dtype=bool)
     # Get property data
-    data = np.zeros([2,len(P.get_property('M')[mask])])
-    weights = P.get_property('M')[mask]
-    for i, property in enumerate([property1,property2]):
-        data[i] = P.get_property(property)[mask]
+    data = np.zeros([2,len(particles.get_property('M')[mask])])
+    if isinstance(weights, str): weights = particles.get_property(weights)[mask]
+    if isinstance(property1, str): data[0] = particles.get_property(property1)[mask]
+    else: data[0] = property1[mask]
+    if isinstance(property2, str): data[1] = particles.get_property(property2)[mask]
+    else: data[1] = property2[mask]
 
     if prop_lims is None:
+        if not isinstance(property2, str):
+            raise ValueError("If property2 is given as a list, prop_lims must be given as a list of limits.")
+        else:
+            prop_lims = config.PROP_INFO[property2][1]
+            log_bins = config.PROP_INFO[property2][2]
         prop_lims = config.PROP_INFO[property2][1]
         log_bins  = config.PROP_INFO[property2][2]
     else:
@@ -161,7 +167,8 @@ def calc_phase_hist_data(property:str|list,
 
 def get_particle_mask(ptype:int, 
                       snap:Snapshot | Halo, 
-                      mask_criteria:str='all'):
+                      mask_criteria:str='all',
+                      factor_clumping=False):
     """
     Creates a boolean array for the given particle type in the given 
     snapshot to mask particles which meet the mask_criteria.
@@ -175,6 +182,8 @@ def get_particle_mask(ptype:int,
     mask_criteria : string
         Criteria for the mask (e.g. neutral, molecular, hot, warm, cold, young, old)
         These can be stacked for multiple masks such as 'hot_neutral' will give hot and neutral gas
+    factor_clumping : bool
+        Set whether you want sub-resolved clumping to be considered when determining densities and temperatures.
 
     Returns
     -------
@@ -191,46 +200,46 @@ def get_particle_mask(ptype:int,
     mask_identified = 0;
 
     if ptype==0:
-            if 'cold' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T < 300)
-            if 'cool' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T < 1E3) & (T >= 300)
-            if 'warm' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T<1E4) & (T>=1E3)
-            if 'hot' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T >= 1E4)
-            if 'coronal' in mask_criteria:
-                mask_identified+=1
-                T = P.get_property('T')
-                mask = mask & (T >= 3E5)
-            if 'molecular' in mask_criteria:
-                mask_identified+=1
-                fH2 = P.get_property('fH2')
-                mask = mask & (fH2 > 0.5)
-            if 'neutral' in mask_criteria:
-                mask_identified+=1
-                fHn = P.get_property('fnh')
-                mask = mask & (fHn > 0.5)
-            if 'neutral_atomic' in mask_criteria:
-                mask_identified+=1
-                fHn = P.get_property('fnh')
-                fH2 = P.get_property('fH2')
-                mask = mask & (fHn > 0.5) & (fH2 < 0.5)
-            if 'ionized' in mask_criteria:
-                mask_identified+=1
-                nH = P.get_property('nH')
-                T = P.get_property('T')
-                mask = mask & (nH >= 0.5) & (T >= 7000) & (T <= 15000)
-            if not mask_identified and mask_criteria not in ['all','']:
-                print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
+        if not factor_clumping:
+            nH = P.get_property('nH')
+            T = P.get_property('T')
+        else:
+            nH = P.get_property('nH_rms')
+            T = P.get_property('T_eff')
+
+        if 'cold' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (T < 300)
+        if 'cool' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (T < 1E3) & (T >= 300)
+        if 'warm' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (T<1E4) & (T>=1E3)
+        if 'hot' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (T >= 1E4) & (T < 3E5)
+        if 'coronal' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (T >= 3E5)
+        if 'molecular' in mask_criteria:
+            mask_identified+=1
+            fH2 = P.get_property('fH2')
+            mask = mask & (fH2 > 0.5)
+        if 'neutral' in mask_criteria:
+            mask_identified+=1
+            fHn = P.get_property('fnh')
+            mask = mask & (fHn > 0.5)
+        if 'neutral_atomic' in mask_criteria:
+            mask_identified+=1
+            fHn = P.get_property('fnh')
+            fH2 = P.get_property('fH2')
+            mask = mask & (fHn > 0.5) & (fH2 < 0.5)
+        if 'ionized' in mask_criteria:
+            mask_identified+=1
+            mask = mask & (nH >= 0.5) & (T >= 7000) & (T <= 15000)
+        if not mask_identified and mask_criteria not in ['all','']:
+            print(f"Mask criteria ({mask_criteria}) used in get_particle_mask() is not supported. Defaulting to all.")
     elif ptype==4:
         if 'young' in mask_criteria:
             mask_identified+=1
@@ -556,7 +565,7 @@ def calc_half_mass_radius(ptype:int,
 
 
 
-def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_zeros=True):
+def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_zeros=True, mask=None):
     """
     Calculates the 2D projection of a give property given the projection orientation and resolution
 
@@ -574,6 +583,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         What 2D coordinates you want to project (xy,yz,zx)
     no_zeros : bool
         Whether to set all pixels with zero or NaN values to a small value (EPSILON). Useful for log scales.
+    mask : list, optional
+        Optional mask for particle data.
 
     Returns
     -------
@@ -585,12 +596,15 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         Bins for second coordinate
     """
 
+
     L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
 
     if 'star' in property or 'stellar' in property or 'sfr' in property:
         P = snap.loadpart(4)
     else:    P = snap.loadpart(0)
-    x = P.get_property('position')[:,0];y=P.get_property('position')[:,1];z=P.get_property('position')[:,2]
+    if mask is None:
+        mask = np.ones(P.npart, dtype=bool)
+    x = P.get_property('position')[mask,0];y=P.get_property('position')[mask,1];z=P.get_property('position')[mask,2]
 
     # Set up coordinates to project
     if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
@@ -604,7 +618,7 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         return None
 
     # Only include particles in the box
-    mask = (coord1>-L1/2) & (coord1<L1/2) & (coord2>-L2/2) & (coord2<L2/2) & (coord3>-Lz/2) & (coord3<Lz/2)
+    box_mask = (coord1>-L1/2) & (coord1<L1/2) & (coord2>-L2/2) & (coord2<L2/2) & (coord3>-Lz/2) & (coord3<Lz/2)
 
     pixel_bins = int(np.ceil(L1/pixel_res)) + 1
     coord1_bins = np.linspace(-L1/2,L1/2,pixel_bins)
@@ -629,13 +643,13 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
         else:
             proj_data1 = P.get_property('M_gas')
             proj_data2 = P.get_property('M_mc')
-        binned_stats = binned_statistic_2d(coord1[mask], coord2[mask],[proj_data1[mask],proj_data2[mask]], 
+        
+        proj_data1 = proj_data1[mask]
+        proj_data2 = proj_data2[mask]
+        binned_stats = binned_statistic_2d(coord1[box_mask], coord2[box_mask],[proj_data1[box_mask],proj_data2[box_mask]], 
                                              statistic=np.sum, bins=[coord1_bins,coord2_bins])
         pixel_stats = np.divide(binned_stats.statistic[0],binned_stats.statistic[1], where=binned_stats.statistic[1]>0,
                                   out=np.full(np.shape(binned_stats.statistic[1]), np.nan))
-
-        if property == 'D/H_neutral':
-            print('')
 
 
     
@@ -668,7 +682,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
             stats = np.average
             pixel_area = 1.
 
-        binned_stats = binned_statistic_2d(coord1[mask], coord2[mask], proj_data[mask], statistic=stats, bins=[coord1_bins,coord2_bins])
+        proj_data = proj_data[mask]
+        binned_stats = binned_statistic_2d(coord1[box_mask], coord2[box_mask], proj_data[box_mask], statistic=stats, bins=[coord1_bins,coord2_bins])
         pixel_stats = binned_stats.statistic/pixel_area
 
     if no_zeros:

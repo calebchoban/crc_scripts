@@ -522,7 +522,7 @@ class Particle:
                 prop_data = data['mass']*data['H_neutral_fraction']
             elif case_insen_compare(property,['m_mol','m_h2']) and 'H2_fraction' in data:
                 prop_data =  data['mass']*data['H_neutral_fraction']*data['H2_fraction']
-            elif case_insen_compare(property,'fH2') and 'H2_fraction' in data:
+            elif case_insen_compare(property,['fH2','f_H2','f_mol']) and 'H2_fraction' in data:
                 prop_data = data['H2_fraction']
                 prop_data[prop_data>1] = 1
             elif case_insen_compare(property,'M_gas_ionized'):
@@ -546,12 +546,6 @@ class Particle:
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
                     prop_data = 1 + b*b*M*M
-            elif case_insen_compare(property,['T_clumping_factor']):
-                if 'mach_number' in data:
-                    M = data['mach_number']; b = 0.5;
-                    nmax = 1E4; nH = data['density'] * (1. - (data['Z'][:,0]+data['Z'][:,1])) / config.H_MASS
-                    sigma = np.sqrt(np.log(1+b*b*M*M))
-                    prop_data = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nmax/nH)) / (np.sqrt(2)*sigma))))
             elif case_insen_compare(property,'nH_rms'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
@@ -563,7 +557,7 @@ class Particle:
             elif case_insen_compare(property,'T_eff'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
-                    prop_data = data['temperature']/(1+b*b*M*M) 
+                    prop_data = data['temperature']/np.sqrt(1+b*b*M*M) 
             elif case_insen_compare(property,'f_dense'):
                 if 'mach_number' in data:
                     M = data['mach_number']; b = 0.5;
@@ -815,11 +809,11 @@ class Particle:
                         large_bins = self.sp.Grain_Bin_Centers > np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
                         small_bins = ~large_bins
                         # Mass for all dust
-                        if case_insen_compare(property,'f_STL'): 
+                        if case_insen_compare(property,'f_STL_all'): 
                             large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=(1,2))
                             small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=(1,2))
                         # Mass for each species
-                        elif case_insen_compare(property,'f_STL_all'): 
+                        elif case_insen_compare(property,'f_STL'): 
                             large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=2)
                             small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=2)
                         # Mass for each species

@@ -215,8 +215,8 @@ def dust_species_properties(species):
 
     # These are the base SNe sputtering and shattering efficiencies that each speices is scaled off of
     # The relative scaling arises from differences in sputtering erosion rate and shattering rates
-    base_delta_sput = 0.3
-    base_delta_shat = 0.1
+    base_delta_sput = 0.6
+    base_delta_shat = 0.2
 
     # Physical properties of dust species needed for calculations
     if species == 'silicates':
@@ -370,6 +370,8 @@ PROP_INFO = {
         [r'$\Sigma_{\rm H\,II}$ [M$_{\odot}$ pc$^{-2}$]', [1E-1,1E2], True],
     'NH_neutral':
         [r'$N_{\rm H,neutral}$ [cm$^{-2}$]', [1.1E18,0.9E22], True],
+    'NH':
+        [r'$N_{\rm H}$ [cm$^{-2}$]', [1.1E18,0.9E22], True],
     'NX':
         [r'$N_{\rm X}$ [cm$^{-2}$]', [1E16,1E19], True],
     'time':
@@ -388,6 +390,8 @@ PROP_INFO = {
         [r'$M_{\rm gas}\;[M_{\odot}]$', [1E8,1E11], True],
     'M_gas_neutral':
         [r'$M_{\rm gas,neutral}\;[M_{\odot}]$', [1E8,1E11], True],
+    'M_gas_ionized':
+        [r'$M_{\rm gas,ionized}\;[M_{\odot}]$', [1E8,1E11], True],
     'M_star':
         [r'$M_{\rm star}\;[M_{\odot}]$', [1E8,1E11], True],
     'M_young_star':
@@ -404,8 +408,14 @@ PROP_INFO = {
         [r'$n_{\rm H}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
     'nH_neutral':
         [r'$n_{\rm H,neutral}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+    'nH_rms':
+        [r'$n_{\rm H}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+    'nH_neutral_rms':
+        [r'$n_{\rm H,neutral}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
     'T':
         [r'T [K]', [1.1E1,0.9E7], True],
+    'T_eff':
+        [r'$T_{\rm eff}$ [K]', [1.1E1,0.9E7], True],
     'Z':
         [r'Z [Z$_{\odot}$]', [1.1E-3,5E0], True],
     'stellar_Z':
@@ -472,8 +482,10 @@ PROP_INFO = {
         ['D/G', [7E-5,2E-2], True],
     'D/H_neutral':
         [r'D/H$_{\rm neutral}$', [7E-5,2E-2], True],
-    'depletion':
-        [r'$\delta_{\rm X}$', [1E-3,1.1E0], True],
+    'gas_depletion':
+        [r'$\delta({\rm X\;in\;gas})$', [1E-2,1.1E0], True],
+    'dust_depletion':
+        [r'$\delta({\rm X\;in\;dust})$', [1E-1,1.1E0], True],
     'C_depletion':
         [r'$\delta_{\rm C}$', [1E-1,1.1E0], True],
     'O_depletion':
@@ -519,23 +531,25 @@ PROP_INFO = {
     **dict.fromkeys(['SED','flux'],
         [r'$\lambda L_{\lambda} \,[L_{\odot}]$', [1E8,2E12], True]),
     'grain_size':
-        [r'a [$\mu m$]', [7E-4,2E0], True],
+        [r'a [$\mu m$]', [3E-4,2E0], True],
     'dn/da':
         [r'$\frac{\partial n}{\partial a}$', [1E20,1E55], True],
     'dn/da_norm':
-        [r'$\frac{\partial n}{\partial a}$ (normalized)', [1E20,1E55], True],
+        [r'$\frac{\partial n}{\partial a}$ (normalized)', [1E-10,1E10], True],
     **dict.fromkeys(['dm/da','dm/dloga'],
         [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$', [1E20,1E55], True]),
     **dict.fromkeys(['dm/da_norm','dm/dloga_norm'],
-        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [0.01,1], True]),
-    'f_STL':
-        ['STL', [1E-1,1E1], True],
+        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [1E-3,1], True]),
+    **dict.fromkeys(['f_STL','STL','S/L'],
+        ['STL', [1E-1,1E1], True]),
     'M_grain_small':
         [r'$M_{\rm grain,small}$ $[M_{\odot}]$', [1E5,1E9], True],
     'M_grain_large':
         [r'$M_{\rm grain,large}$ $[M_{\odot}]$', [1E5,1E9], True],
     **dict.fromkeys(['extinction','A_lambda'],
         [r'$A_{\lambda}/A_V$', [0,10], False]),
+    'A_V':
+        [r'$A_V$', [0.001,10], True],
     'cool_rate':
         [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
     'heat_rate':

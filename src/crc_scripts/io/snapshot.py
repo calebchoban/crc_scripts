@@ -39,8 +39,8 @@ class Snapshot:
             raise Exception("Snapshot %s does not exist." % (sdir + "/snapshot_%03d.hdf5" % snum))
 
         # now, read snapshot header if it exists
-        snapfile = get_snap_file_name(sdir,snum,self.nsnap,0)
-        f = h5py.File(snapfile, 'r')
+        self.snapfile = get_snap_file_name(sdir,snum,self.nsnap,0)
+        f = h5py.File(self.snapfile, 'r')
         if 'ComovingIntegrationOn' in f['Header'].attrs.keys():
             self.cosmological=f['Header'].attrs['ComovingIntegrationOn']
         else:

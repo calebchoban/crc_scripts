@@ -255,7 +255,7 @@ def Menard_2010_dust_dens_vs_radius(sigma_dust_scale, r_scale):
 
 def Jenkins_Savage_2009_WNM_Depl(elem):
 	"""
-	Gives the depletion for Mg, Si, or Fe in the WNM based on comparison of Jenkins (2009)
+	Gives the depletion for Mg, Si, or Fe into dust in the WNM based on comparison of Jenkins (2009)
 	with Savage & Sembach (1996a). Note C depletions are reduced by a factor of 2 in line with
 	Sofia+2011 and Parvathi+2012.
 	"""
@@ -303,7 +303,7 @@ def Jenkins_Savage_2009_WNM_Depl(elem):
 		return None, None
 
 
-	return nH_dens, 1.-WNM_depl, WNM_error
+	return nH_dens, WNM_depl, WNM_error
 
 
 def Jenkins_2009_Elem_Depl(elem,density='NH'):
@@ -314,8 +314,6 @@ def Jenkins_2009_Elem_Depl(elem,density='NH'):
 	----------
 	elem : string
 		Which element to get depletions for
-	phy_dens : boolean
-		If True use physical nH conversion from Zhukovska+16. If False use average sight line nH.
 	density : string
 		Desired density property which include NH (raw surface number density), <nH> (average sight line density),
 		nH (physical density conversion from Zhukovska+16)
@@ -501,7 +499,7 @@ def Parvathi_2012_C_Depl(solar_abund='max', density='<nH>'):
 	C_depl : np.array
 		C depletions for all sightlines
 	C_err : array
-		Errors for each C depeltions
+		Errors for each C depletions
 	nH : array
 		Average sight line density (cm^-3) for each sightline
 	"""	
