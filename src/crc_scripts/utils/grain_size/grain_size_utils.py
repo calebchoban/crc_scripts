@@ -572,23 +572,24 @@ def get_dust_shattering_rate(particles:Particle,
 
 
 def get_grain_size_distribution(gas: Particle,
-                                species: str ='silicates', 
+                                dust_species: str = 'all',
                                 mask: list|None = None, 
                                 points_per_bin: int = 1, 
                                 std_percentiles: list = [16, 84],
                                 weight: str = 'gas'):
     """
-    Calculates the normalized grain size probability distribution (dn/da and dm/dloga) of a dust species from gas particles. 
+    Calculates the median grain size probability distribution (dn/da and dm/dloga) for the specified dust 
+    species across all gas particles, normalized by each particles total dust mass. 
     Gives the mean and standard deviation of the distribution for all particles. 
     Note this is determined by calculating the normalized distributions for all particles and then calculating the percentiles
-    with the dust species masses as weights.
+    with the dust masses as weights.
 
     Parameters
     ----------
     gas: Particle
         Gas particles to determine grain size distribution for.
-    species: str
-        Name of species you want size distribution for. (silicates, carbonaceous, or iron)
+    dust_species: str
+        Dust species you want the size distribution for. Options are ['all','silicates','carbonaceous','iron']
     mask : list
         Boolean array to mask particles. Set to None for all particles.
     points_per_bin : int, optional
@@ -616,49 +617,71 @@ def get_grain_size_distribution(gas: Particle,
     bin_edges = gas.sp.Grain_Bin_Edges
     bin_centers = gas.sp.Grain_Bin_Centers
     num_bins = gas.sp.Flag_GrainSizeBins
-    if species == 'silicates': spec_ind = 0
-    elif species == 'carbonaceous': spec_ind = 1
-    elif species == 'iron': spec_ind = 2
-    else: assert 0, "Dust species %s not supported"%species; return;
 
-    bin_nums = gas.get_property('grain_bin_num')[mask,spec_ind]
-    bin_slopes = gas.get_property('grain_bin_slope')[mask,spec_ind]
-    total_species_mass = gas.get_property('M_gas')[mask]*gas.get_property('dust_spec')[mask,spec_ind]
+    total_bin_nums = gas.get_property('grain_bin_num')[mask]
+    species_masses = gas.get_property('M_spec')[mask]
+    dust_masses = gas.get_property('M_dust')[mask]
     gas_masses = gas.get_property('M_gas')[mask]
 
-    # internal density for given dust species
-    # Physical properties of dust species needed for calculations
-    spec_props = dust_species_properties(species)
-    rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
-    
-
     grain_size_vals = np.zeros(points_per_bin*num_bins)
-    dnda_vals = np.zeros([num_part,points_per_bin*num_bins])
-    dmdloga_vals = np.zeros([num_part,points_per_bin*num_bins])
+    dnda_vals = np.zeros([num_part,points_per_bin*num_bins], dtype=np.float64)
+    dmdloga_vals = np.zeros([num_part,points_per_bin*num_bins], dtype=np.float64)
 
-    # Need to normalize the distributions by total number and total mass, since we are only considering their shapes
-    total_N = np.sum(bin_nums,axis=1)[:,np.newaxis]
-    total_M = total_species_mass[:,np.newaxis]
-    no_dust = (total_N[:,0] == 0) | (total_M[:,0] == 0)
+    supported_species = ['silicates','carbonaceous','iron']
+    spec_indices = [0,1,2]
 
-    # Determine grain size, dn/da, and dm/dloga values for points in each bin
-    for i in range(num_bins):
-        bin_num = bin_nums[:,i,np.newaxis]; # Add extra dimension for numpy math below
-        bin_slope = bin_slopes[:,i,np.newaxis]; 
-        # If one point per bin, set it to the center of the bin
-        if points_per_bin == 1: x_points = np.array([bin_centers[i]])
-        else: x_points = np.logspace(np.log10(bin_edges[i]*1.02),np.log10(bin_edges[i+1]*0.98),points_per_bin) # shave off the very edges of each bin since they can be near zero
-        grain_size_vals[i*points_per_bin:(i+1)*points_per_bin] = x_points
+    total_dust_N = np.zeros(num_part)
+    total_dust_M = np.zeros(num_part)
+    total_dust_M = dust_masses
 
-        dnda_vals[no_dust,i*points_per_bin:(i+1)*points_per_bin] = 0
-        dmdloga_vals[no_dust,i*points_per_bin:(i+1)*points_per_bin] = 0
-        dnda_vals[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i]))/total_N[~no_dust]
-        dmdloga_vals[~no_dust,i*points_per_bin:(i+1)*points_per_bin] = (4/3*np.pi*rho_c*np.power(x_points,4)*(bin_num[~no_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_dust]*(x_points-bin_centers[i])))/total_M[~no_dust]/config.Msolar_to_g
+    if dust_species in supported_species:
+        desired_species = [dust_species]
+    else:
+        desired_species = supported_species
+
+
+    for j,spec in enumerate(supported_species):
+        if spec not in desired_species:
+            continue
+
+        spec_ind = spec_indices[j]
+        bin_nums = gas.get_property('grain_bin_num')[mask,spec_ind]
+        bin_slopes = gas.get_property('grain_bin_slope')[mask,spec_ind]
+
+        total_dust_N += np.sum(total_bin_nums[:,spec_ind],axis=1)
+        total_dust_M += species_masses[:,spec_ind]
+        # internal density for given dust species
+        # Physical properties of dust species needed for calculations
+        spec_props = dust_species_properties(spec)
+        rho_c = spec_props['rho_c']/(config.cm_to_um**3) # g/cm^3 to g/um^3 since grain radii are in um
+        
+        # Need to normalize the distributions by total number and total mass, since we are only considering their shapes
+        no_spec_dust = (species_masses[:,spec_ind] == 0)
+
+        # Determine grain size, dn/da, and dm/dloga values for points in each bin
+        for i in range(num_bins):
+            bin_num = bin_nums[:,i,np.newaxis]; # Add extra dimension for numpy math below
+            bin_slope = bin_slopes[:,i,np.newaxis]; 
+            # If one point per bin, set it to the center of the bin
+            if points_per_bin == 1: x_points = np.array([bin_centers[i]])
+            else: x_points = np.logspace(np.log10(bin_edges[i]*1.02),np.log10(bin_edges[i+1]*0.98),points_per_bin) # shave off the very edges of each bin since they can be near zero
+            grain_size_vals[i*points_per_bin:(i+1)*points_per_bin] = x_points
+
+            dnda_vals[no_spec_dust,i*points_per_bin:(i+1)*points_per_bin] += 0
+            dmdloga_vals[no_spec_dust,i*points_per_bin:(i+1)*points_per_bin] += 0
+            dnda_vals[~no_spec_dust,i*points_per_bin:(i+1)*points_per_bin] += (bin_num[~no_spec_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_spec_dust]*(x_points-bin_centers[i]))
+            dmdloga_vals[~no_spec_dust,i*points_per_bin:(i+1)*points_per_bin] += (4/3*np.pi*rho_c*np.power(x_points,4)*(bin_num[~no_spec_dust]/(bin_edges[i+1]-bin_edges[i])+bin_slope[~no_spec_dust]*(x_points-bin_centers[i])))
+        
+    
+    # Normalize the distributions
+    has_dust = total_dust_M>0
+    dnda_vals[has_dust] /= total_dust_N[has_dust][:,np.newaxis]
+    dmdloga_vals[has_dust] /= (total_dust_M[has_dust][:,np.newaxis]*config.Msolar_to_g)
 
     # Determine percentile distribution values from all of the the particles
     # Weight each particle by their the total dust species mass
     if weight == 'dust':
-        weights = total_species_mass
+        weights = total_dust_M
     else:
         weights = gas_masses
     percentile_dnda = np.zeros([len(percentiles),points_per_bin*num_bins])
@@ -669,6 +692,9 @@ def get_grain_size_distribution(gas: Particle,
         percentile_dmdloga[:,i] = weighted_percentile(dmdloga_vals[:,i], percentiles=percentiles, weights=weights, ignore_invalid=True)
 
     return grain_size_vals, percentile_dnda, percentile_dmdloga
+
+
+
 
 
 
@@ -1245,7 +1271,7 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
 
 
 
-def calculate_idealized_Av(NH:float = 1E21,
+def calculate_idealized_Av(NH:float|list = 1E21,
                            DTG:float = 0.014*0.5,
                            amin:float = 1E-3,
                            amax:float = 1.0,
@@ -1258,7 +1284,7 @@ def calculate_idealized_Av(NH:float = 1E21,
 
     Parameters
     ----------
-    NH : float, optional
+    NH : float or list, optional
         Sight line surface density of hydrogen in cm^-2. Default is 1E21.
     DTG : float, optional
         Dust-to-gas mass ratio. Default is 0.014*0.5, assuming solar metallicity with 50% of metals in dust.
@@ -1277,6 +1303,9 @@ def calculate_idealized_Av(NH:float = 1E21,
         Total extinction in the V band (5470 Angstrom).
     """	    
 
+    # Since AV scales with NH can calculate AV for one NH and then determine the rest from scaling
+    idealized_NH = 1E21
+
     lambda_V = 0.5470 # V band wavelength in microns
 
     N_size_bins=100
@@ -1293,7 +1322,7 @@ def calculate_idealized_Av(NH:float = 1E21,
 
     # Determine mass surface densities for silicates and carbonaceous dust
     # Then determine the number surface density of grains in each size bin for each assuming an MRN size distribution
-    sigma_dust = DTG * 1.4 * NH * config.PROTONMASS # Dust mass surface density in g/cm^2, assuming hydrogen is ~70% of total gas mass
+    sigma_dust = DTG * 1.4 * idealized_NH * config.PROTONMASS # Dust mass surface density in g/cm^2, assuming hydrogen is ~70% of total gas mass
     sil_surface_density = sigma_dust * sil_to_carbon_ratio / (1 + sil_to_carbon_ratio) # Silicate dust surface density in g/cm^2
     carb_surface_density = sigma_dust / (1 + sil_to_carbon_ratio) # Carbonaceous dust surface density in g/cm^2
     spec_props = dust_species_properties('silicates')
@@ -1367,6 +1396,8 @@ def calculate_idealized_Av(NH:float = 1E21,
             A_V_spec += (2.5*np.log10(np.exp(1))*np.pi*bin_center*bin_center) * Qext([bin_centers[j]*config.cm_to_um,lambda_V])[0] * SigmaNdust_in_bin 
 
         A_V_total += A_V_spec
+
+    A_V_total = A_V_total * (NH/idealized_NH)
 
     return A_V_total
 
