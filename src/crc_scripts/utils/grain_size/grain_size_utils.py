@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import os
 from scipy.interpolate import RegularGridInterpolator as RGI
+from scipy.interpolate import CubicSpline
 from scipy.special import erfc,erf
 
 from ... import config
@@ -29,6 +30,31 @@ def MRN_dmdloga(a, rho_c=1):
 
 def lognorm_dnda(a, a_norm=0.1*config.um_to_cm, sigma_a=0.6):
     return 1/a * np.exp(-np.power(np.log(a/a_norm),2) / (2*sigma_a*sigma_a))
+
+def SNe_dnda(a, rho_c=1, a_norm=0.1*config.um_to_cm, sigma_a=0.2, a_cut = 0.1*config.um_to_cm, gamma=3.5, a_min = 0.5E-3*config.um_to_cm):
+    # Need to determine normalization constants so function is continuous
+    total_mass = 1;
+
+    C1_norm = total_mass*3*(gamma-4)*a_cut*np.power(a_min,gamma)*np.exp(-(np.power(np.log(a_cut/a_norm),2)/(2*sigma_a*sigma_a))) / \
+    (2*np.pi*rho_c*(2*np.power(a_cut,gamma)*np.power(a_min,4) - 2*np.power(a_cut,4)*np.power(a_min,gamma) + \
+    np.power(a_norm,3)*a_cut*np.power(a_min,gamma)*np.sqrt(2*np.pi)*(gamma-4)*sigma_a*np.exp((9*np.power(sigma_a,4) + \
+    np.power(np.log(a_cut/a_norm),2))/(2*sigma_a*sigma_a))*erfc((np.log(a_cut/a_norm)-3*sigma_a*sigma_a)/(np.sqrt(2)*sigma_a))));
+
+    C2_norm = C1_norm*np.power(a_cut,gamma-1)*np.exp(-(np.power(np.log(a_cut/a_norm),2)/(2*sigma_a*sigma_a)));
+
+    dnda = np.piecewise(a, [a >= a_cut, a < a_cut], [lambda x: C1_norm/x * np.exp(-np.power(np.log(x/a_norm),2) / (2*sigma_a*sigma_a)), lambda x: C2_norm*np.power(x,-gamma)])
+    return dnda
+
+def SNe_dmdloga(a, rho_c=1, a_norm=0.1*config.um_to_cm, sigma_a=0.2, a_cut = 0.1*config.um_to_cm, gamma=3.5, a_min = 0.5E-3*config.um_to_cm):
+    return 4/3*np.pi * rho_c * np.power(a,4)*SNe_dnda(a,rho_c, a_norm, sigma_a, a_cut, gamma, a_min)
+
+def AGB_dnda(a, a_norm=0.1*config.um_to_cm, sigma_a=0.47):
+    dnda = 1/a**5 * np.exp(-np.power(np.log(a/a_norm),2) / (2*sigma_a*sigma_a))
+    return dnda
+
+def AGB_dmdloga(a, rho_c=1, a_norm=0.1*config.um_to_cm, sigma_a=0.47):
+    return 4/3*np.pi * rho_c * np.power(a,4)*AGB_dnda(a,a_norm, sigma_a)
+
 
 # Astrodust size distribution from Hensley & Draine 2023
 # Returns only astrodust or PAHs component
@@ -920,6 +946,7 @@ def get_dust_optical_properties(species: str):
 def calculate_extinction_curve(gas: Particle, 
                                species: str = 'silicates', 
                                mask: list|None = None, 
+                               weights: list|None= None,
                                std_percentiles: list = [16, 84],
                                bin_subsamples: int = 1):
     """
@@ -940,6 +967,8 @@ def calculate_extinction_curve(gas: Particle,
         Note this is still normalized by the total A_V from all species.
     mask : ndarray
         Boolean array to mask particles. Set to None for all particles.
+    weights : ndarray
+        Array of weights used for determing percentiles. If None all particles will be weighted by their dust mass.
     std_percentiles : list
         Standard deviation percentiles to be calculated from the extinction curves from all 
         particles used in extinction curve calculation. 
@@ -1122,7 +1151,8 @@ def calculate_extinction_curve(gas: Particle,
     # Calculate the percentiles for each wavelength point across all particles
     percentile_A_lambda = np.zeros([len(percentiles),N_wave_bins])
     for i in range(N_wave_bins):
-        weights = dust_masses # Weight each particle extinction by their the total dust mass
+        if weights is None:
+            weights = dust_masses # Weight each particle extinction by their the total dust mass
         A_lambda_vals = A_lambda_norm[:,i]
         percentile_A_lambda[:,i] = weighted_percentile(A_lambda_vals, percentiles=percentiles, weights=weights, ignore_invalid=True)
 
@@ -1133,7 +1163,7 @@ def calculate_extinction_curve(gas: Particle,
 
 
 
-def calculate_idealized_extinction_curve(amin:float = 1E-3, 
+def calculate_idealized_extinction_curve(a_min:float = 1E-3, 
                                          amax:float = 1,
                                          sil_to_carbon_ratio:float = 2.0,
                                          MRN_slope:float = -3.5,):
@@ -1143,7 +1173,7 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
 
     Parameters
     ----------
-    amin : float
+    a_min : float
         Minimum grain size in micron.
     amax : float
         Maximum grain size in micron.
@@ -1187,11 +1217,11 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
 
 
     # Determine grain size and dn/da values for each dust species
-    bin_size = np.power(10,np.log10(amax/amin)/N_size_bins)
+    bin_size = np.power(10,np.log10(amax/a_min)/N_size_bins)
     bin_edges = np.zeros(N_size_bins+1)
     bin_centers = np.zeros(N_size_bins)
     for i in range(N_size_bins+1):
-        bin_edges[i] = pow(bin_size,i)*amin
+        bin_edges[i] = pow(bin_size,i)*a_min
     for i in range(N_size_bins):
         bin_centers[i] = (bin_edges[i+1] + bin_edges[i])/2.
     dNda_vals = np.power(bin_centers, MRN_slope) # dN/da ~ a^(-3.5) grain surface density (since we are normalizing A_lambda by A_V dont need to normalize this)
@@ -1270,10 +1300,43 @@ def calculate_idealized_extinction_curve(amin:float = 1E-3,
     return unique_wavelengths, A_lambda_norm
 
 
+def calculate_extinction_parameters(wavelengths:list,
+                                    A_lambda:list):
+    """
+    Calculates slope and bump strength parameters for the provided 
+    extinction curve following Salim & Narayanan (2020). 
+
+    Parameters
+    ----------
+    wavelengths: list
+        Wavelength data points in micron.
+    A_lambda : list
+        A_lambda values at corresponding wavelength points.
+
+    Returns
+    -------
+    slope: float
+        UV slope.
+    bump: flat
+        2175 A bump strength.
+    """	  
+    
+    lambda_V = 0.5470 # V band wavelength in microns
+    A_lambda_func = CubicSpline(wavelengths,A_lambda)
+    # Slope is ratio of A at 1500 angstrom and AV
+    slope = A_lambda_func(0.150)/A_lambda_func(lambda_V)
+
+    A_2175_0 = 0.33*A_lambda_func(0.150)+0.67*A_lambda_func(0.3)
+    A_bump = A_lambda_func(0.2175) - A_2175_0
+    bump = A_bump / A_lambda_func(0.2175)
+
+    return slope, bump
+
+
 
 def calculate_idealized_Av(NH:float|list = 1E21,
                            DTG:float = 0.014*0.5,
-                           amin:float = 1E-3,
+                           a_min:float = 1E-3,
                            amax:float = 1.0,
                            sil_to_carbon_ratio:float = 2.0,
                            MRN_slope:float = -3.5):
@@ -1288,7 +1351,7 @@ def calculate_idealized_Av(NH:float|list = 1E21,
         Sight line surface density of hydrogen in cm^-2. Default is 1E21.
     DTG : float, optional
         Dust-to-gas mass ratio. Default is 0.014*0.5, assuming solar metallicity with 50% of metals in dust.
-    amin : float, optional
+    a_min : float, optional
         Minimum grain size in microns. Default is 1E-3.
     amax : float, optional
         Maximum grain size in microns. Default is 1.0.
@@ -1310,13 +1373,13 @@ def calculate_idealized_Av(NH:float|list = 1E21,
 
     N_size_bins=100
     # Load snapshot gas particle data and grain size bin data
-    amin*=config.um_to_cm
+    a_min*=config.um_to_cm
     amax*=config.um_to_cm
-    bin_size = np.power(10,np.log10(amax/amin)/N_size_bins)
+    bin_size = np.power(10,np.log10(amax/a_min)/N_size_bins)
     bin_edges = np.zeros(N_size_bins+1)
     bin_centers = np.zeros(N_size_bins)
     for i in range(N_size_bins+1):
-        bin_edges[i] = pow(bin_size,i)*amin
+        bin_edges[i] = pow(bin_size,i)*a_min
     for i in range(N_size_bins):
         bin_centers[i] = (bin_edges[i+1] + bin_edges[i])/2.
 
@@ -1335,9 +1398,9 @@ def calculate_idealized_Av(NH:float|list = 1E21,
 
     # Determine normalization constant for grain size distribution given total mass of dust species
     sil_C_norm = (sil_surface_density) * (12 + 3 * MRN_slope) / (
-        4 * np.pi * sil_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(amin, 4 + MRN_slope)))
+        4 * np.pi * sil_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(a_min, 4 + MRN_slope)))
     carb_C_norm = (carb_surface_density) * (12 + 3 * MRN_slope) / (
-        4 * np.pi * carb_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(amin, 4 + MRN_slope)))
+        4 * np.pi * carb_rho_c * (np.power(amax, 4 + MRN_slope) - np.power(a_min, 4 + MRN_slope)))
 
     for k in range(N_size_bins):
         alower = bin_edges[k]
