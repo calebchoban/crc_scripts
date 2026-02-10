@@ -601,7 +601,7 @@ def setup_proj_figure(num_plots,add_sub_projs,add_colorbars=True,height_ratios=[
         else:
             ncols = int(np.ceil(num_plots/nrows))
             gs = gridspec.GridSpec(nrows,ncols,hspace=height_space,wspace=width_space,top=0.975, bottom=0.025, left=0.025, right=0.975)
-            fig=plt.figure(figsize=(nrows*config.BASE_FIG_SIZE,ncols*config.BASE_FIG_SIZE)) 
+            fig=plt.figure(figsize=(ncols*config.BASE_FIG_SIZE,nrows*config.BASE_FIG_SIZE)) 
             for i in range(nrows):
                 for j in range(ncols):
                     ax = plt.subplot(gs[i,j])
@@ -696,7 +696,7 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
         print("Valid properties are:")
         print(config.PROP_INFO.keys())
         return
-    label = config.get_prop_label(property)
+    if label is None: label = config.get_prop_label(property)
 
     if mappable is None:
         if limits == None:

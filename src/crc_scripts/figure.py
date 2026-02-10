@@ -339,6 +339,8 @@ class Figure(object):
                 kwargs[kwarg] = default_kwargs[kwarg]
         if 'fontsize' in kwargs:
             kwargs['fontsize'] *= rescale_font
+        else:
+            kwargs['fontsize'] = rescale_font*config.SMALL_FONT
         # Check for old legends and remove
         legends = [c for c in self.fig.get_children() if isinstance(c, mpl.legend.Legend)]
         if len(legends)>0:
@@ -558,11 +560,12 @@ class Projection(Figure):
         
         axes=self.axes[axis_num]
         for i, axis in enumerate(axes):
-            # Only need the main axis for images
-            axis.xaxis.set_visible(False)
-            axis.yaxis.set_visible(False)
-            for axe in ['top','bottom','left','right']:
-                axis.spines[axe].set_visible(False)
+            if i == 0:
+                # Only need the main axis for images
+                axis.xaxis.set_visible(False)
+                axis.yaxis.set_visible(False)
+                for axe in ['top','bottom','left','right']:
+                    axis.spines[axe].set_visible(False)
                     
 
     
@@ -730,3 +733,28 @@ class Projection(Figure):
                 bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.75*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
             axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
+
+
+    # This is a wrapper for the matplotlib annotate function which is more versatile than the text function
+    def add_text(self, axis_num, x, y, text, rescale_font=1, **kwargs):
+        default_kwargs = {
+            'color': config.BASE_COLOR,
+            'fontsize': rescale_font*config.EXTRA_LARGE_FONT,
+            'ha': 'center',
+            'va': 'center',
+            'xycoords': 'axes fraction'} 
+
+        # Adding outlines to text is not simple so lets make it similar to edges 
+        if 'ec' in kwargs:
+            if 'ew' not in kwargs:
+                kwargs['ew']=0.5*config.BASE_ELINEWIDTH
+            kwargs['path_effects']=[patheffects.withStroke(linewidth= kwargs['ew'],
+                                                        foreground= kwargs['ec'])]
+            kwargs.pop('ec',0);kwargs.pop('ew',0)
+
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]
+                 
+        axis=self.axes[axis_num][0]
+        axis.annotate(text,xy=[x,y], **kwargs)
