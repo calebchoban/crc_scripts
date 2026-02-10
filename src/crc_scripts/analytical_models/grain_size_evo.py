@@ -46,7 +46,7 @@ def ISM_phase_properties(ISM_phase):
 
     """
 
-    assert ISM_phase in ['HIM','WIM','CNM','MC'], "Invalid ISM phase given"
+    assert ISM_phase in ['HIM','WIM','WNM','CNM','MC','DENSE'], "Invalid ISM phase given"
 
     if ISM_phase == 'HIM':
         nH = 0.001
@@ -62,7 +62,12 @@ def ISM_phase_properties(ISM_phase):
         nH = 30
         rho = nH * config.PROTONMASS; 
         temp = 100
-        M=3   
+        M=3
+    elif ISM_phase == 'DENSE':
+        nH = 1E3
+        rho = nH * config.PROTONMASS; 
+        temp = 50
+        M=1
     elif ISM_phase == 'MC':
         nH = 1E4
         rho = nH * config.PROTONMASS; 
@@ -79,20 +84,26 @@ def ISM_phase_properties(ISM_phase):
     return ISM_phase_props
 
 
-def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_num=1000, init_dnda = MRN_dnda, depl_frac=0.1, ISM_phase='CNM', species='silicates', subcycle_constraints='min_bin'):
+def change_in_grain_distribution_from_acc_sput(dt_Gyr, a_vals, init_dnda, depl_frac=0.1, ISM_phase='CNM', species='silicates', subcycle_constraints='min_bin', include_Cenh=True, Z_scaling=1):
     """
     Calculate the change in an MRN grain size distribution based on a constant da/dt. 
     Useful for testing predictions for gas-dust accretion and sputtering. 
 
     Parameters:
-    - da (float): The constant change in grain size.
-    - amin (float): The minimum grain size (microns).
-    - amax (float): The maximum grain size (microns).
-    - bin_num (int): The number of bins for grain size distribution.
+    - dt_Gyr (float): Time over which you want to evolve the dust population
+    - a_vals (list): List of bin edges for grain size distribution (microns)
+    - init_dnda (list): Initial discretized grain size distribution values at bin centers (micron^-1).
+    - ISM_phase (str): ISM phase you want to assume for gas properties.
+    - species (str): Dust species to consider. 
     - depl_frac (float): The initial depletion fraction.
+    - subcycle_constraints (str): Constraints used when determining whether time subcycling is needed.
+    - include_Cenh (bool): Include Coulomb enhancement
+    - Z_scaling (float): Metallicity scaling for accretion rates.
 
     Returns:
-    - interp1d: The updated dnda distribution normalized to one.
+    - final_dnda (list): Final grain size distribution after accretion/sputtering
+    - final_dmdloga: Final grain mass distribution after accretion/sputtering
+    - depl_frac: Final depletion of key element for given dust species
     """
 
     
@@ -114,36 +125,35 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
     nH_max = spec_props['nH_max']
 
     # number abundance of key element factoring in depletion into dust
-    key_num_dens = rho * key_abundance * (1 - depl_frac) / (key_mass*config.PROTONMASS)
+    key_num_dens = rho * Z_scaling*key_abundance * (1 - depl_frac) / (key_mass*config.PROTONMASS)
 
     M_cell = config.FIRE_GAS_PARTICLE_MASS*config.Msolar_to_g;
     # dust to gas mass ratio for given species for given depletion used for normalization of initial size distribution
-    DTG_spec = key_abundance*depl_frac*dust_atomic_weight / key_mass
+    DTG_spec = Z_scaling*key_abundance*depl_frac*dust_atomic_weight / key_mass
 
+    a_vals_cm = a_vals*config.um_to_cm
+    bin_num = len(a_vals_cm)-1
+    amin_cm = a_vals_cm[0]; amax_cm = a_vals_cm[-1]
+    a_centers = (a_vals_cm[1:]+a_vals_cm[:-1])/2
+    init_dmda = init_dnda* 4*np.pi/3*rho_c * np.power(a_centers,3)
+    init_norm = DTG_spec * M_cell / np.sum(init_dmda*(a_vals_cm[1:]-a_vals_cm[:-1]))
 
-    amin_cm = amin*config.um_to_cm; amax_cm = amax*config.um_to_cm
-    a_vals = np.logspace(np.log10(amin_cm),np.log10(amax_cm),bin_num+1)
-    a_centers = (a_vals[1:]+a_vals[:-1])/2
-    init_dmda = lambda a: init_dnda(a) * 4*np.pi/3*rho_c * np.power(a,3)
-    init_norm = DTG_spec * M_cell / quad(init_dmda,amin,amax)[0]
+    init_M = np.zeros(bin_num)
+    init_N = np.zeros(bin_num)
+    final_M = np.zeros(bin_num)
+    final_N = np.zeros(bin_num)
 
-    init_M = np.zeros(len(a_vals)-1)
-    init_N = np.zeros(len(a_vals)-1)
-    final_M = np.zeros(len(a_vals)-1)
-    final_N = np.zeros(len(a_vals)-1)
-
-    for i in range(len(a_vals)-1):
-        ai_upper = a_vals[i+1]
-        ai_lower = a_vals[i]
-        init_N[i] = quad(init_dnda,ai_lower,ai_upper)[0]*init_norm
-        init_M[i] = quad(init_dmda,ai_lower,ai_upper)[0]*init_norm
+    for i in range(bin_num):
+        ai_upper = a_vals_cm[i+1]
+        ai_lower = a_vals_cm[i]
+        init_N[i] = init_dnda[i]*(ai_upper-ai_lower)*init_norm
+        init_M[i] = init_dmda[i]*(ai_upper-ai_lower)*init_norm
         final_N[i]= init_N[i]
         final_M[i]= init_M[i]
 
     initial_total_N = np.sum(init_N)
     initial_total_M = np.sum(init_M)
     init_depl_frac=depl_frac
-
 
     # Get dadt for the smallest grain size bin
     # Accretion occurs below 300 K
@@ -152,40 +162,36 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
         # Determine clumping factor due to subresolved gas-dust clumping using assumed Mach number
         b = 0.5
         sigma = np.sqrt(np.log(1+b*b*M*M))
-        temp_clump_factor = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nH_max/nH)) / (np.sqrt(2)*sigma))))
+        temp_clump_factor = 1/sigma
         eff_clump_factor = np.exp(sigma*sigma)/2 * erfc((3/2*sigma*sigma-np.log(nH_max/nH)) / (np.sqrt(2)*sigma))
-
-        # Determine Coulomb enhancement factor
-        if species == 'silicates':
-            b0=1.96617;b1=-0.910511;b2=0.0150985;b3=-0.906869;b4=0.580115;b5=-0.102265;
-        elif species == 'carbonaceous':
-            b0=1.76851;b1=-1.4336;b2=-0.344758;b3=0.420086;b4=-0.641419;b5=-0.585337;
-        elif species == 'iron':
-            b0=2.14226;b1=-0.910511;b2=0.0150985;b3=-0.906869;b4=0.580115;b5=-0.102265;
-        else:
-            b1=0;b2=0;b3=0;b4=0;b5=0;
-        nH_dense = 1E3
-        fdense = 1/2+1/2*erf((sigma*sigma/2 - np.log(nH_dense/nH))/(np.sqrt(2)*sigma));
-
-        # Fit to Weingartner & Draine 2001 Coulomb enhancement factor
-        # Not using this since it is very high for small grains
-        log_a_nano = np.log10(a_centers*config.cm_to_nm); # convert to nm
-        Coulomb_enhancement = np.power(10,b0 + b1*log_a_nano + b2*log_a_nano*log_a_nano + b3*log_a_nano*log_a_nano*log_a_nano + b4*log_a_nano*log_a_nano*log_a_nano*log_a_nano + b5*log_a_nano*log_a_nano*log_a_nano*log_a_nano*log_a_nano)
-
 
         # New simple prescription for Coulomb enhancement
         Coulomb_enhancement = np.ones(len(a_centers))
-        if species == 'silicates':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 10
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0.5
-        elif species == 'carbonaceous':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 3
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0
-        elif species == 'iron':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 20
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 1
+        if include_Cenh:
+            if species == 'silicates':
+                D_small = 10
+                D_large = 0.5
+                Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 10
+                Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0.5
+            elif species == 'carbonaceous':
+                D_small = 3
+                D_large = 0
+                Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 3
+                Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0
+            elif species == 'iron':
+                D_small = 20
+                D_large = 1
+                Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 20
+                Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 1
+            else:
+                D_small = 1; D_large = 1
+            
+            a_small=0.001*1E-4; a_mid=0.01*1E-4;
+            small_mask = a_centers<=a_small; mid_mask = (a_centers>a_small)&(a_centers<=a_mid); large_mask = a_centers>a_mid
+            Coulomb_enhancement[small_mask] = D_small
+            Coulomb_enhancement[mid_mask] = ((D_large-D_small)/np.log10(a_mid/a_small)) * np.log10(a_centers[mid_mask]/a_small) + D_small
+            Coulomb_enhancement[large_mask] = D_large
 
-        Coulomb_enhancement = (1-fdense)*Coulomb_enhancement + fdense
         dadt = dadt_ref * (dust_atomic_weight / (key_num_atoms * np.sqrt(key_mass))) * key_num_dens * np.sqrt(temp * temp_clump_factor) / rho_c * Coulomb_enhancement * eff_clump_factor; # change in cm/Gyr
     # Sputtering starts to become efficient above 10^5 K
     elif temp > 1E4:
@@ -202,7 +208,8 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
 
         dadt = np.full(len(a_centers),-eff_clump_factor * nH * Y_sput * config.um_to_cm / 1E-9); # change to cm/Gyr
     else:
-        dadt = np.zeros(len(a_centers))
+        print("For given ISM phase no accretion or sputtering will occur.")
+        return a_centers, init_dmda, init_dmda*a_centers, init_depl_frac
 
     print("Predicted dadt (um/Gyr):",dadt*config.cm_to_um)
 
@@ -214,7 +221,7 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
     dadt_0 = dadt[0] # grain size change in smallest bin   
     if subcycle_constraints == 'min_bin':
         epsilon_cycle = 1
-        a1_width = a_vals[1]-a_vals[0]
+        a1_width = a_vals_cm[1]-a_vals_cm[0]
         print("Min bin width used for subcyling",a1_width*config.cm_to_um)
         dt_acc = epsilon_cycle*a1_width/dadt_0;
         if (dt_acc < dt_Gyr):
@@ -238,7 +245,7 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
         if n_cycle != 0:
             # Need to recalculate dada for accretion since it depends on the key element abundance which changes as the dust grows
             if temp <= 300:
-                key_num_dens = rho * key_abundance * (1 - depl_frac) / (key_mass*config.PROTONMASS)
+                key_num_dens = rho * Z_scaling*key_abundance * (1 - depl_frac) / (key_mass*config.PROTONMASS)
                 dadt = dadt_ref * (dust_atomic_weight / (key_num_atoms * np.sqrt(key_mass))) * key_num_dens * np.sqrt(temp * temp_clump_factor) / rho_c * Coulomb_enhancement * eff_clump_factor; # change in cm/Gyr
 
 
@@ -248,15 +255,15 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
                 init_N[i] = final_N[i]
                 init_M[i] = final_M[i]
 
-        N_update = np.zeros(len(a_vals)-1)
-        M_update = np.zeros(len(a_vals)-1)
+        N_update = np.zeros(bin_num)
+        M_update = np.zeros(bin_num)
 
         # Loop over all bins to determine the change in grain mass and number
         for j in range(bin_num):
-            aj_upper = a_vals[j+1]; aj_lower = a_vals[j];
+            aj_upper = a_vals_cm[j+1]; aj_lower = a_vals_cm[j];
             # Determine how many grains in bin i move to bin j given da
             for i in range(bin_num):
-                ai_upper = a_vals[i+1]; ai_lower = a_vals[i]
+                ai_upper = a_vals_cm[i+1]; ai_lower = a_vals_cm[i]
                 dai = da[i]
                 intersect = np.array([np.max([aj_lower-dai, ai_lower]), np.min([aj_upper-dai, ai_upper])])
                 
@@ -298,37 +305,35 @@ def change_in_grain_distribution_from_acc_sput(dt_Gyr, amin=1E-3,amax=1E0,bin_nu
     print("Change in total grain mass",final_total_M/initial_total_M)
     print("Initial and final depletion fraction", init_depl_frac, depl_frac)
     # Final grain size distribution normalized back to total mass and total number
-    a_bins_widths = (a_vals[1:]-a_vals[:-1])*config.cm_to_um
-    a_centers = (a_vals[1:]+a_vals[:-1])/2 *config.cm_to_um
-    dni_da = final_N / a_bins_widths / final_total_N
-    final_dnda = interp1d(a_centers,dni_da)
-    dmi_da = final_M / a_bins_widths / final_total_M
-    final_dmda = interp1d(a_centers,dmi_da)
-    return a_centers, final_dnda, final_dmda
+    a_bins_widths = (a_vals[1:]-a_vals[:-1])
+    a_centers = (a_vals[1:]+a_vals[:-1])/2
+    final_dnda = final_N / a_bins_widths / final_total_N
+    final_dmdloga = final_M / a_bins_widths / final_total_M * a_centers
+    return final_dnda, final_dmdloga, depl_frac
 
 
 
 
-def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num=5, init_dnda = MRN_dnda, depl_frac=0.1, subcycle_constraints='both', ISM_phase='simple', species='silicates'):
+def change_in_grain_distribution_from_shat_coag(dt_Gyr, a_vals, init_dnda, depl_frac=0.1, subcycle_constraints='both', ISM_phase='simple', species='silicates', Z_scaling=1, no_vcoag=False):
     """
     Calculates the change in grain size distribution due to shattering and coagulation over given time step.
+    
     Parameters:
     - dt (float): Time step in Gyr.
-    - amin (float): Minimum grain size (um).
-    - amax (float): Maximum grain size (um).
-    - bin_num (int): Number of bins for grain size distribution.
+    - a_vals (list): List of bin edges for grain size distribution (microns)
+    - init_dnda (list): Initial discretized grain size distribution values at bin centers (micron^-1).
     - init_dnda (function): Initial grain size distribution function.
     - subcycle_constraints (str): Subcycling constraints, options are 'mass', 'number', or 'both'.
     - ISM_phase (str): Interstellar medium phase, options are 'WIM', 'MC', or 'simple'.
     - species (str): Dust species, options are 'silicates', 'carbonaceous', or 'iron'.
+    - Z_scaling (float): Metallicity scaling for interaction rates.
+
     Returns:
-    - a_centers (ndarray): Centers of the grain size bins (um).
-    - final_dnda (function): Final grain size distribution function.
-    - final_dmda (function): Final grain mass distribution function.
+    - final_dnda (list): Final grain size distribution function.
+    - final_dmdloga (list): Final grain mass distribution function.
     """
 
-    amin*=config.um_to_cm; amax*=config.um_to_cm
-    dt_sec = dt * config.Gyr_to_sec
+    dt_sec = dt_Gyr * config.Gyr_to_sec
     # used for subcycling timesteps
     M_epsilon_cycle = 0.1 
     N_epsilon_cycle = 0.1
@@ -357,29 +362,31 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
     rho_c = spec_props['rho_c']
 
     # Get the total mass of the dust species given the initial depletion
-    total_mass = M_cell * key_abundance * depl_frac * dust_atomic_weight / (key_num_atoms * key_mass)
+    total_mass = M_cell * Z_scaling * key_abundance * depl_frac * dust_atomic_weight / (key_num_atoms * key_mass)
 
     # Clumping factor which enhances dust-dust interactions
     b = 0.5
     eff_clumping_factor = 1+b*b*M*M
 
+    
+    a_vals_cm = a_vals*config.um_to_cm
+    bin_num = len(a_vals_cm)-1
+    amin_cm = a_vals_cm[0]; amax_cm = a_vals_cm[-1]
+    a_centers = (a_vals_cm[1:]+a_vals_cm[:-1])/2
 
-    a_vals = np.logspace(np.log10(amin),np.log10(amax),bin_num+1)
-    a_centers = (a_vals[1:]+a_vals[:-1])/2
+    init_dmda = init_dnda* 4*np.pi/3*rho_c * np.power(a_centers,3)
+    init_norm = total_mass /  np.sum(init_dmda*(a_vals_cm[1:]-a_vals_cm[:-1]))
 
-    init_dmda = lambda a: init_dnda(a) * 4*np.pi/3*rho_c * np.power(a,3)
-    init_norm = total_mass / quad(init_dmda,amin,amax)[0]
+    init_M = np.zeros(bin_num)
+    init_N = np.zeros(bin_num)
+    final_M = np.zeros(bin_num)
+    final_N = np.zeros(bin_num)
 
-    init_M = np.zeros(len(a_vals)-1)
-    init_N = np.zeros(len(a_vals)-1)
-    final_M = np.zeros(len(a_vals)-1)
-    final_N = np.zeros(len(a_vals)-1)
-
-    for i in range(len(a_vals)-1):
-        ai_upper = a_vals[i+1]
-        ai_lower = a_vals[i]
-        init_N[i] = quad(init_dnda,ai_lower,ai_upper)[0]*init_norm
-        init_M[i] = quad(init_dmda,ai_lower,ai_upper)[0]*init_norm
+    for i in range(bin_num):
+        ai_upper = a_vals_cm[i+1]
+        ai_lower = a_vals_cm[i]
+        init_N[i] = init_dnda[i]*(ai_upper-ai_lower)*init_norm
+        init_M[i] = init_dmda[i]*(ai_upper-ai_lower)*init_norm
         final_N[i]= init_N[i]
         final_M[i]= init_M[i]
 
@@ -393,40 +400,44 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
 
     # This completes one full cycle to check if subcycling is needed. If not it's done, else it will loop over the needed number of subcycles
     while (n_cycle<=total_cycles):
-        dM_dt = np.zeros(len(a_vals)-1)
-        for i in range(len(a_vals)-1):
-            ai_upper = a_vals[i+1]
-            ai_lower = a_vals[i]
+        dM_dt = np.zeros(bin_num)
+        for i in range(bin_num):
+            ai_upper = a_vals_cm[i+1]
+            ai_lower = a_vals_cm[i]
             if n_cycle != 0:
                 init_N[i] = final_N[i]
                 init_M[i] = final_M[i]
 
-        for i in range(len(a_vals)-1):
-            ai_upper = a_vals[i+1]
-            ai_lower = a_vals[i]
+        for i in range(bin_num):
+            ai_upper = a_vals_cm[i+1]
+            ai_lower = a_vals_cm[i]
             ai_center = (ai_upper + ai_lower)/2
             mi_acenter = 4*np.pi/3*rho_c*np.power(ai_center,3)
 
+
+            removal_terms = np.zeros([bin_num,bin_num])
+            injection_terms = np.zeros([bin_num,bin_num])
             removal_term = 0
             injection_term = 0
-            for j in range(len(a_vals)-1):
-                aj_upper = a_vals[j+1]
-                aj_lower = a_vals[j]
+            for j in range(bin_num):
+                aj_upper = a_vals_cm[j+1]
+                aj_lower = a_vals_cm[j]
                 aj_center = (aj_upper + aj_lower)/2
 
                 int_I_ij = ((2*np.power(ai_lower,2) + 2*ai_lower*ai_upper + 2*np.power(ai_upper,2) + 3*ai_lower*(aj_lower + aj_upper) + 3*ai_upper*(aj_lower + aj_upper) + 2*(np.power(aj_lower,2) + aj_lower*aj_upper + np.power(aj_upper,2)))*init_N[i]*init_N[j])/6.
                 
                 vijrel = grain_relative_velocity(ai_center, aj_center, rho_c, ISM_phase)
                 v_coag = v_coagulation(ai_center, aj_center, rho_c, poisson, youngs, gamma)
+                if no_vcoag: v_coag = v_shat
                 # Sometimes v_coag can go above v_shat (mainly for metallic iron)
                 
                 if v_coag > v_shat: v_coag = v_shat
                 if vijrel > v_shat or vijrel <= v_coag:
                     removal_term += vijrel * mi_acenter * int_I_ij
 
-                for k in range(len(a_vals)-1):
-                    ak_upper = a_vals[k+1]
-                    ak_lower = a_vals[k]
+                for k in range(bin_num):
+                    ak_upper = a_vals_cm[k+1]
+                    ak_lower = a_vals_cm[k]
                     ak_center = (ak_upper + ak_lower)/2
 
                     int_I_kj = ((2*np.power(aj_lower,2) + 2*aj_lower*aj_upper + 2*np.power(aj_upper,2) + 3*aj_lower*(ak_lower + ak_upper) + 3*aj_upper*(ak_lower + ak_upper) + 2*(np.power(ak_lower,2) + ak_lower*ak_upper + np.power(ak_upper,2)))*init_N[j]*init_N[k])/6.
@@ -441,11 +452,12 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
                         mcoag_kj = m_coagulation(ai_lower, ai_upper, ak_center, aj_center, vkjrel, v_coag, rho_c)
                         injection_term += vkjrel * mcoag_kj * int_I_kj
 
-            dM_dt[i] = eff_clumping_factor / V_cell * np.pi * (-removal_term + injection_term)
-
+            
+            dM_dt[i] = eff_clumping_factor * np.pi * (-removal_term + injection_term)
 
         dM = dM_dt*dt_cycle/V_cell
         # Deal with moving more mass than available in a bin
+        # NEED TO FIX: This breaks down with the changes in mass are large, since the excess mass is still added to other bins.
         dM[dM < -init_M] = -init_M[dM < -init_M]
         dN = dM/(4*np.pi/3*rho_c * np.power(a_centers,3))
 
@@ -467,12 +479,12 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
                 total_cycles = np.ceil(dt_sec/tau_coll)
                 dt_cycle = dt_sec/total_cycles;
                 print("Need to subcycle for %i cycle"%total_cycles)
-                print("\t Number fraction changed", np.sum(-dN[dN<0])/np.sum(init_N))
-                print("\t Mass fraction change", np.sum(-dM[dM<0])/np.sum(init_M))
+                print("\t Number moved between bins", np.sum(-dN[dN<0])/np.sum(init_N))
+                print("\t Mass moved between bins", np.sum(-dM[dM<0])/np.sum(init_M))
 
                 print("\t Change if we did not subcycle")
-                print("\t Mass fraction change in given timestep", np.sum(init_M+dM)/np.sum(init_M))
-                print("\t Number fraction change in given timestep", np.sum(init_N+dN)/np.sum(init_N))
+                print("\t Total mass fraction moved in given timestep", np.sum(init_M+dM)/np.sum(init_M))
+                print("\t Total number fraction change in given timestep", np.sum(init_N+dN)/np.sum(init_N))
             else:    
                 final_M = init_M + dM
                 final_N = final_M/(4*np.pi/3*rho_c * np.power(a_centers,3))
@@ -488,18 +500,15 @@ def change_in_grain_distribution_from_shat_coag(dt, amin=1E-3, amax=1E0, bin_num
     final_total_M = np.sum(final_M)
 
     print("Final changes")
-    print("Mass fraction moved in given timestep", final_total_M/initial_total_M)
-    print("Number fraction changed in given timestep", final_total_N/initial_total_N)
+    print("Total mass fraction changed in given timestep", final_total_M/initial_total_M)
+    print("Total number fraction changed in given timestep", final_total_N/initial_total_N)
 
     # Final grain size distribution normalized back to total mass and total number
-    a_bins_widths = (a_vals[1:]-a_vals[:-1])*config.cm_to_um
-    dni_da = final_N / a_bins_widths / final_total_N
-    final_dnda = interp1d(a_centers*config.cm_to_um,dni_da)
-    dmi_da = final_M / a_bins_widths / final_total_M
-    final_dmda = interp1d(a_centers*config.cm_to_um,dmi_da)
-    return a_centers*config.cm_to_um, final_dnda, final_dmda
-    
-
+    a_bins_widths = (a_vals[1:]-a_vals[:-1])
+    a_centers = (a_vals[1:]+a_vals[:-1])/2
+    final_dnda = final_N / a_bins_widths / final_total_N
+    final_dmdloga = final_M / a_bins_widths / final_total_M * a_centers
+    return final_dnda, final_dmdloga
 
 
 
@@ -509,8 +518,9 @@ def grain_relative_velocity(a1:float,
                             rho_c:float, 
                             ISM_phase:str|None=None, 
                             scheme='HC23',
-                            gas_particles:Particle=None,
-                            fixed_impact_angle:bool=True):
+                            gas_particles:Particle|None=None,
+                            fixed_impact_angle:bool=True,
+                            dense_gas_enhancement:bool=False):
     """
     Calculate the relative velocity between two grains. 
 
@@ -534,16 +544,20 @@ def grain_relative_velocity(a1:float,
     # Assume a single specified ISM phase
     elif gas_particles is None:
         ISM_phase_props = ISM_phase_properties(ISM_phase)
-        nH = ISM_phase_props['nH']
-        rho = ISM_phase_props['rho']
-        temp = ISM_phase_props['temp']
-        M = ISM_phase_props['M']
+        nH = np.asarray([ISM_phase_props['nH']])
+        rho = np.asarray([ISM_phase_props['rho']])
+        temp = np.asarray([ISM_phase_props['temp']])
+        M = np.asarray([ISM_phase_props['M']])
     # Use the local properties for each gas particle
     else:
         nH = gas_particles.get_property('nH')
         rho = gas_particles.get_property('density')
         temp = gas_particles.get_property('temperature')
         M = gas_particles.get_property('mach_number')
+        if dense_gas_enhancement:
+            dense_mask = temp<=1000
+            rho[dense_mask] *= 10 # Increase density by factor of 10 to compensate for unresolved dense gas
+            nH[dense_mask] *= 10
 
 
     # Scheme from Hirashita & Aoyama 2019
@@ -575,14 +589,11 @@ def grain_relative_velocity(a1:float,
         v12rel = np.sqrt(vgr1*vgr1 + vgr2*vgr2 - 2*vgr1*vgr2*cos_imp_angle) # cm/s
     # Scheme from Li+ 2019
     elif scheme == 'Li21':
+        b = 0.5
+        nH_rms =np.sqrt(1+b*b*M*M)*nH
         # These are velocity dispersions of grain sizes
-        sigma_gr1 = 0.054*1E5 * np.power(M,2) * (a1/0.1E-4) * np.power(rho/(1*config.H_MASS),-0.5) * np.power(rho_c/2.4,0.5) # cm/s
-        sigma_gr2 = 0.054*1E5 * np.power(M,2) * (a2/0.1E-4) * np.power(rho/(1*config.H_MASS),-0.5) * np.power(rho_c/2.4,0.5) #cm/s
-
-        sigma_gr1 = 0.96E5 * np.power(M,1.5) * np.power(a1/0.1E-4,0.5) * np.power(temp/1E4,0.25) * \
-                np.power(rho/(1*config.H_MASS),-0.25)*np.power(rho_c/3.5,0.5) # cm/s
-        sigma_gr2 = 0.96E5 * np.power(M,1.5) * np.power(a2/0.1E-4,0.5) * np.power(temp/1E4,0.25) * \
-                np.power(rho/(1*config.H_MASS),-0.25) * np.power(rho_c/3.5,0.5) #cm/s
+        sigma_gr1 = 0.066*1E5 * (M/3) * (a1/1E-4) * np.power(nH_rms/1E3,-0.5) * (rho_c/3.5) # cm/s
+        sigma_gr2 = 0.066*1E5 * (M/3) * (a2/1E-4) * np.power(nH_rms/1E3,-0.5) * (rho_c/3.5) # cm/s
 
         # Randomly sample each grains x,y, and z velocity components from a Gaussian normal distribution
         vgr1_x = np.random.normal(0,sigma_gr1*sigma_gr1/3)
@@ -593,6 +604,36 @@ def grain_relative_velocity(a1:float,
         vgr2_z = np.random.normal(0,sigma_gr2*sigma_gr2/3)
 
         v12rel = np.sqrt((vgr1_x-vgr2_x)*(vgr1_x-vgr2_x) + (vgr1_y-vgr2_y)*(vgr1_y-vgr2_y) + (vgr1_z-vgr2_z)*(vgr1_z-vgr2_z))
+
+    elif scheme == 'Lebreuilly23':
+        # Account for sub resolution clumping
+        b = 0.5
+        rho = np.sqrt(1 + b*b*M*M) * rho # use rms density
+        temp = temp / (1 + b*b*M*M)
+        gamma = 3/2 # adiabatic index
+        t_ff = np.sqrt(3*np.pi/(32*config.GRAVITATIONAL_CONSTANT*rho)) # free-fall time in seconds
+        Re = 6.2E7*np.sqrt(nH/1E5)*np.sqrt(temp/10) # Reynolds number
+        t_nu = t_ff/Re # timescale of dissipation of turbulence
+        c_sound = np.sqrt(gamma*config.BOLTZMANN_CONSTANT*temp/config.PROTONMASS) # sound speed in cm/s
+        # Make sure a1 is the larger grain
+        if a2 > a1: a1, a2 = a2, a1
+        t_s1 = np.sqrt(np.pi * gamma / 8) * rho_c * a1 / (rho * c_sound)
+        t_s2 = np.sqrt(np.pi * gamma / 8) * rho_c * a2 / (rho * c_sound)
+        St1 = t_s1 / t_ff # Stokes number for grain 1
+        St2 = t_s2 / t_ff
+        V_g = np.sqrt(3/2) * c_sound
+
+        v_rel = np.zeros(len(nH))
+        v_rel[t_s1 < t_nu] = (np.sqrt(np.square(V_g) * ((St1 - St2) / (St1 + St2)) * (np.square(St1) / (St1 + 1/np.square(Re)) + np.square(St2) / (St2 + 1/np.square(Re)))))[t_s1 < t_nu] 
+
+        x12 = St1/St2
+        beta_12 = 3.2 - (1+x12) + (2/(1+x12)) * (1/2.6 + np.power(x12,3)/(1.6+ x12))
+        v_rel[(t_s1 >= t_nu) & (t_s1 < t_ff)] =  (np.sqrt(np.square(V_g) * beta_12 * St1))[(t_s1 >= t_nu) & (t_s1 < t_ff)]
+        v_rel[t_s1 >= t_ff] = (np.sqrt(np.square(V_g) * (1/(St1+1) + 1/(St2+1))))[t_s1 >= t_ff]
+        
+        return np.sqrt(8/(3*np.pi)) * v_rel
+        
+
     else:
         assert 0, "Scheme not supported"; return
 
@@ -754,22 +795,51 @@ class SNe_Dust_Processing(object):
     """
 
 
-    def __init__(self, dnda, a_limit, bins=500):
+    def __init__(self):
+        return
+
+
+    def set_idealized_dnda(self, dnda, a_limit, bins=500, normalize=True):
         """
+        Setup an idealized grain size distribution for SNe dust processing.
+
         Parameters:
         - dnda (function): Initial grain size distribution function.
         - a_limit (ndarray): Grain size limits.
         - bins (int): Number of bins for grain size distribution
+        - normalize (bool): Whether to normalize the grain size distribution to one.
         """
 
         self.init_dnda = dnda
-        # Renorm grain size distribution to one for ease comparison
-        total_N = quad(self.init_dnda, a_limit[0], a_limit[1])[0]
+        # Renorm grain size distribution to one for ease of comparison
+        if normalize: total_N = total_N = quad(self.init_dnda, a_limit[0], a_limit[1])[0]
+        else: total_N=1
+        
         self.init_dnda = lambda a: dnda(a)/total_N
         self.init_dmda = lambda a: np.power(a,3) * dnda(a)/total_N
         self.amin = a_limit[0]
         self.amax = a_limit[1]
         self.a_values = np.logspace(np.log10(self.amin),np.log10(self.amax),bins)
+    
+
+    def set_numerical_dnda(self, dnda, a_centers, a_edges, normalize=True):
+        """
+        Setup an interpolated grain size distribution from numerical data for SNe dust processing.
+        Parameters:
+        - dnda (ndarray): Initial grain size distribution values in each bin.
+        - a_centers (ndarray): Centers of the grain size bins.
+        - a_edges (ndarray): Edges of the grain size bins.
+        - normalize (bool): Whether to normalize the grain size distribution to one.
+        """
+        # Renorm grain size distribution to one for ease of comparison
+        if normalize: total_N = np.sum(dnda * (np.diff(a_edges)))
+        else: total_N=1
+        self.init_dnda = CubicSpline(a_centers, dnda/total_N)
+        self.init_dmda = CubicSpline(a_centers, np.power(a_centers,3) * dnda/total_N)
+        self.a_values = a_centers
+        self.amin = np.min(a_edges)
+        self.amax = np.max(a_edges)
+        
 
     # Returns the resulting dnda after a sputtering approximation step given an initial dnda
     def dnda_SNe_sputtering_approximation(self, dnda, a, delta_sput=0.1, a_sput=0.1):
@@ -839,7 +909,7 @@ class SNe_Dust_Processing(object):
             kwargs['delta_shat'] = spec_props['delta_shat']
             kwargs['a_sput'] = 0.05
             kwargs['a_shat'] = 0.05
-            kwargs['a_frag_max'] = 0.05
+            kwargs['a_frag_max'] = 0.3
 
         if approx == 'shat_sput_shat':
             return self.shat_sput_shat(**kwargs)
