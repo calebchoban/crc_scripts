@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 
 import numpy as np
 from scipy.stats import binned_statistic_2d
+import importlib.util
 
 from .. import config
 from . import math_utils
-
 
 
 def calc_binned_property_vs_property(particles:Particle, 
@@ -215,10 +215,10 @@ def get_particle_mask(ptype:int,
             mask = mask & (T < 1E3) & (T >= 300)
         if 'warm' in mask_criteria:
             mask_identified+=1
-            mask = mask & (T<1E4) & (T>=1E3)
+            mask = mask & (T<8E3) & (T>=1E3)
         if 'hot' in mask_criteria:
             mask_identified+=1
-            mask = mask & (T >= 1E4) & (T < 3E5)
+            mask = mask & (T >= 8E3) & (T < 3E5)
         if 'coronal' in mask_criteria:
             mask_identified+=1
             mask = mask & (T >= 3E5)
@@ -565,9 +565,16 @@ def calc_half_mass_radius(ptype:int,
 
 
 
-def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_zeros=True, mask=None):
+def calc_projected_prop_hist(property:str, 
+                             snap:Snapshot, 
+                             side_lens:list, 
+                             pixel_res:float=2, 
+                             proj:str='xy', 
+                             no_zeros:bool=True, 
+                             mask:list|None=None):
     """
-    Calculates the 2D projection of a give property given the projection orientation and resolution
+    Calculates the 2D projection of a give property given the projection orientation and resolution using a 2-D histogram.
+    This is relatively fast but not accurate for high-resolution.
 
     Parameters
     ----------
@@ -595,8 +602,6 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
     coord2_bins : array
         Bins for second coordinate
     """
-
-
     L1 = side_lens[0]; L2 = side_lens[1]; Lz = side_lens[2]
 
     if 'star' in property or 'stellar' in property or 'sfr' in property:
@@ -604,7 +609,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
     else:    P = snap.loadpart(0)
     if mask is None:
         mask = np.ones(P.npart, dtype=bool)
-    x = P.get_property('position')[mask,0];y=P.get_property('position')[mask,1];z=P.get_property('position')[mask,2]
+    pos = P.get_property('position')[mask]
+    x = pos[:,0];y=pos[:,1];z=pos[:,2]
 
     # Set up coordinates to project
     if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
@@ -683,7 +689,8 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
             pixel_area = 1.
 
         proj_data = proj_data[mask]
-        binned_stats = binned_statistic_2d(coord1[box_mask], coord2[box_mask], proj_data[box_mask], statistic=stats, bins=[coord1_bins,coord2_bins])
+        binned_stats = binned_statistic_2d(coord1[box_mask], coord2[box_mask], proj_data[box_mask], 
+                                           statistic=stats, bins=[coord1_bins,coord2_bins])
         pixel_stats = binned_stats.statistic/pixel_area
 
     if no_zeros:
@@ -692,6 +699,110 @@ def calc_projected_prop(property, snap, side_lens, pixel_res=2, proj='xy', no_ze
     extent=[coord1_bins[0], coord1_bins[-1], coord2_bins[0], coord2_bins[-1]]
 
     return pixel_stats.T, coord1_bins, coord2_bins, extent
+
+
+
+def calc_projected_prop_meshoid(property:str, 
+                                snap:Snapshot, 
+                                box_size:float, 
+                                pixel_res:float=2, 
+                                proj:str='xy', 
+                                mask:list|None=None):
+    """
+    Calculates the 2D projection of a give property given the projection orientation and resolution using a Meshoid.
+    This is the most accurate way to produce a projection map but this takes a while.
+
+    Parameters
+    ----------
+    property: string
+        Name of property to project
+    snap : Snapshot/Halo
+        Snapshot data structure (either gas or star particle depending on property)
+    box_size : float
+        Half size of box to consider for projection in kpc
+    pixel_res : double
+        Size resolution of each pixel bin in kpc
+    proj : string
+        What 2D coordinates you want to project (xy,yz,zx)
+    mask : list, optional
+        Optional mask for particle data.
+
+    Returns
+    -------
+    X : array
+        First coordinate grid.
+    Y : array
+        Second coordinate grid.
+    pixel_data : array
+        Projected data for each pixel
+    """
+
+
+    check_meshoid = importlib.util.find_spec("meshoid")
+    has_meshoid = check_meshoid is not None
+    if not has_meshoid and use_meshoid:
+        print("Meshoid (https://github.com/mikegrudic/meshoid) not installed. " \
+        "Need to install in order to use calc_projected_prop_meshoid.")
+        return
+    else:
+        from meshoid import Meshoid
+
+    if 'star' in property or 'stellar' in property or 'sfr' in property:
+        ptype=4
+        P = snap.loadpart(ptype)
+    else:    
+        ptype=0
+        P = snap.loadpart(ptype)
+    if mask is None:
+        mask = np.ones(P.npart, dtype=bool)
+    pos = P.get_property('position')
+    x=pos[:,0];y=pos[:,1];z=pos[:,2]
+    hsml = P.get_property('size') if ptype==0 else None
+
+    # Set up coordinates to align with desired projection
+    if   proj=='xy': coord1 = x; coord2 = y; coord3 = z;
+    elif proj=='yz': coord1 = y; coord2 = z; coord3 = x;
+    elif proj=='xz': coord1 = x; coord2 = z; coord3 = y;
+    elif proj=='yx': coord1 = y; coord2 = x; coord3 = z;
+    elif proj=='zy': coord1 = z; coord2 = y; coord3 = x;
+    elif proj=='zx': coord1 = z; coord2 = x; coord3 = y;
+    else:
+        print("Projection must be xy, yz, or xz for calc_projected_prop()")
+        return None
+    
+    pos = np.array([coord1,coord2,coord3]).T
+
+    if   property == 'sigma_dust':          proj_data = P.get_property('M_dust')
+    elif property == 'sigma_gas':             proj_data = P.get_property('M_gas')
+    elif property == 'sigma_gas_neutral':     proj_data = P.get_property('M_gas_neutral')
+    elif property == 'sigma_gas_ionized':     proj_data = P.get_property('M_gas_ionized')
+    elif property == 'sigma_HII':             proj_data = P.get_property('M_HII')
+    elif property == 'sigma_H2':             proj_data = P.get_property('M_H2')
+    elif property == 'sigma_metals':         proj_data = P.get_property('M_metals')
+    elif property == 'sigma_sil':             proj_data = P.get_property('M_sil')
+    elif property == 'sigma_sil+':          proj_data = P.get_property('M_sil+')
+    elif property == 'sigma_carb':          proj_data = P.get_property('M_carb')
+    elif property == 'sigma_SiC':             proj_data = P.get_property('M_SiC')
+    elif property == 'sigma_iron':          proj_data = P.get_property('M_iron')
+    elif property == 'sigma_ORes':             proj_data = P.get_property('M_ORes')
+    elif property == 'sigma_star':          proj_data = P.get_property('M_star')
+    elif property == 'sigma_sfr':              proj_data = P.get_property('M_form_10Myr')
+    elif property == 'sigma_sfr_100Myr':       proj_data = P.get_property('M_form_100Myr')
+    else:
+        print("%s is not a supported parameter in calc_obs_projection()."%property)
+        return None
+
+
+    proj_data = proj_data[mask]
+
+
+    res = int(box_size/pixel_res)
+    mesh = Meshoid(pos, proj_data, kernel_radius = hsml, particle_mask = mask)
+    X = Y = np.linspace(-box_size/2, box_size/2, res)
+    X, Y = np.meshgrid(X, Y, indexing='ij')
+    surface_density = mesh.SurfaceDensity(mesh.m,center=np.array([0,0,0]),size=box_size,res=res)/1E6 # Msol/kpc^2 -> Msol/pc^2
+
+    return X, Y, surface_density
 
 
 def calc_radial_dens_projection(property, snap, rmax, rmin=0, proj='xy', bin_nums=50, log_bins=False):

@@ -569,9 +569,25 @@ class Projection(Figure):
                     
 
     
-    def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, rescale_font=1, **kwargs):
+    def plot_projection(self, 
+                        axis_num:int, 
+                        main_proj_data:list, 
+                        main_X:list|None=None, 
+                        main_Y:list|None=None, 
+                        main_extent:list|None=None, 
+                        sub_proj_data:list|None=None, 
+                        sub_X:list|None=None, 
+                        sub_Y:list|None=None, 
+                        sub_extent:list|None=None, 
+                        label:str|None=None, 
+                        v_limits:list|None=None, 
+                        v_log:bool=False, 
+                        rescale_font:int=1, 
+                        use_imshow:bool=False,  
+                        **kwargs):
         """
-        Plot given projection data on specified axis. Can also plot secondary projection data and add labels.
+        Plot given projection data on specified axis. Can also plot secondary projection data and add labels uses pcolormesh by default
+        but also uses imshow is desired.
 
         Parameters
         ----------
@@ -579,30 +595,54 @@ class Projection(Figure):
             The number of the axis to plot projection data.
         main_proj_data : ndarray (N,N)
             NxN array of primary projection data.
+        main_X : ndarray (N,N) 
+            NxN X coordinate grid of primary data. Used for pcolormesh but can also be extracted from the extent arguments.
+        main_Y : ndarray (N,N) 
+            NxN Y coordinate grid of primary data. Used for pcolormesh but can also be extracted from the extent arguments.
         main_extent : ndarray (2,2)
-            The x and y limits/extenct of the primary data.
+            The x and y limits/extent of the primary data. Used for imshow or pcolormesh.
         sub_proj_data : ndarray (M,N)
             NxM array of secondary projection data. Does not have to be square sinc secondary projections are usually thinner slices.
+            NxN array of primary projection data.
+        main_X : ndarray (N,M) 
+            NxM X coordinate grid of secondary data. Used for pcolormesh but can also be extracted from the extent arguments.
+        main_Y : ndarray (N,M) 
+            NxM Y coordinate grid of secondary data. Used for pcolormesh but can also be extracted from the extent arguments.
         sub_extent : ndarray (2,2)
-            The x and y limits/extenct of the secondary data.
+            The x and y limits/extenct of the secondary data. Used for imshow or pcolormesh.
         label : str, optional
             Add label in top right corner.
         v_limits : list, optional
             Set color map limits. Overrides default choices.
         v_log : bool, optional
             Set color map to log scale. Overrides default choices.
+        rescale_font : int
+            Multiplicative factor to rescale font size for labels within plot.
         """
+
+        if (main_X is None or main_Y is None) and main_extent is None:
+            print("Need to set either main_X and main_Y or main_extent!")
+            return
 
         default_imshow_kwargs = {
             'cmap': 'inferno', 
             'interpolation': 'bicubic',
             'aspect': 'equal',
-            'origin': 'lower',
-            'zorder': 1}        
+            'origin': 'lower', # This aligns imshow with pcolormesh
+            'zorder': 1}     
+        default_pcolormesh_kwargs = {
+            'cmap': 'inferno', 
+            'zorder': 1,
+            'rasterized':True}     # PDFs are huge without rasterized       
 
-        for kwarg in default_imshow_kwargs:
-            if kwarg not in kwargs:
-                kwargs[kwarg] = default_imshow_kwargs[kwarg]   
+        if use_imshow:
+            for kwarg in default_imshow_kwargs:
+                if kwarg not in kwargs:
+                    kwargs[kwarg] = default_imshow_kwargs[kwarg]   
+        else:
+            for kwarg in default_pcolormesh_kwargs:
+                if kwarg not in kwargs:
+                    kwargs[kwarg] = default_pcolormesh_kwargs[kwarg]   
 
         # Change default projection limits
         if v_limits is not None:
@@ -616,7 +656,16 @@ class Projection(Figure):
         axes_set = self.axes[axis_num]
         ax1 = axes_set[0]
 		# Plot top projection
-        img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
+        if use_imshow:
+            img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
+        else:
+            if main_X is None and main_Y is None:
+                res = np.shape(main_proj_data)
+                main_X = np.linspace(main_extent[0], main_extent[1], res[0])
+                main_Y = np.linspace(main_extent[2], main_extent[3], res[1])
+                main_X, main_Y = np.meshgrid(main_X, main_Y, indexing='ij')
+            img1=ax1.pcolormesh(main_X, main_Y, main_proj_data, **kwargs)
+
         if label is not None:
             ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=rescale_font*config.LARGE_FONT)
         # Add scale bar to main projection
@@ -626,7 +675,15 @@ class Projection(Figure):
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
-            img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
+            if use_imshow:
+                img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
+            else:
+                if sub_X is None and sub_Y is None:
+                    res = np.shape(sub_proj_data)
+                    sub_X = np.linspace(sub_extent[0], sub_extent[1], res[0])
+                    sub_Y = np.linspace(sub_extent[2], sub_extent[3], res[1])
+                    sub_X, sub_Y = np.meshgrid(sub_X, sub_Y, indexing='ij')
+                img2 = ax2.pcolormesh(sub_X, sub_Y, sub_proj_data, **kwargs)
         if self.has_colorbars:
             cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1, rescale_font=rescale_font)       
             self.axis_colorbar[axis_num] = cbar
