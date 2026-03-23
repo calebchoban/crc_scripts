@@ -266,12 +266,16 @@ def get_grain_bin_slope(particle: Particle):
     lower_edges = snap.Grain_Bin_Edges[:-1]
     bin_centers = snap.Grain_Bin_Centers
 
-    species = ['silicates', 'carbonaceous', 'iron']
-    spec_indices=[0,1,2]
+    supported_species = ['silicates', 'carbonaceous', 'iron']
+
+    species = particle.sp.dust_species
+    spec_indices = particle.sp.dust_species_indices
 
     # Calculate grain bin mass from numbers and slopes
     grain_bin_slopes = np.zeros((particle.npart, snap.Flag_DustSpecies, snap.Flag_GrainSizeBins),dtype='double')
     for i,spec in enumerate(species):
+        if spec not in supported_species:
+             raise ValueError(f"Dust species {spec} not supported. Supported species are {supported_species}. Species in snap are {species}.")  
         spec_ind = spec_indices[i]
         spec_bin_numbers = bin_nums[:,spec_ind,:]; spec_bin_masses = bin_masses[:,spec_ind,:]
         spec_props = config.dust_species_properties(spec)
@@ -653,29 +657,29 @@ def get_grain_size_distribution(gas: Particle,
     dnda_vals = np.zeros([num_part,points_per_bin*num_bins], dtype=np.float64)
     dmdloga_vals = np.zeros([num_part,points_per_bin*num_bins], dtype=np.float64)
 
+    snap_species = gas.sp.dust_species
+    spec_indices = gas.sp.dust_species_indices
+
     supported_species = ['silicates','carbonaceous','iron']
-    spec_indices = [0,1,2]
 
     total_dust_N = np.zeros(num_part)
     total_dust_M = np.zeros(num_part)
     total_dust_M = dust_masses
 
-    if dust_species in supported_species:
+    if dust_species in supported_species and dust_species in snap_species:
         desired_species = [dust_species]
+    elif dust_species == 'all':
+        desired_species = snap_species
     else:
-        desired_species = supported_species
+        raise ValueError(f"Dust species {dust_species} not supported. Supported species are {supported_species} and 'all'. Species in snap are {snap_species}.")
 
-
-    for j,spec in enumerate(supported_species):
-        if spec not in desired_species:
-            continue
-
-        spec_ind = spec_indices[j]
+    for j,spec in enumerate(desired_species):
+        spec_ind = spec_indices[snap_species.index(spec)]
         bin_nums = gas.get_property('grain_bin_num')[mask,spec_ind]
         bin_slopes = gas.get_property('grain_bin_slope')[mask,spec_ind]
 
         total_dust_N += np.sum(total_bin_nums[:,spec_ind],axis=1)
-        total_dust_M += species_masses[:,spec_ind]
+        #total_dust_M += species_masses[:,spec_ind]
         # internal density for given dust species
         # Physical properties of dust species needed for calculations
         spec_props = dust_species_properties(spec)
@@ -944,7 +948,7 @@ def get_dust_optical_properties(species: str):
     
 
 def calculate_extinction_curve(gas: Particle, 
-                               species: str = 'silicates', 
+                               dust_species: str = 'silicates', 
                                mask: list|None = None, 
                                weights: list|None= None,
                                std_percentiles: list = [16, 84],
@@ -962,7 +966,7 @@ def calculate_extinction_curve(gas: Particle,
     ----------
     gas : Particle
        Particle data to determine extinction curve from.
-    species: str
+    dust_species: str
         Species you want to extinction curve for. (silicates, carbonaceous, or all). 
         Note this is still normalized by the total A_V from all species.
     mask : ndarray
@@ -1016,34 +1020,28 @@ def calculate_extinction_curve(gas: Particle,
 
 
 
-    dust_species = ['silicates', 'carbonaceous', 'iron']
-    spec_indices = [0,1,2]
-    num_species = len(dust_species)
-    optical_properties = [get_dust_optical_properties('silicates'),
-                          get_dust_optical_properties('carbonaceous'),
-                          get_dust_optical_properties('silicates')] # Assuming iron has silicate properties
-    
+    supported_species = ['silicates', 'carbonaceous']
+    snap_species = gas.sp.dust_species
+    spec_indices = gas.sp.dust_species_indices
 
-    # If species is specified we will exclude all other species from 
-    # the A_lambda calculation but still include them for A_V normalization
-    if species == 'silicates': 
-        exclude_spec_ind = [1,2]
-    elif species == 'carbonaceous': 
-        exclude_spec_ind = [0,2]
-    elif species == 'iron': 
-        exclude_spec_ind = [0,1]
-    elif species == 'all': 
-        exclude_spec_ind = []
-    else: assert 0, "Dust species not supported"
+    if dust_species in snap_species:
+        desired_species = [dust_species]
+    elif dust_species == 'all':
+        desired_species = snap_species
+    else:
+        raise ValueError(f"Dust species {dust_species} not supported. Supported species are {supported_species} and 'all'. Species in snap are {snap_species}.")
+
+    num_species = len(snap_species)
 
     # Determine grain size and dn/da values for each dust species
     grain_size_vals = np.zeros(bin_subsamples*num_bins)
     dnda_vals = np.zeros([num_part,num_species,bin_subsamples*num_bins])
 
     # Determine dn/da values for points in each bin for each dust species
-    for i in spec_indices:
-        spec_bin_nums = bin_nums[:,i]
-        spec_bin_slopes = bin_slopes[:,i]
+    for i, spec in enumerate(snap_species):
+        spec_index = spec_indices[i]
+        spec_bin_nums = bin_nums[:,spec_index]
+        spec_bin_slopes = bin_slopes[:,spec_index]
         spec_dnda_vals = np.zeros([num_part, num_bins*bin_subsamples])
 
         for j in range(num_bins):
@@ -1061,9 +1059,14 @@ def calculate_extinction_curve(gas: Particle,
 
     # Calculate extinction coefficient interpolation functions for each dust species from Qext data tables
     spec_Qext = []
-    for i in range(num_species):
+    for i, spec in enumerate(snap_species):
         # Load in Q extinction data for the given species
-        optical_property = optical_properties[i]
+        if spec not in supported_species:
+            print(f"WARNING: Dust species {spec} has no stored optical properties. Will default to silicate properties.")
+            optical_property = get_dust_optical_properties('silicates')
+        else:
+            optical_property = get_dust_optical_properties(spec)
+
         Qext = optical_property['Q_ext'].values
         table_grain_radii = optical_property['radius(micron)'].values
         table_wavelengths = optical_property['w(micron)'].values
@@ -1091,12 +1094,13 @@ def calculate_extinction_curve(gas: Particle,
     # Calculate the extinction curve for each particle
     A_lambda_total = np.zeros([num_part,N_wave_bins])
     A_V_total = np.zeros(num_part) # Extinction in V band (5470 Angstrom)
-    for i,spec_ind in enumerate(spec_indices):
+    for i,spec in enumerate(snap_species):
+        spec_index = spec_indices[i]
         # Calculate the dust species A_lambda and A_V 
         A_lambda_spec = np.zeros([num_part,N_wave_bins])
         A_V_spec =  np.zeros(num_part) # Extinction in V band (5470 Angstrom) for one species
-        Qext = spec_Qext[i]
-        spec_dnda = dnda_vals[:,i,:]
+        Qext = spec_Qext[spec_index]
+        spec_dnda = dnda_vals[:,spec_index,:]
 
         # We are approximating the integral Qext(a,lambda) * dn/da(a) da from a_min to a_max 
         # as a sum over grain bins Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower)
@@ -1116,8 +1120,8 @@ def calculate_extinction_curve(gas: Particle,
                 grain_centers_in_bin = (grain_sizes_in_bin[1:] + grain_sizes_in_bin[:-1])/2
             dnda_in_bin = spec_dnda[:,in_bin_mask]
 
-            # Calculate A_lambda only for species we are not excluding
-            if spec_ind not in exclude_spec_ind:
+            # Calculate A_lambda only for species we want
+            if spec in desired_species:
                 grain_size_wave_vals = np.zeros([N_wave_bins,2])
                 for l,grain_size_center in enumerate(grain_centers_in_bin):
                     # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
@@ -1125,8 +1129,6 @@ def calculate_extinction_curve(gas: Particle,
                     elif grain_size_center > table_radii_max: grain_size_wave_vals[:,0] = table_radii_max
                     else: grain_size_wave_vals[:,0] = grain_size_center
                     grain_size_wave_vals[:,1] = unique_wavelengths
-
-
 
                     N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
                     A_lambda_spec += (grain_size_center*grain_size_center) * Qext([grain_size_wave_vals])[0][np.newaxis,:] * N_in_bin[:,np.newaxis]

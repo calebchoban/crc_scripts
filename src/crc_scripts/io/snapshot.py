@@ -98,15 +98,15 @@ class Snapshot:
         # Define the dust species in the snapshot and their relative indices 
         self.dust_species = []
         self.dust_species_indices = []
-        if self.Flag_DustSpecies == 2:
-            self.dust_species = ['silicates','carbonaceous']
-            self.dust_species_indices = [0,1]
+        if self.Flag_DustSpecies >= 2:
+            self.dust_species += ['silicates','carbonaceous']
+            self.dust_species_indices += [0,1]
         if self.Flag_DustSpecies == 3:
-            self.dust_species += ['silicates','carbonaceous','iron']
-            self.dust_species_indices += [0,1,2]
+            self.dust_species += ['iron']
+            self.dust_species_indices += [2]
         if self.Flag_DustSpecies == 6:
-            self.dust_species += ['silicates','carbonaceous','SiC', 'iron', 'O reservoir', 'iron inclusions']
-            self.dust_species_indices += [0,1,2,3,4,5]
+            self.dust_species += ['SiC', 'iron', 'O reservoir', 'iron inclusions']
+            self.dust_species_indices += [2,3,4,5]
 
 
 
