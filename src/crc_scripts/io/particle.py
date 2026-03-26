@@ -96,6 +96,7 @@ class Particle:
             'Pressure': 'pressure',  # [M_sun / kpc / Gyr^2]
             # 'SoundSpeed': 'sound_speed',  # [km/s]
             'SmoothingLength': 'size',  # radius of kernel (smoothing length) [kpc]
+            'KernelMaxRadius': 'size',  # radius of kernel (smoothing length) [kpc], new C++ version stores this instead of SmoothingLength
             'ElectronAbundance': 'electron_fraction',  # average number of free electrons per proton
             # fraction of hydrogen that is neutral (not ionized)
             'NeutralHydrogenAbundance': 'H_neutral_fraction',
@@ -809,11 +810,11 @@ class Particle:
                         large_bins = self.sp.Grain_Bin_Centers > np.sqrt(self.sp.Grain_Size_Max*self.sp.Grain_Size_Min)
                         small_bins = ~large_bins
                         # Mass for all dust
-                        if case_insen_compare(property,'f_STL_all'): 
+                        if case_insen_compare(property,'f_STL'): 
                             large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=(1,2))
                             small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=(1,2))
                         # Mass for each species
-                        elif case_insen_compare(property,'f_STL'): 
+                        elif case_insen_compare(property,'f_STL_all'): 
                             large_grain_bin_mass = np.sum(grain_bin_mass[:,:,large_bins],axis=2)
                             small_grain_bin_mass = np.sum(grain_bin_mass[:,:,small_bins],axis=2)
                         # Mass for each species
