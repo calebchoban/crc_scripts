@@ -80,19 +80,26 @@ class SKIRT_Instrument(object):
         self.images = hdul[0].data * u.Unit(hdul[0].header['BUNIT'])
         self.pivot_wavelengths = (hdul[1].data['GRID_POINTS'] * u.Unit(hdul[0].header['CUNIT3'])).to('micron')
         self.pixel_res_angle = (hdul[0].header['CDELT1'] * u.Unit(hdul[0].header['CUNIT1'])).to('arcsec') # arcsec
-        self.angular_distance = (hdul[0].header['DISTANGD'] * (u.Unit(hdul[0].header['DISTUNIT']))/u.Unit('rad')).to('kpc/rad') # kpc
-        self.pixel_res_physical = self.angular_distance.to('kpc/rad') * self.pixel_res_angle.to('rad')
-        self.num_pixels = hdul[0].header['NAXIS1']
-        self.fov_physical = self.num_pixels * self.pixel_res_physical.to('kpc')
+        self.num_pixels = np.asarray([hdul[0].header['NAXIS1'],hdul[0].header['NAXIS2']])
         self.fov_angle = self.num_pixels * self.pixel_res_angle.to('arcsec')
-
+        try:
+            self.angular_distance = (hdul[0].header['DISTANGD'] * (u.Unit(hdul[0].header['DISTUNIT']))/u.Unit('rad')).to('kpc/rad') # kpc
+            self.pixel_res_physical = self.angular_distance.to('kpc/rad') * self.pixel_res_angle.to('rad')
+            self.fov_physical = self.num_pixels * self.pixel_res_physical.to('kpc')
+        except KeyError:
+            print("Not given angular distance in FITS file. Cannot determine physical pixel resolution and FOV. Set to None.")
+            self.angular_distance = None
+            self.pixel_res_physical = None
+            self.fov_physical = None
+        
+    
         # Determine what filters corresponds to the pivot wavelengths in the FITS file
         # Note you can have custom filters so this will let you know if now known filter matches.
-        self.filters = ["N/A"]*len(self.pivot_wavelengths)
+        self.filters = ["N/A" for i in range(len(self.pivot_wavelengths))]
         self.unknown_filter = 0
         for i,wavelength in enumerate(self.pivot_wavelengths):
             idx = np.nanargmin(np.abs(wavelength - filter_wavelengths))
-            if np.abs(wavelength - filter_wavelengths[idx])/filter_wavelengths[idx] > 0.0001: # Needs to be very small since commonly used filers can have slightly different pivot wavelengths for different telescopes
+            if np.abs(wavelength - filter_wavelengths[idx])/filter_wavelengths[idx] > 0.001: # Needs to be small since commonly used filers can have slightly different pivot wavelengths for different telescopes
                 self.unknown_filter += 1
             else:
                 self.filters[i] = filter_names[idx]
@@ -117,7 +124,7 @@ class SKIRT_Instrument(object):
         hdul.close()
 
 
-    def get_filter_image(self, filter, psf=None, brightness_units=None, downsample_resolution=None):
+    def get_filter_image(self, filter, psf=None, brightness_units=None, downsample_resolution=None, downsample_factor=1, sum_downsample=False):
         '''
         This function extracts the image data for the specified filter.
 
@@ -130,8 +137,11 @@ class SKIRT_Instrument(object):
         brightness_units : string, optional
             Surface brightness units wanted (wavelength, frequency, neutral). Default is None which uses units in FITS file.
         downsample_resolution : double, optional
-            Resolutionin arsec to downsample the image to. Default is None.
-
+            Resolution in arsec to downsample the image to. Default is None.
+        downsample_factor : int, optional
+            Integer factor you want to downsample the image by. Default is 1.
+        sum_downsample : bool, optional
+            Whether to sum the pixel values when downsampling instead of taking the average. Default is False since images are typically in surface brightnesses units which cannot be summed since they are per unit area. This is mainly used when downsampling images with reliability statistics.
         Returns
         -------
         image : ndarray (N,N)
@@ -155,8 +165,8 @@ class SKIRT_Instrument(object):
         elif image.unit.is_equivalent(u.erg / u.cm**2 / u.s / u.sr):
             image_units = 'neutral'
         else:
-            print("WARNING: Unknown brightness units. Cannot covert units.")
-            return None
+            print("WARNING: Unknown brightness units. Output image will have no units.")
+            image_units = None
         
 
         if self.verbose:
@@ -189,26 +199,64 @@ class SKIRT_Instrument(object):
             if self.verbose:
                 print("Image brightness units converted to %s."%image.unit)
 
-        
 
-        if downsample_resolution is not None:
-            desired_resolution = downsample_resolution * u.arcsec
-            downsample_factor = int(np.round(desired_resolution/self.pixel_res_angle))
+        # Convolve with the instrument PSF. This is the effects of the telescope mirrors, 
+        # reflectors, etc. before light hits the detectors. You always want to apply the PSF
+        # first and then downsample to the true resolution of your instrument.
+        if psf is not None:
+            image = convolve_fft(image, psf)
+        
+        # Down sample instrument resolution to a lower resolution
+        if downsample_resolution is not None or downsample_factor > 1:
+            if downsample_resolution is not None:
+                desired_resolution = downsample_resolution * u.arcsec
+                downsample_factor = int(np.round(desired_resolution/self.pixel_res_angle))
             new_resolution = self.pixel_res_angle*downsample_factor
             if downsample_factor < 2:
                 print("Desired resolution is either higher than the given image or >0.5 of given image so nothing to downsample.")
             else:
                 print("Downsampling image from %s to %s arcsec."%(self.pixel_res_angle.to('arcsec'), new_resolution.to('arcsec')))
 
-            reduce_func = np.mean # reducing resolution means new larger pixels have the average brigtness of the smaller pixels
-            print(downsample_factor)
+            if sum_downsample:
+                reduce_func = np.sum # reducing resolution means new larger pixels have the sum of the smaller pixels
+            else:
+                reduce_func = np.mean # reducing resolution means new larger pixels have the average brigtness of the smaller pixels
             image = block_reduce(image, downsample_factor, func = reduce_func) 
-
-        if psf is not None:
-            image = convolve_fft(image, psf)
+        else:
+            if psf is not None:
+                print("WARNING: You convolved your image with a PSF but didnt downsample.\n If your image is already at " \
+                "the resolution of your telescope this will make your image have lower resolution than a real image!\n " \
+                "For a realistic image you should convolve the PSF with a higher resolution image and then downsample. ")
 
 
         return image
+    
+
+    def cut_image_to_fov(self, image, fov):
+        """
+        Parameters
+        ----------
+        image : ndarray (N,N)
+            NxN pixel image you want to cut to a specified fov.
+        fov : list
+            Set the x,y FOV of the image in kpc as a single value of specific x and y values.
+        Returns
+        -------
+        cut_image : ndarray (M,L)
+            MxL image cut out of the original image to the desired FOV
+
+        """
+        
+        fov = np.asarray(fov)*u.kiloparsec
+        if np.any(fov>self.fov_physical):
+            print("Given FOV %f kpc is larger than instrument FOV %f kpc!"%(fov, self.fov_physical))
+            return
+        else:
+            print(fov,self.fov_physical)
+            cut_pix = (np.floor(self.num_pixels * fov / self.fov_physical).value/2).astype(np.int32)
+            middle_pix = np.floor(self.num_pixels/2).astype(np.int32)
+            cut_image = image[middle_pix[0]-cut_pix[0]:middle_pix[0]+cut_pix[0],middle_pix[0]-cut_pix[1]:middle_pix[1]+cut_pix[1]]
+            return cut_image
         
     
     def get_filter_wavelength(self, filter):
@@ -406,7 +454,7 @@ class SKIRT_Instrument(object):
         return
 
 
-    def make_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, min_percentile=0, max_percentile=100, label=None, output_name=None, **kwargs):
+    def make_RGB_image(self, rgb_filters, psf = None, stretch = 0.5, Q = 8, min_percentile=0, max_percentile=100, label=None, output_name=None, trim_monocolor=True, scale_bar='both', **kwargs):
         """
         Generate an RGB image. This will not keep the true color of pixels above the maximum specified brightness, but can be used to emphasize certain colors unlike the Lupton scheme.
         Parameters:
@@ -416,7 +464,9 @@ class SKIRT_Instrument(object):
         - Q (float): Q parameter for arcsinh. Sets how bright the brightest pixels are. Smaller makes the brightest pixels brighter.
         - label (str): Label for the image.
         - output_name (str): Output file name for the image.
+        - trim_monocolor (bool): If True, will trim the RGB image to remove pixels that are monochromatic (i.e. only one non-zero color). This is useful for high-resolution images where some pixels may not recieve photons for all bands .
         Returns:
+        - scale_bar (str): Set to 'physical', 'angle', or 'both' for a kpc, arcminute, or both scale bars
         - None
         """
         if psf is not None:
@@ -428,6 +478,19 @@ class SKIRT_Instrument(object):
             r_frame = self.get_filter_image(rgb_filters[0], psf=psf, **kwargs)
             g_frame = self.get_filter_image(rgb_filters[1], psf=psf, **kwargs)
             b_frame = self.get_filter_image(rgb_filters[2], psf=psf, **kwargs)
+
+        # Create a combined mask for monochromatic pixels
+        monochromatic_mask = (
+            ((r_frame > 0) & (g_frame == 0) & (b_frame == 0)) |  # Only r_frame is nonzero
+            ((r_frame == 0) & (g_frame > 0) & (b_frame == 0)) |  # Only g_frame is nonzero
+            ((r_frame == 0) & (g_frame == 0) & (b_frame > 0))    # Only b_frame is nonzero
+        )
+
+        # Apply the mask to trim monochromatic pixels if trim_monocolor is True
+        if trim_monocolor:
+            r_frame[monochromatic_mask] = 0
+            g_frame[monochromatic_mask] = 0
+            b_frame[monochromatic_mask] = 0
 
         if not isinstance(max_percentile, list):
             max_percentile = [max_percentile]*3
@@ -453,7 +516,12 @@ class SKIRT_Instrument(object):
         img = Projection(1)
         img.set_image_axis(0)
 
-        img.plot_image(0, RGB_image, fov_kpc=self.fov_physical.value, fov_arcsec=self.fov_angle.value, label = label)
+        fov_kpc=None; fov_arcsec=None
+        if scale_bar == 'both': 
+            fov_kpc=self.fov_physical.value; fov_arcsec=self.fov_angle.value;
+        elif scale_bar == 'physical': fov_kpc=self.fov_physical.value
+        elif scale_bar == 'angle': fov_arcsec=self.fov_angle.value
+        img.plot_image(0, RGB_image, fov_kpc=fov_kpc, fov_arcsec=fov_arcsec, label = label)
 
         if output_name is not None:
             img.save(output_name)
