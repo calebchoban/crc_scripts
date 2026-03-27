@@ -293,7 +293,9 @@ def get_dust_accretion_rate(particles:Particle,
                             T_cutoff:float=300,
                             scaling_factor:float=1.0, 
                             bin_subsamples:int=1,
-                            factor_clumping:bool=True):
+                            factor_clumping:bool=True,
+                            Coulomb_factor:bool=True,
+                            assume_MRN_dust:bool=False):
     """
     Determines the mass rate of dust growth from gas-dust accretion for the given gas particles.
     Parameters:
@@ -303,6 +305,8 @@ def get_dust_accretion_rate(particles:Particle,
     - bin_subsamples(int): The number of subsampled points for each bin in the grain size distribution.
     Set > 1 for small number of bins
     - factor_clumping (bool): Whether to include the clumping factor in the calculation.
+    - Coulomb_factor (bool): Whether to include the Coulomb enhancement factor in the calculation.
+    - assume_MRN_dust (bool): Whether to assume an MRN grain size distribution for the dust instead of what is tracked in snapshot.
 
     Returns:
     - list: A list of accretion rates for each particle in the particles object.
@@ -314,18 +318,24 @@ def get_dust_accretion_rate(particles:Particle,
     rho = particles.get_property('density')
     temp = particles.get_property('temperature')
     M = particles.get_property('mach_number')
+    HII_delaytime = particles.get_property('HII_delaytime')
     b = 0.5 # turbulence mode ratio assumed to be constant in sims
     sigma = np.sqrt(np.log(1+b*b*M*M))
     metallicity = particles.get_property('Z_all')
-    dust_metallicity = particles.get_property('dust_Z')
-    dust_bin_numbers = particles.get_property('grain_bin_num')
-    dust_bin_slopes = particles.get_property('grain_bin_slope')
 
     # Global bin properties
     bin_num = particles.sp.Flag_GrainSizeBins
     # All grain sizes need to be in units of cm
     a_edges = particles.sp.Grain_Bin_Edges * config.um_to_cm 
     a_centers = particles.sp.Grain_Bin_Centers * config.um_to_cm 
+
+    if assume_MRN_dust:
+        dust_metallicity = particles.get_property('dust_Z')
+        dust_bin_numbers, dust_bin_slopes = get_grain_bin_info_assuming_MRN(particles)
+    else:
+        dust_metallicity = particles.get_property('dust_Z')
+        dust_bin_numbers = particles.get_property('grain_bin_num')
+        dust_bin_slopes = particles.get_property('grain_bin_slope')
 
     # The rate change in grain size for each bin for each gas particle
     dadt = np.zeros([npart,bin_num])
@@ -353,32 +363,42 @@ def get_dust_accretion_rate(particles:Particle,
         key_num_dens = rho * key_abundance * (1 - key_depl_frac) / (key_mass*config.PROTONMASS)
 
         # Determine clumping factor due to subresolved gas-dust clumping using assumed Mach number
+        temp_clump_factor = np.ones(npart)
+        eff_clump_factor = np.ones(npart)
+        fdense = np.zeros(npart)
         if factor_clumping:
-            temp_clump_factor = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nH_max/nH)) / (np.sqrt(2)*sigma))))
-            eff_clump_factor = np.exp(sigma*sigma)/2 * erfc((3/2*sigma*sigma-np.log(nH_max/nH)) / (np.sqrt(2)*sigma))
+            # Only clumping factor when there is a nonzero mach number
+            mask = sigma != 0
+            nonzero_sigma = sigma[mask]
+            temp_clump_factor[mask] = 1/(np.exp(nonzero_sigma*nonzero_sigma)/2 * (1 + erf((3/2*nonzero_sigma*nonzero_sigma + np.log(nH_max/nH[mask])) / (np.sqrt(2)*nonzero_sigma))))
+            eff_clump_factor[mask] = np.exp(nonzero_sigma*nonzero_sigma)/2 * erfc((3/2*nonzero_sigma*nonzero_sigma-np.log(nH_max/nH[mask])) / (np.sqrt(2)*nonzero_sigma))
+
+            # Dense gas fraction used for calculating the effective Coulomb enhancement factor
+            # In dense molecular gas all gas-phase metals are neutral so no Coulomb enhancement
+            nH_dense = 1E3
+            fdense[mask] = 1/2+1/2*erf((nonzero_sigma*nonzero_sigma/2 - np.log(nH_dense/nH[mask]))/(np.sqrt(2)*nonzero_sigma));
+
+        # Simple power law prescription for Coulomb enhancement in each grain size bin
+        if Coulomb_factor:
+            Coulomb_enhancement = np.ones(len(a_centers))
+            a_mid = 0.01*config.um_to_cm; a_min = 0.001*config.um_to_cm
+            if spec == 'silicates': 
+                D_small=10; D_large=0.5;
+            elif spec == 'carbonaceous': 
+                D_small=3; D_large=0;
+            elif spec == 'iron': 
+                D_small=20; D_large=1;
+            else: 
+                D_small=1; D_large=1;
+
+            Coulomb_enhancement[a_centers<=a_min] = D_small
+            Coulomb_enhancement[(a_min<=a_centers) & (a_centers<=a_mid)] = ((D_large-D_small)/np.log10(a_mid/a_min)) * np.log10(a_centers[(a_min<=a_centers) & (a_centers<=a_mid)]/a_min) + D_small
+            Coulomb_enhancement[a_centers>a_mid] = D_large
+
+            Coulomb_enhancement = (1-fdense[:,np.newaxis])*Coulomb_enhancement[np.newaxis,:] + fdense[:,np.newaxis]
         else:
-            temp_clump_factor = np.ones(npart)
-            eff_clump_factor = np.ones(npart)
-
-        # Dense gas fraction used for calculating the effective Coulomb enhancement factor
-        # In dense molecular gas all gas-phase metals are neutral so no Coulomb enhancement
-        nH_dense = 1E3
-        fdense = 1/2+1/2*erf((sigma*sigma/2 - np.log(nH_dense/nH))/(np.sqrt(2)*sigma));
-
-        # Simple prescription for Coulomb enhancement in each grain size bin
-        Coulomb_enhancement = np.ones(len(a_centers))
-        if species == 'silicates':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 10
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0.5
-        elif species == 'carbonaceous':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 3
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 0
-        elif species == 'iron':
-            Coulomb_enhancement[a_centers*config.cm_to_um<0.01] = 20
-            Coulomb_enhancement[a_centers*config.cm_to_um>0.01] = 1
-
-        Coulomb_enhancement = (1-fdense[:,np.newaxis])*Coulomb_enhancement[np.newaxis,:] + fdense[:,np.newaxis]
-
+            Coulomb_enhancement = np.ones([npart,bin_num])
+        
         # Accretion occurs below a critical temperature
         temp_mask = (temp*temp_clump_factor <= T_cutoff)
         dadt_ref = 1.91249E-4 # reference change in grain size in cm/Gyr assuming purely hard-sphere type encounters
