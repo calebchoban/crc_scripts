@@ -11,9 +11,9 @@ from ...figure import Figure, Projection
 
 
 try:   
-    import webbpsf
+    import stpsf
 except:
-    print("Need to install webbpsf and download its corresponding files to use JWST PSFs. \n If you don't generic Gaussian PSFs will be used. \n Follow instructions here \n https://webbpsf.readthedocs.io/en/latest/index.html \n")
+    print("Need to install stpsf and download its corresponding files to use JWST and Roman PSFs. \n If you don't generic Gaussian PSFs will be used. \n Follow instructions here \n https://stpsf.readthedocs.io/en/latest/installation.html#installation \n")
 
 
 # These are the broadbands and corresponding pivot wavelengths taken from the SKIRT documentation
@@ -588,11 +588,11 @@ class Telescope_PSF(object):
         # Else we assume the instrument and telescope have the same resolution
         if self.instrument is not None and use_instrument_res:
             # Have to run this once to get the pixel scale for the instrument
-            nircam = webbpsf.NIRCam()
+            nircam = stpsf.NIRCam()
             nircam.filter = filter_name
             psf_hdulist = nircam.calc_psf()
-            telescope_res = psf_hdulist[extension_name].header["PIXELSCL"]
-            instrument_npixels = self.instrument.num_pixels
+            telescope_res = psf_hdulist[extension_name].header["PIXELSCL"] * u.arcsec
+            instrument_npixels = self.instrument.num_pixels[0]
             instrument_res = self.instrument.pixel_res_angle.to('arcsec')
             telescope_npixels = int(instrument_npixels * instrument_res / telescope_res)
             if self.verbose:
@@ -606,7 +606,7 @@ class Telescope_PSF(object):
 
         if self.verbose:
             print(f"Creating PSF model for JWST NIRCam filter {filter_name} with {telescope_npixels} pixels and {oversample_factor} oversampling.\n")
-        nircam = webbpsf.NIRCam()
+        nircam = stpsf.NIRCam()
         nircam.filter = filter_name
         psf_hdulist = nircam.calc_psf(
             fov_pixels=telescope_npixels,
@@ -638,11 +638,11 @@ class Telescope_PSF(object):
         # Else we assume the instrument and telescope have the same resolution
         if self.instrument is not None and use_instrument_res:
             # Have to run this once to get the pixel scale for the instrument
-            miri = webbpsf.MIRI()
+            miri = stpsf.MIRI()
             miri.filter = filter_name
             psf_hdulist = miri.calc_psf()
-            telescope_res = psf_hdulist[extension_name].header["PIXELSCL"]
-            instrument_npixels = self.instrument.num_pixels
+            telescope_res = psf_hdulist[extension_name].header["PIXELSCL"] * u.arcsec
+            instrument_npixels = self.instrument.num_pixels[0]
             instrument_res = self.instrument.pixel_res_angle.to('arcsec')
             telescope_npixels = int(instrument_npixels * instrument_res / telescope_res)
             if self.verbose:
@@ -656,7 +656,7 @@ class Telescope_PSF(object):
 
         if self.verbose:
             print(f"Creating PSF model for JWST MIRI filter {filter_name} with {telescope_npixels} pixels and {oversample_factor} oversampling.\n")
-        miri = webbpsf.MIRI()
+        miri = stpsf.MIRI()
         miri.filter = filter_name
         psf_hdulist = miri.calc_psf(
             fov_pixels=telescope_npixels,
