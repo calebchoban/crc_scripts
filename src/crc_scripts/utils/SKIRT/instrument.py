@@ -1,8 +1,12 @@
 from astropy import units as u
+from astropy import constants as const
 from astropy.io import fits
 from astropy.visualization import make_lupton_rgb, make_rgb, LogStretch, LuptonAsinhStretch, AsinhStretch, ManualInterval
 from astropy.convolution import convolve_fft,Gaussian2DKernel
 from astropy.nddata import block_reduce
+from astropy.table import QTable
+from scipy import integrate
+from scipy.optimize import curve_fit
 import numpy as np
 
 from ... import config
@@ -744,3 +748,439 @@ class Telescope_PSF(object):
 
 
 
+class SKIRT_SED:
+    """
+    A class to read and parse SKIRT SED (Spectral Energy Distribution) files.
+    
+    This class can handle SED files with the following format:
+    - First line contains distance information: "# SED at inclination X deg, azimuth Y deg, distance Z Unit"
+    - Subsequent comment lines describe columns: "# column N: description; variable_name (unit)"
+    - Followed by numerical data in columns
+    
+    Example usage:
+    -------------
+    # Create SED reader object
+    sed = SKIRT_SED('path/to/sed_file.txt')
+    
+    # Read the data 
+    sed.read_data()
+    
+    # Access metadata
+    print(f"Distance: {sed.distance}")
+    print(f"Columns: {sed.columns}")
+    
+    # Access wavelength and flux data
+    wavelength = sed.wavelength  # First column with units
+    total_flux = sed.total_flux  # Second column with units
+    
+    # Access specific columns by index or name
+    transparent_flux = sed.get_column(2)  # Third column (0-indexed)
+    direct_primary = sed.get_column_by_name('direct primary flux')
+    
+    # Print summary
+    print(sed)
+    """
+    
+    def __init__(self, file_path):
+        """
+        Initialize the SKIRT_SED with the file path.
+
+        Parameters:
+        file_path (str): Path to the data file.
+        """
+        self.file_path = file_path
+        self.data = None
+        self.distance = None  # To store the distance as an astropy Quantity
+        self.columns = []
+        self.column_units = []
+
+    def read_data(self):
+        """
+        Reads the metadata and numerical data from the file, and assigns units to the columns.
+        """
+        try:
+            with open(self.file_path, "r") as file:
+                for line in file:
+                    if line.startswith("#"):
+                        self._extract_metadata(line)
+
+            # Read the numerical data
+            data = np.loadtxt(self.file_path)
+
+            # Create an astropy Table and assign units
+            self.data = QTable(data, names=self.columns, units=self.column_units)
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+
+    def _extract_metadata(self, line):
+        """
+        Extracts metadata (distance, column names, and units) from a comment line.
+
+        Parameters:
+        line (str): The comment line containing metadata.
+        """
+        if "distance" in line.lower() or "redshift" in line.lower():
+            if "distance" in line.lower():
+                # Extract the distance with units from format: "distance 10 Mpc" or "luminosity distance 10 Mpc"
+                parts = line.split("distance")
+                if len(parts) > 1:
+                    distance_part = parts[1].strip()
+                    # Remove any trailing characters like commas
+                    if "," in distance_part:
+                        distance_part = distance_part.split(",")[0]
+                    dist_parts = distance_part.split()
+                    if len(dist_parts) >= 2:
+                        value = float(dist_parts[0])
+                        unit = dist_parts[1]
+                        self.distance = value * u.Unit(unit)
+            if "redshift" in line.lower():
+                # Extract redshift and convert to distance using astropy cosmology
+                parts = line.split("redshift")
+                if len(parts) > 1:
+                    redshift_part = parts[1].strip()
+                    if "," in redshift_part:
+                        redshift_part = redshift_part.split(",")[0]
+                    self.redshift = float(redshift_part)
+            else:
+                self.redshift = 0 # Default to zero if no redshift information is provided
+        elif "column" in line.lower():
+            # Extract column names and their units from format: "column 1: wavelength; lambda (micron)"
+            parts = line.split(":")
+            if len(parts) >= 2:
+                column_info = ":".join(parts[1:]).strip()  # Rejoin in case there are multiple colons
+                if ";" in column_info:
+                    description, variable_unit = column_info.split(";", 1)
+                    description = description.strip()
+                    variable_unit = variable_unit.strip()
+                    
+                    # Extract unit from format "variable_name (unit)"
+                    if "(" in variable_unit and ")" in variable_unit:
+                        start_paren = variable_unit.rfind("(")
+                        end_paren = variable_unit.rfind(")")
+                        unit_str = variable_unit[start_paren+1:end_paren]
+                        variable_name = variable_unit[:start_paren].strip()
+                    else:
+                        # Fallback if no parentheses found
+                        unit_str = "dimensionless"
+                        variable_name = variable_unit
+                    
+                    self.columns.append(description)
+                    try:
+                        self.column_units.append(u.Unit(unit_str))
+                    except ValueError:
+                        # Handle unknown units by treating as dimensionless
+                        print(f"Warning: Unknown unit '{unit_str}', treating as dimensionless")
+                        self.column_units.append(u.dimensionless_unscaled)
+    
+    @property
+    def wavelength(self):
+        """Access the wavelength column."""
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        return self.data[self.columns[0]]  # First column is wavelength
+    
+    @property
+    def rest_wavelength(self):
+        """Access the rest wavelength column, if redshift information is available."""
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        return self.wavelength / (1 + self.redshift)
+    
+    @property
+    def total_flux(self):
+        """Access the total flux column."""
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        return self.data[self.columns[1]]  # Second column is total flux
+
+    @property
+    def transparent_flux(self):
+        """Access the transparent flux column."""
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        return self.data[self.columns[2]]  # Third column is transparent flux
+
+    def get_column(self, column_index, spectral_density_units='frequency', convert_to_luminosity=False, restframe=False):
+        """
+        Get a specific column by index.
+        
+        Parameters:
+        column_index (int): Index of the column to retrieve (0-based)
+        spectral_density_units (str): What spectral density units to convert to if the column is a flux column. Options are 'frequency','wavelength', or 'neutral'. Only applicable for flux columns.
+        convert_to_luminosity (bool): Whether to convert the column from flux to luminosity units using the distance. Only applicable for flux columns.
+        restframe (bool): Whether to return the column in the rest frame. Only applicable for wavelength columns.
+        
+        Returns:
+        astropy.table.Column: The requested column with units
+        """
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        if column_index >= len(self.columns):
+            raise IndexError(f"Column index {column_index} out of range. Available columns: 0-{len(self.columns)-1}")
+        
+        column_data = self.data[self.columns[column_index]]
+        if 'flux' in self.columns[column_index].lower():
+            column_data = self._convert_spectral_density_units(column_data, self.wavelength, convert_to_luminosity=convert_to_luminosity, spectral_density_units=spectral_density_units)
+        if restframe and 'wavelength' in self.columns[column_index].lower():
+            column_data = column_data / (1 + self.redshift)
+
+        return column_data
+
+
+    def get_column_by_name(self, column_name, spectral_density_units='frequency', convert_to_luminosity=False, restframe=False):
+        """
+        Get a column by its description name.
+        
+        Parameters:
+        column_name (str): Name/description of the column
+        spectral_density_units (str): What spectral density units to convert to if the column is a flux column. Options are 'frequency','wavelength', or 'neutral'. Only applicable for flux columns.
+        convert_to_luminosity (bool): Whether to convert the column from flux to luminosity units using the distance. Only applicable for flux columns.
+        restframe (bool): Whether to return the column in the rest frame. Only applicable for wavelength columns.
+
+        Returns:
+        astropy.table.Column: The requested column with units
+        """
+        if self.data is None:
+            raise ValueError("No data loaded. Call read_data() first.")
+        for column in self.columns:
+                if column_name.lower() in column.lower():
+                    column_name = column  # Use the full column name if a match is found
+                    break
+        if column_name not in self.columns:
+            raise KeyError(f"Column '{column_name}' not found. Available columns: {self.columns}")
+        
+        column_data = self.data[column_name]
+        if 'flux' in column_name.lower():
+            column_data=self._convert_spectral_density_units(column_data, self.wavelength, convert_to_luminosity=convert_to_luminosity, spectral_density_units=spectral_density_units)
+        if restframe and 'wavelength' in column_name.lower():
+            column_data = column_data / (1 + self.redshift)
+        return column_data
+
+
+    def _convert_spectral_density_units(self, column_data, wavelengths, convert_to_luminosity=False, spectral_density_units='frequency'):
+        """
+        Convert the units of a column to the specified spectral density units.
+        
+        Parameters:
+        column_data (astropy.table.Column): The column to convert
+        wavelengths (astropy.table.Column): The wavelength column to use for the conversion
+        convert_to_luminosity (bool): Whether to convert the column from flux to luminosity units using the distance. Only applicable for flux columns.
+        spectral_density_units (str): What spectral density units to convert to if the column is a flux column. Options are 'frequency','wavelength', or 'neutral'. Only applicable for flux columns.
+
+        Returns:
+        astropy.table.Column: The converted column with units
+        """
+        if convert_to_luminosity:
+            if self.distance is None:
+                raise ValueError("Distance information not found. Cannot convert to luminosity.")
+            
+            flux_to_luminosity_factor = 4 * np.pi * self.distance**2
+            neutral_factor = 1
+            if spectral_density_units == 'frequency':
+                lum_units = u.L_sun / u.Hz
+                flux_to_luminosity_factor *= 1/(1 + self.redshift) 
+            elif spectral_density_units == 'wavelength':
+                lum_units = u.L_sun / u.micron
+                flux_to_luminosity_factor *= (1 + self.redshift) 
+            elif spectral_density_units == 'neutral':
+                lum_units = u.L_sun / u.micron
+                neutral_factor *= wavelengths.to('micron')
+            column_data = (column_data * flux_to_luminosity_factor).to(lum_units,equivalencies=u.spectral_density(wavelengths))*neutral_factor
+        else:
+            unit_conversion_factor = 1
+            if spectral_density_units == 'frequency':
+                flux_units = u.Jy
+            elif spectral_density_units == 'wavelength':
+                flux_units = u.erg / u.cm**2 / u.s / u.micron
+            elif spectral_density_units == 'neutral':
+                flux_units = u.erg / u.cm**2 / u.s / u.micron
+                unit_conversion_factor *= wavelengths.to('micron')
+            column_data = (column_data).to(flux_units,equivalencies=u.spectral_density(wavelengths))*unit_conversion_factor
+
+        return column_data
+    
+    def __repr__(self):
+        """String representation of the SED object."""
+        if self.data is None:
+            return f"SKIRT_SED(file_path='{self.file_path}', data_loaded=False)"
+        
+        info = f"SKIRT_SED(file_path='{self.file_path}'\n"
+        info += f"  Distance: {self.distance}\n"
+        info += f"  {len(self.data)} data points\n"
+        info += f"  Columns: {len(self.columns)}\n"
+        for i, (col, unit) in enumerate(zip(self.columns, self.column_units)):
+            info += f"    {i+1}. {col} ({unit})\n"
+        info += ")"
+        return info
+
+    def calculate_MUV(self, UV_wavelength=0.15*u.micron, no_dust=False):
+        """
+        Calculate the absolute ultraviolet magnitude (MUV) at a specific wavelength.
+
+        Parameters:
+        UV_wavelength (astropy.units.Quantity): The wavelength at which to calculate the UV magnitude (e.g., 0.15*u.micron).
+        no_dust (bool): If True, will use the transparent flux instead of the total flux to calculate MUV, effectively giving the intrinsic UV magnitude without dust attenuation.
+
+        Returns:
+        astropy.units.Quantity: The ultraviolet magnitude at the specified wavelength.
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+
+        # Get the L_nu at the specified UV wavelength
+        wavelength = self.rest_wavelength
+        if no_dust:
+            total_lum_nu = self.get_column_by_name('transparent flux', 
+                                                  spectral_density_units='frequency', 
+                                                  convert_to_luminosity=True)
+        else:
+            total_lum_nu = self.get_column_by_name('total flux', 
+                                                  spectral_density_units='frequency', 
+                                                  convert_to_luminosity=True)
+        mUV_0 = -32.36 # Used for AB magnitude system. Calculated as -2.5*log10(3631 Jy in Lsol/Hz at 10 pc)
+        L_nu = np.interp(UV_wavelength.to(wavelength.unit).value, wavelength.value, total_lum_nu.value) * total_lum_nu.unit
+        MUV = -2.5 * np.log10(L_nu.to(u.L_sun / u.Hz, equivalencies=u.spectral_density(wavelength)).value) + mUV_0
+
+        return MUV
+
+
+    def calculate_LIR(self, wavelength_range=(8*u.micron, 1000*u.micron)):
+        """
+        Calculate the total infrared luminosity (LIR) by integrating the SED over a specified wavelength range.
+
+        Parameters:
+        wavelength_range (tuple): A tuple specifying the lower and upper bounds of the wavelength range for integration, with astropy units (e.g., (8*u.micron, 1000*u.micron)).
+
+        Returns:
+        astropy.units.Quantity: The total infrared luminosity in units of solar luminosities (L_sun).
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+        
+        # Get wavelength and total flux columns
+
+        wavelength = self.rest_wavelength
+        total_flux = self.get_column_by_name('total flux', 
+                                             spectral_density_units='wavelength', 
+                                             convert_to_luminosity=True)  # Convert to L_lambda units
+        
+        # Create a mask for the specified wavelength range
+        mask = (wavelength >= wavelength_range[0]) & (wavelength <= wavelength_range[1])
+        
+        # Integrate the flux over the specified wavelength range using trapezoidal rule
+        LIR = integrate.trapezoid(total_flux[mask], x=wavelength[mask])
+        
+        return LIR.to(u.L_sun)
+    
+    def calculate_LUV(self, UV_wavelength=0.16*u.micron):
+        """
+        Calculate the ultraviolet luminosity (LUV) at a specific wavelength.
+
+        Parameters:
+        UV_wavelength (astropy.units.Quantity): The wavelength at which to calculate the UV luminosity (e.g., 0.16*u.micron).
+
+        Returns:
+        astropy.units.Quantity: The ultraviolet luminosity at the specified wavelength in units of solar luminosities (L_sun).
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+        
+        # Get wavelength and total flux columns
+        wavelength = self.rest_wavelength
+        total_flux = self.get_column_by_name('total flux', 
+                                             spectral_density_units='wavelength', 
+                                             convert_to_luminosity=True)  # Convert to L_lambda units
+        
+        # Interpolate the total flux at the specified UV wavelength
+        LUV = UV_wavelength.to(wavelength.unit) * (np.interp(UV_wavelength.to(wavelength.unit).value, wavelength.value, total_flux.value) * total_flux.unit)
+        
+        return LUV.to(u.L_sun)
+
+
+    def calculate_attenuation(self):
+        """
+        Calculate the attenuation (A_lambda) across all wavelengths by comparing the total flux to the transparent flux.
+
+        Returns:
+        astropy.table.Column: The attenuation A_lambda in magnitudes for each wavelength.
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+        
+        # Get wavelength, total flux, and transparent flux columns
+        total_flux = self.get_column_by_name('total flux', 
+                                             spectral_density_units='wavelength', 
+                                             convert_to_luminosity=False)  # Keep in flux units
+        transparent_flux = self.get_column_by_name('transparent flux', 
+                                                  spectral_density_units='wavelength', 
+                                                  convert_to_luminosity=False)  # Keep in flux units
+        
+        # Calculate A_lambda using the formula: A_lambda = 2.5 * log10(transparent_flux / total_flux)
+        A_lambda = 2.5 * np.log10(transparent_flux / total_flux)
+        
+        return A_lambda
+
+    def calculate_beta_UV(self, column_name='total'):
+        """
+        Calculate the UV spectral slope (beta) with a simple linear fit to the SED.
+
+        Parameters:
+        UV_wavelength_range (tuple): A tuple specifying the lower and upper bounds of the UV wavelength range for fitting, with astropy units (e.g., (0.13*u.micron, 0.3*u.micron)).
+
+        Returns:
+        float: The calculated UV spectral slope beta.
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+        
+        # Get wavelength and total flux columns
+        wavelength = self.rest_wavelength
+        total_flux = self.get_column_by_name(column_name, 
+                                             spectral_density_units='wavelength', 
+                                             convert_to_luminosity=False)  # Keep in flux units
+        
+        wavelength_1230A = 0.123*u.micron
+        wavelength_3200A = 0.32*u.micron
+        flux_1230A = np.interp(wavelength_1230A.to(wavelength.unit).value, wavelength.value, total_flux.value) * total_flux.unit
+        flux_3200A = np.interp(wavelength_3200A.to(wavelength.unit).value, wavelength.value, total_flux.value) * total_flux.unit
+
+        beta_UV = np.log10(flux_1230A/flux_3200A) / np.log10(wavelength_1230A/wavelength_3200A)
+
+        return beta_UV
+
+
+
+    def calculate_Td_peak(self):
+        """
+        Estimate the dust temperature from the peak wavelength of the far-infrared portion of the SED.
+        
+        Returns:
+        astropy.units.Quantity: The estimated dust temperature in Kelvin.
+        """
+        # Ensure data is loaded
+        if self.data is None:
+            raise ValueError("SED data not loaded. Call sed.read_data() first.")
+        
+        # Get wavelength and total flux columns
+        wavelength = self.rest_wavelength
+        total_flux = self.get_column_by_name('total', 
+                                             spectral_density_units='frequency', 
+                                             convert_to_luminosity=False)  # Keep in flux units
+        
+        # Select the far-infrared portion of the SED (e.g., > 20 microns)
+        FIR_mask = wavelength > 20*u.micron
+        wavelength_FIR = wavelength[FIR_mask]
+        flux_FIR = total_flux[FIR_mask]
+
+        # Estimate T_dust from the peak wavelength of the FIR SED using Wien's displacement law
+        peak_index = np.argmax(flux_FIR)
+        peak_wavelength = wavelength_FIR[peak_index]
+        T_dust_estimated = const.b_wien / peak_wavelength.to(u.m)
+
+        return T_dust_estimated
