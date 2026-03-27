@@ -689,34 +689,36 @@ class Projection(Figure):
             self.axis_colorbar[axis_num] = cbar
 
 
-    def plot_image(self, axis_num, data, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, invert_x=False, invert_y=False, **kwargs):
+    def plot_image(self, axis_num, main_img_data, fov_kpc=None, fov_arcsec=None, sub_img_data=None, 
+                   sub_fov_kpc=None, sub_fov_arcsec=None, label=None, rescale_font=1, brightness_units=None, **kwargs):
         """
-        Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
+        Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image using matplotlib imshow.
 
         Parameters
         ----------
         axis_num : int
             The number of the axis to plot image data.
-        data : ndarray (N,M) or (N,M,3)
-            Image data for each pixel.
-        fov_kpc : optional, float
-            Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
-        fov_arcsec : optional, float
+        main_img_data : ndarray (N,M) or (N,M,3)
+            Main image data for each pixel.
+        fov_kpc : optional, list
+            Size of field of view of image in kpc so that accompanying scale line can be added to bottom left.
+        fov_arcsec : optional, list
             Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
+        sub_img_data : ndarray (N,M) or (N,M,3)
+            Sub image data for each pixel if you set add_sub_proj=True when initializing Projection object.
+        sub_fov_kpc : optional, list
+            Size of field of view of sub image in kpc.
+        sub_fov_arcsec : optional, list
+            Size of field of view of sub image in arcsecs.
         label : str, optional
             Add label in top right corner.
         rescale_font : float
             Factor you want to rescale text font size by.
-        invert_x : bool
-            Invert the x axis.
-        invert_y : bool
-            Invert the y axis.
-
         """
 
         default_imshow_kwargs = {
             'cmap': 'inferno', 
-            'interpolation': 'bicubic',
+            'interpolation': None,
             'aspect': 'equal',
             'origin': 'lower',
             'zorder': 1}        
@@ -725,30 +727,48 @@ class Projection(Figure):
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_imshow_kwargs[kwarg]  
 
-        axis = self.axes[axis_num][0]
-        self.axis_fov_kpc[axis_num] = fov_kpc
+        axes_set = self.axes[axis_num]
+        main_axis = axes_set[0]
+        if self.sub_proj: sub_axis = self.axes[axis_num][1]
+
 
         # Default to kpc if both kpc and arsec fov are given
         if fov_kpc is not None:
-            extent = [-fov_kpc/2,fov_kpc/2,-fov_kpc/2,fov_kpc/2]
+            self.axis_fov_kpc[axis_num] = fov_kpc[0]
+            main_extent = [-fov_kpc[0]/2,fov_kpc[0]/2,-fov_kpc[1]/2,fov_kpc[1]/2]
         elif fov_arcsec is not None:
-            extent = [-fov_arcsec/2,fov_arcsec/2,-fov_arcsec/2,fov_arcsec/2]
+            main_extent = [-fov_arcsec[0]/2,fov_arcsec[0]/2,-fov_arcsec[1]/2,fov_arcsec[1]/2]
         else: 
-            extent = None
+            main_extent = None
 
-        if invert_x:
-            data = np.flip(data,axis=1)
-        if invert_y:
-            data = np.flip(data,axis=0)
+        if self.sub_proj:
+            if sub_fov_kpc is not None:
+                sub_extent = [-sub_fov_kpc[0]/2,sub_fov_kpc[0]/2,-sub_fov_kpc[1]/2,sub_fov_kpc[1]/2]
+            elif sub_fov_arcsec is not None:
+                sub_extent = [-sub_fov_arcsec[0]/2,sub_fov_arcsec[0]/2,-sub_fov_arcsec[1]/2,sub_fov_arcsec[1]/2]
+            else: 
+                sub_extent = None       
 
-        img = axis.imshow(data, extent = extent, **kwargs)
+        main_img = main_axis.imshow(main_img_data, extent = main_extent, **kwargs)
+        if self.sub_proj:
+            sub_img = sub_axis.imshow(sub_img_data, extent = sub_extent, **kwargs)
 
         # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
         if fov_kpc is not None or fov_arcsec is not None:
-            self.set_scale_bar(axis_num, fov_kpc=fov_kpc, fov_arcsec=fov_arcsec, rescale_font=rescale_font)
+            scale_fov_kpc = fov_kpc[0] if fov_kpc is not None else None
+            scale_fov_arcsec = fov_arcsec[0] if fov_arcsec is not None else None
+            self.set_scale_bar(axis_num, fov_kpc=scale_fov_kpc, fov_arcsec=scale_fov_arcsec,  rescale_font=rescale_font)
 
         if label is not None:
-            axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
+            main_axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=main_axis.transAxes)
+        
+        if self.has_colorbars and brightness_units is not None:
+            cbar = plot_utils.setup_proj_colorbar(None, self.fig, axes_set[-1], label = brightness_units, mappable=main_img, rescale_font=rescale_font)       
+            self.axis_colorbar[axis_num] = cbar    
+        elif self.has_colorbars and brightness_units is None:
+            # Get rid of colorbar axis for image we don't provide units
+            cbar_axis = axes_set[-1]
+            cbar_axis.remove()     
     
 
     def set_scale_bar(self, axis_num, fov_kpc=None, fov_arcsec=None, rescale_font=1):
