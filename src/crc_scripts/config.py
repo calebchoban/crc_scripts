@@ -50,69 +50,74 @@ FIG_YRATIO                     = 1.
 
 DEFAULT_PLOT_ORIENTATION = 'horizontal'
 
+def set_mpl_params():
+    """Set default plot parameters for all plots."""    
+    
+    # Remove legend frame
+    mpl.rcParams['legend.frameon'] = False
+    # Set default colors for plot axes and background
+    mpl.rcParams['figure.facecolor'] = 'white'
+    mpl.rcParams['axes.facecolor'] = 'white'
+    mpl.rcParams['axes.edgecolor'] = 'black'
+    mpl.rcParams['axes.labelcolor'] = 'black'
+    mpl.rcParams['text.color'] = 'black'
+    mpl.rcParams['xtick.color'] = 'black'
+    mpl.rcParams['ytick.color'] = 'black'
+    # Set all axes to have ticks facing inwards and include minor ticks
+    mpl.rcParams["xtick.direction"] = 'in'
+    mpl.rcParams["ytick.direction"] = 'in'
+    mpl.rcParams["xtick.minor.visible"] = True
+    mpl.rcParams["ytick.minor.visible"] = True
+    mpl.rcParams["xtick.top"] = True
+    mpl.rcParams["ytick.right"] = True
+    # Make the x and y ticks bigger and increase padding                                                    
+    mpl.rcParams['xtick.labelsize'] = 11
+    mpl.rcParams['xtick.major.size'] = 5
+    mpl.rcParams['xtick.major.width'] = .5
+    mpl.rcParams['ytick.labelsize'] = 11
+    mpl.rcParams['ytick.major.size'] = 5
+    mpl.rcParams['ytick.major.width'] = .5
+    mpl.rcParams['xtick.major.pad'] = 5
+    # Make the axes linewidths bigger                                                  
+    mpl.rcParams['axes.linewidth'] = AXIS_BORDER_WIDTH
+    # Set the zorder of the axis to be above everything (this sets axis z_order=2.5)
+    mpl.rcParams['axes.axisbelow'] = False	
+    # Make the x and y ticks bigger                                                    
+    mpl.rcParams['xtick.labelsize'] = SMALL_FONT
+    mpl.rcParams['xtick.major.size'] = 4*AXIS_BORDER_WIDTH
+    mpl.rcParams['xtick.major.width'] = AXIS_BORDER_WIDTH
+    mpl.rcParams['xtick.minor.size'] = 2*AXIS_BORDER_WIDTH
+    mpl.rcParams['xtick.minor.width'] = AXIS_BORDER_WIDTH/2
+    mpl.rcParams['ytick.labelsize'] = SMALL_FONT
+    mpl.rcParams['ytick.major.size'] = 4*AXIS_BORDER_WIDTH
+    mpl.rcParams['ytick.major.width'] = AXIS_BORDER_WIDTH
+    mpl.rcParams['ytick.minor.size'] = 2*AXIS_BORDER_WIDTH
+    mpl.rcParams['ytick.minor.width'] = AXIS_BORDER_WIDTH/2
 
-# Remove legend frame
-mpl.rcParams['legend.frameon'] = False
-# Set default colors for plot axes and background
-mpl.rcParams['figure.facecolor'] = 'white'
-mpl.rcParams['axes.facecolor'] = 'white'
-mpl.rcParams['axes.edgecolor'] = 'black'
-mpl.rcParams['axes.labelcolor'] = 'black'
-mpl.rcParams['text.color'] = 'black'
-mpl.rcParams['xtick.color'] = 'black'
-mpl.rcParams['ytick.color'] = 'black'
-# Set all axes to have ticks facing inwards and include minor ticks
-mpl.rcParams["xtick.direction"] = 'in'
-mpl.rcParams["ytick.direction"] = 'in'
-mpl.rcParams["xtick.minor.visible"] = True
-mpl.rcParams["ytick.minor.visible"] = True
-mpl.rcParams["xtick.top"] = True
-mpl.rcParams["ytick.right"] = True
-# Make the x and y ticks bigger and increase padding                                                    
-mpl.rcParams['xtick.labelsize'] = 11
-mpl.rcParams['xtick.major.size'] = 5
-mpl.rcParams['xtick.major.width'] = .5
-mpl.rcParams['ytick.labelsize'] = 11
-mpl.rcParams['ytick.major.size'] = 5
-mpl.rcParams['ytick.major.width'] = .5
-mpl.rcParams['xtick.major.pad'] = 5
-# Make the axes linewidths bigger                                                  
-mpl.rcParams['axes.linewidth'] = AXIS_BORDER_WIDTH
-# Set the zorder of the axis to be above everything (this sets axis z_order=2.5)
-mpl.rcParams['axes.axisbelow'] = False	
-# Make the x and y ticks bigger                                                    
-mpl.rcParams['xtick.labelsize'] = SMALL_FONT
-mpl.rcParams['xtick.major.size'] = 4*AXIS_BORDER_WIDTH
-mpl.rcParams['xtick.major.width'] = AXIS_BORDER_WIDTH
-mpl.rcParams['xtick.minor.size'] = 2*AXIS_BORDER_WIDTH
-mpl.rcParams['xtick.minor.width'] = AXIS_BORDER_WIDTH/2
-mpl.rcParams['ytick.labelsize'] = SMALL_FONT
-mpl.rcParams['ytick.major.size'] = 4*AXIS_BORDER_WIDTH
-mpl.rcParams['ytick.major.width'] = AXIS_BORDER_WIDTH
-mpl.rcParams['ytick.minor.size'] = 2*AXIS_BORDER_WIDTH
-mpl.rcParams['ytick.minor.width'] = AXIS_BORDER_WIDTH/2
+    # Set default font size
+    mpl.rcParams['font.size'] = LARGE_FONT
+    mpl.rcParams['axes.labelsize'] = LARGE_FONT
+    mpl.rcParams['legend.fontsize'] = SMALL_FONT
+    # Set default figure size and resolution
+    mpl.rcParams['figure.figsize'] = [5*LATEX_PAGEWIDTH/2,5*LATEX_PAGEWIDTH/2]
+    mpl.rcParams['figure.dpi'] = 120
+    mpl.rcParams['figure.subplot.bottom'] = 0
+    mpl.rcParams['figure.subplot.top'] = 1
+    mpl.rcParams['figure.subplot.left'] = 0
+    mpl.rcParams['figure.subplot.right'] = 1
+    # Spacing between subplots
+    mpl.rcParams['figure.subplot.hspace'] = 0.3
+    mpl.rcParams['figure.subplot.wspace'] = 0.3
+    # Default color cycle used by matplotlib
+    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
+    mpl.rcParams["legend.labelspacing"] = 0.35
+    mpl.rcParams["legend.columnspacing"] = 0.75
+    # This looks to be the only way to set hatch line widths!
+    mpl.rcParams['hatch.linewidth'] = BASE_ELINEWIDTH
+    mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
 
-# Set default font size
-mpl.rcParams['font.size'] = LARGE_FONT
-mpl.rcParams['axes.labelsize'] = LARGE_FONT
-mpl.rcParams['legend.fontsize'] = SMALL_FONT
-# Set default figure size and resolution
-mpl.rcParams['figure.figsize'] = [5*LATEX_PAGEWIDTH/2,5*LATEX_PAGEWIDTH/2]
-mpl.rcParams['figure.dpi'] = 120
-mpl.rcParams['figure.subplot.bottom'] = 0
-mpl.rcParams['figure.subplot.top'] = 1
-mpl.rcParams['figure.subplot.left'] = 0
-mpl.rcParams['figure.subplot.right'] = 1
-# Spacing between subplots
-mpl.rcParams['figure.subplot.hspace'] = 0.3
-mpl.rcParams['figure.subplot.wspace'] = 0.3
-# Default color cycle used by matplotlib
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=LINE_COLORS)
-mpl.rcParams["legend.labelspacing"] = 0.35
-mpl.rcParams["legend.columnspacing"] = 0.75
-# This looks to be the only way to set hatch line widths!
-mpl.rcParams['hatch.linewidth'] = BASE_ELINEWIDTH
-mpl.rcParams['lines.markersize'] = BASE_MARKERSIZE
+def restore_default_mpl_params():
+    mpl.rcdefaults()
 
 
 # Conversion factors and constants
