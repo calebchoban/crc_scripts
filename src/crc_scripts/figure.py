@@ -34,7 +34,7 @@ class Figure(object):
     def set_axes(self, x_props, y_props, axes_kwargs=None):
         """
         Set up all axes in figure given the properties you want you plot on the x and y axis for each. 
-        Can also give more arguements for each axis such as setting log/linear and the limits.
+        Can also give more arguments for each axis such as setting log/linear and the limits.
 
         Parameters
         ----------
@@ -200,7 +200,7 @@ class Figure(object):
         self.axis_artists[axis_num] += [sc]
 
 
-    def plot_1Dhistogram(self, axis_num, X, bin_lims=None, bin_nums=100, bin_log=False, label=None, **kwargs):
+    def plot_1Dhistogram(self, axis_num, X, bin_lims=None, bin_nums=100, scale=None, label=None, **kwargs):
         default_kwargs = {
             'density': True, 
             'histtype': 'step', 
@@ -216,7 +216,7 @@ class Figure(object):
         if bin_lims is None:
             bin_lims=axis.get_xlim()
             autoscale=False
-        if bin_log:
+        if scale == 'log':
             bins = np.logspace(np.log10(bin_lims[0]),np.log10(bin_lims[1]),bin_nums)
         else:
             bins = np.linspace(bin_lims[0],bin_lims[1],bin_nums)
@@ -226,7 +226,7 @@ class Figure(object):
         self.axis_artists[axis_num] += [img]
 
 
-    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
+    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_scale=None, label=None,rescale_font=1, **kwargs):
         """
         Plots a 2D histogram of the given data. This is a wrapper for the matplotlib pcolormesh function.
 
@@ -246,8 +246,8 @@ class Figure(object):
             Colormap to use for the histogram.
         z_lim : list   
             Set color map limits. Overrides default choices.
-        z_log : bool
-            Set color map to log scale. Overrides default choices.
+        z_scale : str
+            Set color map to specified scale. Overrides default choices.
         label : str, optional
             Add label in top right corner.
         rescale_font : float
@@ -263,12 +263,14 @@ class Figure(object):
                 kwargs[kwarg] = default_kwargs[kwarg]        
 
         z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
-        z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
+        z_scale = z_scale if z_scale is not None else config.get_prop_scale(z_prop)
 
         # Set colormap norm if not provided
         if 'norm' not in kwargs:
-            if z_log:
+            if z_scale == 'log':
                 norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+            elif z_scale == 'symlog':
+                norm = mpl.colors.SymLogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
             else:
                 norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
             kwargs['norm'] = norm
@@ -533,7 +535,7 @@ class Projection(Figure):
             'cmap': 'magma', 
             'label': None,
             'limits': None,
-            'log': None}
+            'scale': None}
         
         self.axis_properties[axis_num]=property
 
@@ -581,7 +583,7 @@ class Projection(Figure):
                         sub_extent:list|None=None, 
                         label:str|None=None, 
                         v_limits:list|None=None, 
-                        v_log:bool=False, 
+                        v_scale:str|None=None, 
                         rescale_font:int=1, 
                         use_imshow:bool=False,  
                         **kwargs):
@@ -614,8 +616,8 @@ class Projection(Figure):
             Add label in top right corner.
         v_limits : list, optional
             Set color map limits. Overrides default choices.
-        v_log : bool, optional
-            Set color map to log scale. Overrides default choices.
+        v_scale : str, optional
+            Set color map scale. Overrides default choices.
         rescale_font : int
             Multiplicative factor to rescale font size for labels within plot.
         """
@@ -623,6 +625,8 @@ class Projection(Figure):
         if (main_X is None or main_Y is None) and main_extent is None:
             print("Need to set either main_X and main_Y or main_extent!")
             return
+        
+        v_scale = v_scale if v_scale is not None else config.get_prop_scale(self.axis_properties[axis_num])
 
         default_imshow_kwargs = {
             'cmap': 'inferno', 
@@ -642,12 +646,20 @@ class Projection(Figure):
         else:
             for kwarg in default_pcolormesh_kwargs:
                 if kwarg not in kwargs:
-                    kwargs[kwarg] = default_pcolormesh_kwargs[kwarg]   
+                    kwargs[kwarg] = default_pcolormesh_kwargs[kwarg]
+        if v_scale == 'symlog':
+            if 'linthresh' not in kwargs:
+                linthresh = 10
+            else:                    
+                linthresh = kwargs.pop('linthresh')
+            kwargs['norm'] = mpl.colors.SymLogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True, linthresh=linthresh)
 
         # Change default projection limits
         if v_limits is not None:
-            if v_log:
+            if v_scale == 'log':
                 norm = mpl.colors.LogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True)
+            elif v_scale == 'symlog':
+                norm = mpl.colors.SymLogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True, linthresh=linthresh)
             else:
                 norm = mpl.colors.Normalize(vmin=v_limits[0], vmax=v_limits[1], clip=True)
             kwargs['norm'] = norm

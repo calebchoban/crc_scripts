@@ -130,11 +130,11 @@ def calc_phase_hist_data(property:str|list,
     # Get bins for each axis
     nH_bin_lims = config.get_prop_limits('nH') if nH_lims is None else nH_lims
     T_bin_lims = config.get_prop_limits('T') if T_lims is None else T_lims
-    if config.get_prop_if_log('nH'):
+    if config.get_prop_scale('nH') == 'log':
         nH_bins = np.logspace(np.log10(nH_bin_lims[0]),np.log10(nH_bin_lims[1]),bin_nums)
     else:
         nH_bins = np.linspace(nH_bin_lims[0], nH_bin_lims[1], bin_nums)
-    if config.get_prop_if_log('T'):
+    if config.get_prop_scale('T') == 'log':
         T_bins = np.logspace(np.log10(T_bin_lims[0]),np.log10(T_bin_lims[1]),bin_nums)
     else:
         T_bins = np.linspace(T_bin_lims[0], T_bin_lims[1], bin_nums)

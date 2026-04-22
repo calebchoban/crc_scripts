@@ -300,283 +300,287 @@ DUST_SPECIES                = ['Silicates','Carbon','Iron','O Reservoir','SiC','
 DUST_SPECIES_SIL_CARB       = ['Silicates+','Carbon']
 DUST_SOURCES                = ['Accretion', 'SNe II', 'AGB', 'SNe Ia']
 
-# Houses various property labels, limits, and if they should be plotted in log space. 
+# Houses various property labels, limits, and scale for plotting. 
 # Each property is represented by one or multiple shorthand keys
 PROP_INFO = {
     **dict.fromkeys(['fH2','f_H2'],
-        [r'$f_{\rm H_2}$', [0.,1.05], False]),
+        [r'$f_{\rm H_2}$', [0.,1.05], 'linear']),
     **dict.fromkeys(['fHn','f_neutral'],
-        [r'$f_{\rm neutral}$', [0.,1.05], False]),
+        [r'$f_{\rm neutral}$', [0.,1.05], 'linear']),
     'f_cold':
-        [r'$f_{\rm cold}$', [0.,1.05], False],
+        [r'$f_{\rm cold}$', [0.,1.05], 'linear'],
     'f_warm':
-        [r'$f_{\rm warm}$', [0.,1.05], False],
+        [r'$f_{\rm warm}$', [0.,1.05], 'linear'],
     'f_hot':
-        [r'$f_{\rm hot}$', [0.,1.05], False],
+        [r'$f_{\rm hot}$', [0.,1.05], 'linear'],
     'f_coronal':
-        [r'$f_{\rm coronal}$', [0.,1.05], False],
+        [r'$f_{\rm coronal}$', [0.,1.05], 'linear'],
     'f_ionized':
-        [r'$f_{\rm ionized}$', [0.,1.05], False],
+        [r'$f_{\rm ionized}$', [0.,1.05], 'linear'],
     'f_conden':
-        [r'$f_{\rm condensation}$', [0.,1.05], False],
+        [r'$f_{\rm condensation}$', [0.,1.05], 'linear'],
     'f_dense':
-        [r'$f_{\rm dense}$', [0,1.05], False],
+        [r'$f_{\rm dense}$', [0,1.05], 'linear'],
     'CinCO':
-        [r'$f_{\rm C\;in\;CO}$', [0,1.05], False],
+        [r'$f_{\rm C\;in\;CO}$', [0,1.05], 'linear'],
     'r':
-        ['Radius [kpc]', [0.1,20], False],
+        ['Radius [kpc]', [0.1,20], 'linear'],
     'r25':
-        [r'Radius [R$_{25}$]', [0.,1.1], False],
+        [r'Radius [R$_{25}$]', [0.,1.1], 'linear'],
     'r_1/2':
-        [r'R$_{1/2}$ [kpc]', [0.1,5], False],
+        [r'R$_{1/2}$ [kpc]', [0.1,5], 'linear'],
     'sigma_gas':
-        [r'$\Sigma_{\rm gas}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], True],
+        [r'$\Sigma_{\rm gas}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], 'log'],
     'sigma_star':
-        [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], True],
+        [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], 'log'],
     'sigma_young_star':
-        [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], True],
+        [r'$\Sigma_{\rm star}$ (<10 Myr) [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], 'log'],
     'sigma_stellar':
-        [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], True],
+        [r'$\Sigma_{\rm star}$ [M$_{\odot}$ pc$^{-2}$]', [1E0,1E2], 'log'],
     'sigma_sfr':
-        [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E-1], True],
+        [r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E-1], 'log'],
     'sigma_sfr_100Myr':
-        [r'$\Sigma_{\rm SFR,100\;Myr}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E-1], True],
+        [r'$\Sigma_{\rm SFR,100\;Myr}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E-1], 'log'],
     'sfr':
-        [r'SFR [M$_{\odot}/$yr]', [1E-3,5E1], True],
+        [r'SFR [M$_{\odot}/$yr]', [1E-3,5E1], 'log'],
     'ssfr':
-        [r'sSFR [Gyr$^{-1}$]', [1E-1,1E1], True],
+        [r'sSFR [Gyr$^{-1}$]', [1E-1,1E1], 'log'],
     'sfr_10Myr':
-        [r'SFR$_{\rm 10\;Myr}$ [M$_{\odot}/$yr]', [1E-3,5E1], True],
+        [r'SFR$_{\rm 10\;Myr}$ [M$_{\odot}/$yr]', [1E-3,5E1], 'log'],
     'sfr_100Myr':
-        [r'SFR$_{\rm 100\;Myr}$ [M$_{\odot}/$yr]', [1E-3,5E1], True],
+        [r'SFR$_{\rm 100\;Myr}$ [M$_{\odot}/$yr]', [1E-3,5E1], 'log'],
     'sigma_gas_neutral':
-        [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', [2E0,1E2], True],
+        [r'$\Sigma_{\rm gas,neutral}$ [M$_{\odot}$ pc$^{-2}$]', [2E0,1E2], 'log'],
     'sigma_gas_ionized':
-        [r'$\Sigma_{\rm gas,ionized}$ [M$_{\odot}$ pc$^{-2}$]', [2E0,1E2], True],
+        [r'$\Sigma_{\rm gas,ionized}$ [M$_{\odot}$ pc$^{-2}$]', [2E0,1E2], 'log'],
     'sigma_metals':
-        [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', [1E-2,1E1], True],
+        [r'$\Sigma_{\rm metals}$ [M$_{\odot}$ pc$^{-2}$]', [1E-2,1E1], 'log'],
     'sigma_dust':
-        [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm dust}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_sil':
-        [r'$\Sigma_{\rm sil}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm sil}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_carb':
-        [r'$\Sigma_{\rm carb}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm carb}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_SiC':
-        [r'$\Sigma_{\rm SiC}$ [M$_{\odot}$ pc$^{-2}$]', [1E-7,1E-3], True],
+        [r'$\Sigma_{\rm SiC}$ [M$_{\odot}$ pc$^{-2}$]', [1E-7,1E-3], 'log'],
     'sigma_iron':
-        [r'$\Sigma_{\rm iron}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm iron}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_ORes':
-        [r'$\Sigma_{\rm O\;Res}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm O\;Res}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_sil+':
-        [r'$\Sigma_{\rm sil+}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], True],
+        [r'$\Sigma_{\rm sil+}$ [M$_{\odot}$ pc$^{-2}$]', [1E-3,1E0], 'log'],
     'sigma_H2':
-        [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', [1E-1,1E2], True],
+        [r'$\Sigma_{\rm H_2}$ [M$_{\odot}$ pc$^{-2}$]', [1E-1,1E2], 'log'],
     'sigma_HII':
-        [r'$\Sigma_{\rm H\,II}$ [M$_{\odot}$ pc$^{-2}$]', [1E-1,1E2], True],
+        [r'$\Sigma_{\rm H\,II}$ [M$_{\odot}$ pc$^{-2}$]', [1E-1,1E2], 'log'],
     'NH_neutral':
-        [r'$N_{\rm H,neutral}$ [cm$^{-2}$]', [1.1E18,0.9E22], True],
+        [r'$N_{\rm H,neutral}$ [cm$^{-2}$]', [1.1E18,0.9E22], 'log'],
     'NH':
-        [r'$N_{\rm H}$ [cm$^{-2}$]', [1.1E18,0.9E22], True],
+        [r'$N_{\rm H}$ [cm$^{-2}$]', [1.1E18,0.9E22], 'log'],
     'NX':
-        [r'$N_{\rm X}$ [cm$^{-2}$]', [1E16,1E19], True],
+        [r'$N_{\rm X}$ [cm$^{-2}$]', [1E16,1E19], 'log'],
     'time':
-        ['Time [Gyr]', [1E-2,13.7], False],
+        ['Time [Gyr]', [1E-2,13.7], 'linear'],
     'time_lookback':
-        ['Lookback Time [Gyr]', [1E-1,1E1], True],
+        ['Lookback Time [Gyr]', [1E-1,1E1], 'log'],
     'star_age':
-        ['Stellar Population Age [Gyr]', [3E-4,1E1], True],
+        ['Stellar Population Age [Gyr]', [3E-4,1E1], 'log'],
     'age':
-        ['Stellar Population Age [Gyr]', [3E-4,1E1], True],
+        ['Stellar Population Age [Gyr]', [3E-4,1E1], 'log'],
     'redshift':
-        [r'$z$', [6,0], False],
+        [r'$z$', [6,0], 'linear'],
     'redshift_plus_1':
-        [r'1+$z$', [7,1], True],
+        [r'1+$z$', [7,1], 'log'],
     'M_gas':
-        [r'$M_{\rm gas}\;[M_{\odot}]$', [1E8,1E11], True],
+        [r'$M_{\rm gas}\;[M_{\odot}]$', [1E8,1E11], 'log'],
     'M_gas_neutral':
-        [r'$M_{\rm gas,neutral}\;[M_{\odot}]$', [1E8,1E11], True],
+        [r'$M_{\rm gas,neutral}\;[M_{\odot}]$', [1E8,1E11], 'log'],
     'M_gas_ionized':
-        [r'$M_{\rm gas,ionized}\;[M_{\odot}]$', [1E8,1E11], True],
+        [r'$M_{\rm gas,ionized}\;[M_{\odot}]$', [1E8,1E11], 'log'],
     'M_star':
-        [r'$M_{\rm star}\;[M_{\odot}]$', [1E8,1E11], True],
+        [r'$M_{\rm star}\;[M_{\odot}]$', [1E8,1E11], 'log'],
     'M_young_star':
-        [r'$M_{\rm star}\;[M_{\odot} (<10 Myr)]$', [1E8,1E11], True],
+        [r'$M_{\rm star}\;[M_{\odot} (<10 Myr)]$', [1E8,1E11], 'log'],
     'M_H2':
-        [r'$M_{\rm H_2}\;[M_{\odot}]$', [1E7,1E11], True],
+        [r'$M_{\rm H_2}\;[M_{\odot}]$', [1E7,1E11], 'log'],
     'M_metals':
-        [r'$M_{\rm metals}\;[M_{\odot}]$', [1E6,1E10], True],
+        [r'$M_{\rm metals}\;[M_{\odot}]$', [1E6,1E10], 'log'],
     'M_dust':
-        [r'$M_{\rm dust}\;[M_{\odot}]$', [1E4,1E9], True],
+        [r'$M_{\rm dust}\;[M_{\odot}]$', [1E4,1E9], 'log'],
     'dMdt':
-        [r'$dM/dt \; [M_{\odot}/yr]$', [1E-3,1E2], True],
+        [r'$dM/dt \; [M_{\odot}/yr]$', [1E-3,1E2], 'log'],
     'nH':
-        [r'$n_{\rm H}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+        [r'$n_{\rm H}$ [cm$^{-3}$]', [3E-2, 0.9E3], 'log'],
     'nH_neutral':
-        [r'$n_{\rm H,neutral}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+        [r'$n_{\rm H,neutral}$ [cm$^{-3}$]', [3E-2, 0.9E3], 'log'],
     'nH_rms':
-        [r'$n_{\rm H}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+        [r'$n_{\rm H}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], 'log'],
     'nH_neutral_rms':
-        [r'$n_{\rm H,neutral}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], True],
+        [r'$n_{\rm H,neutral}^{\rm rms}$ [cm$^{-3}$]', [3E-2, 0.9E3], 'log'],
     'T':
-        [r'T [K]', [1.1E1,0.9E7], True],
+        [r'T [K]', [1.1E1,0.9E7], 'log'],
     'T_eff':
-        [r'$T_{\rm eff}$ [K]', [1.1E1,0.9E7], True],
+        [r'$T_{\rm eff}$ [K]', [1.1E1,0.9E7], 'log'],
     'Z':
-        [r'Z [Z$_{\odot}$]', [1.1E-3,5E0], True],
+        [r'Z [Z$_{\odot}$]', [1.1E-3,5E0], 'log'],
     'stellar_Z':
-        [r'Z_{\rm star} [Z$_{\odot}$]', [1.1E-3,5E0], True],
+        [r'Z_{\rm star} [Z$_{\odot}$]', [1.1E-3,5E0], 'log'],
     'Z_O':
-        ['[O/H]', [1.1E-3,5E0], True],
+        ['[O/H]', [1.1E-3,5E0], 'log'],
     'Z_O_gas':
-        [r'[O/H]$_{\rm gas}$', [1.1E-3,5E0], True],
+        [r'[O/H]$_{\rm gas}$', [1.1E-3,5E0], 'log'],
     'Z_C':
-        ['[C/H]', [1.1E-3,5E0], True],
+        ['[C/H]', [1.1E-3,5E0], 'log'],
     'Z_C_gas':
-        [r'[C/H]$_{\rm gas}$', [1.1E-3,5E0], True],
+        [r'[C/H]$_{\rm gas}$', [1.1E-3,5E0], 'log'],
     'Z_Mg':
-        ['[Mg/H]', [1.1E-3,5E0], True],
+        ['[Mg/H]', [1.1E-3,5E0], 'log'],
     'Z_Mg_gas':
-        [r'[Mg/H]$_{\rm gas}$', [1.1E-3,5E0], True],
+        [r'[Mg/H]$_{\rm gas}$', [1.1E-3,5E0], 'log'],
     'Z_Si':
-        ['[Si/H]', [1.1E-3,5E0], True],
+        ['[Si/H]', [1.1E-3,5E0], 'log'],
     'Z_Si_gas':
-        [r'[Si/H]$_{\rm gas}$', [1.1E-3,5E0], True],
+        [r'[Si/H]$_{\rm gas}$', [1.1E-3,5E0], 'log'],
     'Z_Fe':
-        ['[Fe/H]', [1.1E-3,5E0], True],
+        ['[Fe/H]', [1.1E-3,5E0], 'log'],
     'Z_Fe_gas':
-        [r'[Fe/H]$_{\rm gas}$', [1.1E-3,5E0], True],
+        [r'[Fe/H]$_{\rm gas}$', [1.1E-3,5E0], 'log'],
     **dict.fromkeys(['O/H', 'O/H_all','O/H_offset','O/H_gas_ionized_offset'],
-        ['12+log(O/H)', [8,9], False]),
+        ['12+log(O/H)', [8,9], 'linear']),
     **dict.fromkeys(['O/H_gas','O/H_gas_offset'],
-        [r'12+log(O/H)$_{\rm gas}$', [8,9], False]),
+        [r'12+log(O/H)$_{\rm gas}$', [8,9], 'linear']),
     'O/H_dust':
-        [r'12+log(O/H)$_{\rm dust}$', [8,9], False],
+        [r'12+log(O/H)$_{\rm dust}$', [8,9], 'linear'],
     'O/H_ionized':
-        [r'12+log(O/H)$_{\rm ionized}$', [8,9], False],
+        [r'12+log(O/H)$_{\rm ionized}$', [8,9], 'linear'],
     'O/H_gas_ionized':
-        [r'12+log(O/H)$_{\rm ionized,gas}$', [8,9], False],
+        [r'12+log(O/H)$_{\rm ionized,gas}$', [8,9], 'linear'],
     **dict.fromkeys(['C/H', 'C/H_all'],
-        ['12+log(C/H)', [8,9], False]),
+        ['12+log(C/H)', [8,9], 'linear']),
     'C/H_gas':
-        [r'12+log(C/H)$_{\rm gas}$', [8,9], False],
+        [r'12+log(C/H)$_{\rm gas}$', [8,9], 'linear'],
     'C/H_dust':
-        [r'12+log(C/H)$_{\rm dust}$', [8,9], False],
+        [r'12+log(C/H)$_{\rm dust}$', [8,9], 'linear'],
     **dict.fromkeys(['Mg/H', 'Mg/H_all'],
-        ['12+log(Mg/H)', [6.5,8.5], False]),
+        ['12+log(Mg/H)', [6.5,8.5], 'linear']),
     'Mg/H_gas':
-        [r'12+log(Mg/H)$_{\rm gas}$', [6.5,8.5], False],
+        [r'12+log(Mg/H)$_{\rm gas}$', [6.5,8.5], 'linear'],
     'Mg/H_dust':
-        [r'12+log(Mg/H)$_{\rm dust}$', [6.5,8.5], False],
+        [r'12+log(Mg/H)$_{\rm dust}$', [6.5,8.5], 'linear'],
     **dict.fromkeys(['Si/H', 'Si/H_all'],
-        ['12+log(Si/H)', [6.5,8.5], False]),
+        ['12+log(Si/H)', [6.5,8.5], 'linear']),
     'Si/H_gas':
-        [r'12+log(Si/H)$_{\rm gas}$', [6.5,8.5], False],
+        [r'12+log(Si/H)$_{\rm gas}$', [6.5,8.5], 'linear'],
     'Si/H_dust':
-        [r'12+log(Si/H)$_{\rm dust}$', [6.5,8.5], False],
+        [r'12+log(Si/H)$_{\rm dust}$', [6.5,8.5], 'linear'],
     **dict.fromkeys(['Fe/H', 'Fe/H_all'],
-        ['12+log(Fe/H)', [6.5,8.5], False]),
+        ['12+log(Fe/H)', [6.5,8.5], 'linear']),
     'Fe/H_gas':
-        [r'12+log(Fe/H)$_{\rm gas}$', [6.5,8.5], False],
+        [r'12+log(Fe/H)$_{\rm gas}$', [6.5,8.5], 'linear'],
     'Fe/H_dust':
-        [r'12+log(Fe/H)$_{\rm dust}$', [6.5,8.5], False],
+        [r'12+log(Fe/H)$_{\rm dust}$', [6.5,8.5], 'linear'],
     'D/Z':
-        ['D/Z', [1E-2,1.05], True],
+        ['D/Z', [1E-2,1.05], 'log'],
     'D/H':
-        ['D/H', [7E-5,2E-2], True],
+        ['D/H', [7E-5,2E-2], 'log'],
     'D/G':
-        ['D/G', [7E-5,2E-2], True],
+        ['D/G', [7E-5,2E-2], 'log'],
     'D/H_neutral':
-        [r'D/H$_{\rm neutral}$', [7E-5,2E-2], True],
+        [r'D/H$_{\rm neutral}$', [7E-5,2E-2], 'log'],
     'gas_depletion':
-        [r'$\delta({\rm X\;in\;gas})$', [1E-2,1.1E0], True],
+        [r'$\delta({\rm X\;in\;gas})$', [1E-2,1.1E0], 'log'],
     'dust_depletion':
-        [r'$\delta({\rm X\;in\;dust})$', [1E-1,1.1E0], True],
+        [r'$\delta({\rm X\;in\;dust})$', [1E-1,1.1E0], 'log'],
     'C_depletion':
-        [r'$\delta_{\rm C}$', [1E-1,1.1E0], True],
+        [r'$\delta_{\rm C}$', [1E-1,1.1E0], 'log'],
     'O_depletion':
-        [r'$\delta_{\rm O}$', [1E-1,1.1E0], True],
+        [r'$\delta_{\rm O}$', [1E-1,1.1E0], 'log'],
     'Mg_depletion':
-        [r'$\delta_{\rm Mg}$', [1E-3,1.1E0], True],
+        [r'$\delta_{\rm Mg}$', [1E-3,1.1E0], 'log'],
     'Si_depletion':
-        [r'$\delta_{\rm Si}$', [1E-3,1.1E0], True],
+        [r'$\delta_{\rm Si}$', [1E-3,1.1E0], 'log'],
     'Fe_depletion':
-        [r'$\delta_{\rm Fe}$', [1E-3,1.1E0], True],
+        [r'$\delta_{\rm Fe}$', [1E-3,1.1E0], 'log'],
     'cum_dust_prod':
-        [r'Cum. Dust Mass $[M_{\rm dust}/M_{\star}]$', [1E-6,1E-2], True],
+        [r'Cum. Dust Mass $[M_{\rm dust}/M_{\star}]$', [1E-6,1E-2], 'log'],
     'cum_metal_yield':
-        [r'Cum. Metal Mass $[M_{\rm metal}/M_{\star}]$', [1E-4,0.7E-1], True],
+        [r'Cum. Metal Mass $[M_{\rm metal}/M_{\star}]$', [1E-4,0.7E-1], 'log'],
     'inst_dust_prod':
-        [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', [1E-2,1E0], True],
+        [r'Cum. Inst. Dust Prod. [$M_{\odot}/$yr]', [1E-2,1E0], 'log'],
     'g_timescale':
-        [r'$\tau_{\rm g}$ [Gyr]', [1E-4,1E0], True],
+        [r'$\tau_{\rm g}$ [Gyr]', [1E-4,1E0], 'log'],
     'g_timescale_frac':
-        [r'Fraction of Gas < $\tau_{\rm g}$', [0,1.05], False],
+        [r'Fraction of Gas < $\tau_{\rm g}$', [0,1.05], 'linear'],
     'source_frac':
-        ['Source Mass\nFraction', [1E-2,1.05], True],
+        ['Source Mass\nFraction', [1E-2,1.05], 'log'],
     **dict.fromkeys(['spec_frac','spec_frac_Si/C'],
-        ['Species Mass\nFraction', [0,1.05], False]),
+        ['Species Mass\nFraction', [0,1.05], 'linear']),
     'Si/C':
-        ['Sil-to-C Ratio', [0,10], False],
+        ['Sil-to-C Ratio', [0,10], 'linear'],
     'mass_frac':
-        ['Mass Fraction', [0,1.05], False],
+        ['Mass Fraction', [0,1.05], 'linear'],
     'wind_rate':
-        [r'Cont. Mass-Loss $\dot{M}_{\rm W}/M_{\star}$ [Gyr$^{-1}$]', [3E-4,2E2], True],
+        [r'Cont. Mass-Loss $\dot{M}_{\rm W}/M_{\star}$ [Gyr$^{-1}$]', [3E-4,2E2], 'log'],
     'wind_vel':
-        [r'Mass-Loss Velocity $v_{\rm w,inj}$ [km s$^{-1}$]', [2E1,5E3], True],
+        [r'Mass-Loss Velocity $v_{\rm w,inj}$ [km s$^{-1}$]', [2E1,5E3], 'log'],
     'wind_E':
-        [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]', [1E-5,1E6], True],
+        [r'Inst. Energy Inj. $E_{\rm inj}}/M_{\star}$ [erg $s^{-1}\;M_{\star}^{-1}$]', [1E-5,1E6], 'log'],
     'cum_wind_E':
-        [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]', [6E17,5E18], True],
+        [r'Cum. Energy $E_{\rm inj,cum}}/M_{\star}$ [erg $M_{\star}^{-1}$]', [6E17,5E18], 'log'],
     **dict.fromkeys(['lambda','wavelength'],
-        [r'$\lambda \, [\mu m]$', [6E-2,1E3], True]),
+        [r'$\lambda \, [\mu m]$', [6E-2,1E3], 'log']),
     **dict.fromkeys(['lambda_angstrom','wavelength_angstrom'],
-        [r'$\lambda \, [\AA]$', [6E2,1E7], True]),
+        [r'$\lambda \, [\AA]$', [6E2,1E7], 'log']),
     **dict.fromkeys(['1/lambda','inverse_wavelength'],
-        [r'$\lambda^{-1} \, [\mu m^{-1}]$', [0,10], False]),
+        [r'$\lambda^{-1} \, [\mu m^{-1}]$', [0,10], 'linear']),
     **dict.fromkeys(['SED','flux'],
-        [r'$\lambda L_{\lambda} \,[L_{\odot}]$', [1E8,2E12], True]),
+        [r'$\lambda L_{\lambda} \,[L_{\odot}]$', [1E8,2E12], 'log']),
     'grain_size':
-        [r'a [$\mu m$]', [3E-4,2E0], True],
+        [r'a [$\mu m$]', [3E-4,2E0], 'log'],
     'dn/da':
-        [r'$\frac{\partial n}{\partial a}$', [1E20,1E55], True],
+        [r'$\frac{\partial n}{\partial a}$', [1E20,1E55], 'log'],
     'dn/da_norm':
-        [r'$\frac{\partial n}{\partial a}$ (normalized)', [1E-10,1E10], True],
+        [r'$\frac{\partial n}{\partial a}$ (normalized)', [1E-10,1E10], 'log'],
     **dict.fromkeys(['dm/da','dm/dloga'],
-        [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$', [1E20,1E55], True]),
+        [r'$4 \pi \rho_{\rm gr}/3 a^4 \, \frac{\partial n}{\partial a}$', [1E20,1E55], 'log']),
     **dict.fromkeys(['dm/da_norm','dm/dloga_norm'],
-        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [1E-3,1], True]),
+        [r'$a^4 \, \frac{\partial n}{\partial a}$ (normalized)', [1E-3,1], 'log']),
     **dict.fromkeys(['f_STL','STL','S/L'],
-        ['STL', [1E-1,1E1], True]),
+        ['STL', [1E-1,1E1], 'log']),
     'M_grain_small':
-        [r'$M_{\rm grain,small}$ $[M_{\odot}]$', [1E5,1E9], True],
+        [r'$M_{\rm grain,small}$ $[M_{\odot}]$', [1E5,1E9], 'log'],
     'M_grain_large':
-        [r'$M_{\rm grain,large}$ $[M_{\odot}]$', [1E5,1E9], True],
+        [r'$M_{\rm grain,large}$ $[M_{\odot}]$', [1E5,1E9], 'log'],
     **dict.fromkeys(['extinction','A_lambda'],
-        [r'$A_{\lambda}/A_V$', [0,10], False]),
+        [r'$A_{\lambda}/A_V$', [0,10], 'linear']),
     'A_V':
-        [r'$A_V$', [0.001,10], True],
+        [r'$A_V$', [0.001,10], 'log'],
     'cool_rate':
-        [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm cool}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'heat_rate':
-        [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm heat}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'net_heat_Q':
-        [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm total}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'hydro_heat_rate':
-        [r'$\Lambda_{\rm hydro}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm hydro}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'metal_cool_rate':
-        [r'$\Lambda_{\rm metal}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm metal}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'dust_cool_rate':
-        [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm dust}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     'photo_heat_rate':
-        [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], True],
+        [r'$\Lambda_{\rm photoelec}/n_{\rm H}^2$ [erg s$^{-1}$ cm$^3$]', [2E-25,2E-22], 'log'],
     **dict.fromkeys(['T_dust','dust_temp'],
-        [r'$T_{\rm dust}$ [K]', [0,60], False]),
+        [r'$T_{\rm dust}$ [K]', [0,60], 'linear']),
     'electron_fraction':
-        [r'$f_{\rm electron}$', [1E-3,1], True],
+        [r'$f_{\rm electron}$', [1E-3,1], 'log'],
     'clumping_factor':
-        [r'Clumping Factor ($C_2$)', [0.8,100], True],
+        [r'Clumping Factor ($C_2$)', [0.8,100], 'log'],
     'mach_number':
-        [r'$\mathcal{M}$', [0,20], False],
+        [r'$\mathcal{M}$', [0,20], 'linear'],
+    'percentile_diff':
+        ['% Difference', [-1,1], 'symlog'],
+    'log_diff':
+        ['Log Diff.', [-1,1], 'linear'],
 }
 
 
@@ -586,11 +590,11 @@ def get_prop_label(property):
 def get_prop_limits(property):
     return np.array(PROP_INFO[property][1])
 
-def get_prop_if_log(property):
+def get_prop_scale(property):
     return PROP_INFO[property][2]
 
 def set_prop_limits(property, lims):
     PROP_INFO[property][1] = lims
 
-def set_prop_if_log(property, value):
+def set_prop_scale(property, value):
     PROP_INFO[property][2] = value

@@ -168,7 +168,7 @@ def setup_plot_style(num_datasets, num_sub_datasets=1, style='color-linestyle'):
 
 
 def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=False, sharey=False, yx_ratio=1., ncols=None, 
-                 sqeezespace=0.05):
+                 sqeezespace=0.05, **kwargs):
     """
     Sets up the figure size and subplot layout based on number of plots for a normal square aspect ratio plot
 
@@ -218,7 +218,7 @@ def setup_figure(num_plots, orientation=config.DEFAULT_PLOT_ORIENTATION, sharex=
                 else: ncols = 3
         nrows = int(np.ceil(num_plots/ncols))
         fig,axes = plt.subplots(nrows, ncols, figsize=(ncols*config.BASE_FIG_SIZE,nrows*config.BASE_FIG_SIZE*yx_ratio),
-                                    squeeze=True, sharex=sharex, sharey=sharey)
+                                    squeeze=True, sharex=sharex, sharey=sharey, **kwargs)
         # Need to delete extra axes and reshow tick labels if axes were shared
         if num_plots%ncols > 0:
             for i in range(ncols-num_plots%ncols):
@@ -262,7 +262,7 @@ def add_artists(axis, artists):
     return
 
 
-def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_log=None, y_lim=None, y_log=None, 
+def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_scale=None, y_lim=None, y_scale=None, 
                artists_to_add=None, face_color='xkcd:white', rescale_font=1, no_minor_ticks=False):
     """
     Sets up the axis plot given x and y properties. Supported properties are listed in config.PROP_INFO and unless given, this
@@ -282,12 +282,12 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         Label for y axis (will override default label for give y_prop)
     x_lim : list, optional
         Limits for x axis
-    x_log : boolean, optional
-        Explicitly set x axis to linear or log space, otherwise go with default for x_param
+    x_scale : str, optional
+        Scale for x axis (e.g. 'linear' or 'log'), otherwise go with default for x_param
     y_lim : list, optional
         Limits for y axis
-    y_log : boolean, optional
-        Explicitly set y axis to linear or log space, otherwise go with default for y_param
+    y_scale : str, optional
+        Scale for y axis (e.g. 'linear' or 'log'), otherwise go with default for y_param
     artist_to_add : list, optional
         List of matplotlib artists objects to be added to axis
     face_color : string, optional
@@ -310,9 +310,9 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         return
     if x_lim == None:
         x_lim = config.get_prop_limits(x_prop)
-    if (x_log is not None and x_log) or (x_log is None and config.get_prop_if_log(x_prop)):
-        axis.set_xscale('log')
-    else:
+    x_scale = x_scale if x_scale is not None else config.get_prop_scale(x_prop)
+    axis.set_xscale(x_scale)
+    if x_scale == 'linear':
         axis.ticklabel_format(axis='x',style='plain')
     axis.set_xlim(x_lim)
 
@@ -325,9 +325,9 @@ def setup_axis(axis, x_prop, y_prop, x_label=None, y_label=None, x_lim=None, x_l
         return
     if y_lim == None:
         y_lim = config.get_prop_limits(y_prop)
-    if (y_log is not None and y_log) or (y_log is None and config.get_prop_if_log(y_prop)):
-        axis.set_yscale('log')
-    else:
+    y_scale = y_scale if y_scale is not None else config.get_prop_scale(y_prop)
+    axis.set_yscale(y_scale)
+    if y_scale == 'linear':
         axis.ticklabel_format(axis='y',style='plain')
     axis.set_ylim(y_lim)
 
@@ -660,7 +660,7 @@ def setup_proj_axis(axes, main_L, sub_L=None, axes_visible=False, rescale_font=1
             ax2.yaxis.set_visible(False)
 
 
-def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, log=False, rescale_font=1):
+def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label=None, limits=None, scale=None, rescale_font=1):
     """
     Sets up colorbar for given projection. 
 
@@ -681,13 +681,21 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
         Name of label for colorbar. Will override default in config.PROP_INFO.
     limits : list, optional
         Shape (2) list with limits for colorbar. Will override default in config.PROP_INFO.
-    log : bool, optional
+    scale : string, optional
+        Scale for colorbar (e.g., 'linear' or 'log'). Will override default in config.PROP_INFO.
         Set whether to be in log or linear scale. Will override default in config.PROP_INFO.
     rescale_font : float, optional
         Factor you want to rescale axis font size by
 
     """
 
+    if scale is None:
+        if property not in config.PROP_INFO.keys():
+            print("%s is not a supported property for setup_proj_colorbar"%property)
+            print("Defaulting to linear scale.")
+            scale = 'linear'
+        else:
+            scale = config.get_prop_scale(property)
 
     # Setup x axis
     if property not in config.PROP_INFO.keys() and (label is None and limits is None):
@@ -701,8 +709,10 @@ def setup_proj_colorbar(property, fig, caxis, mappable=None, cmap='magma', label
     if mappable is None:
         if limits == None:
             limits = config.get_prop_limits(property)
-        if config.get_prop_if_log(property) or log:
+        if scale == 'log':
             norm = mpl.colors.LogNorm(vmin=limits[0], vmax=limits[1], clip=True)
+        elif scale == 'symlog':
+            norm = mpl.colors.SymLogNorm(linthresh=limits[0], vmin=limits[0], vmax=limits[1], clip=True)
         else:
             norm = mpl.colors.Normalize(vmin=limits[0], vmax=limits[1], clip=True)
         cbar = fig.colorbar(mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=caxis, orientation='horizontal')

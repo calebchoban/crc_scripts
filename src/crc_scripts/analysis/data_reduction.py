@@ -30,7 +30,8 @@ class MultiSnapDataIO(object):
                  star_subsamples:list|None=None,
                  include_extinction:bool=False, 
                  save_dir:str|None=None, 
-                 halohist_file:str|None=None):
+                 halohist_file:str|None=None,
+                 sim_name:str|None=None):
         """
         Parameters
         ----------
@@ -54,6 +55,8 @@ class MultiSnapDataIO(object):
             Path to the AHF halo history file used to determine where the galaxy center is for each snapshot. 
             This is necessary for simulations where the main halo between snapshots such as dwarf-mass galaxies and at high-z.
             If None, defaults to determining the rough galactic center from dense gas/young star locations.
+        sim_name : str, optional
+            Name of the simulation. Used to create a unique name for the reduced data file. If None, defaults to the basename of the snapshot directory.
         """
         
         self.loaded = False
@@ -67,7 +70,7 @@ class MultiSnapDataIO(object):
 
         # Get the basename of the directory the snapshots are stored in
         self.basename = os.path.basename(os.path.dirname(os.path.normpath(sdir)))
-        self.name = self.basename+'_reduced_data'
+        self.name = self.basename+'_reduced_data' if sim_name is None else sim_name+'_reduced_data'
         # Remove the last folder in the path of sdir
         parent_dir = os.path.dirname(os.path.normpath(sdir))
         # Set the basename of the directory the reduced data is saved to
@@ -646,7 +649,7 @@ class MultiSnapReducedData(object):
                     else:
                         gal.set_zoom(**self.set_kwargs)
                 # Orientate the halo
-                gal.set_orientation()
+                gal.set_orientation(mass_radius_max=10)
             else:
                 raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
 
