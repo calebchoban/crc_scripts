@@ -750,9 +750,7 @@ def get_grain_size_distribution(gas: Particle,
 
 def get_dust_shattering_and_coagulation_rate(particles:Particle, 
                              scaling_factor:float=1.0,
-                             factor_clumping:bool=True,
-                             small_large_cutoff:float=0.01
-                             ):
+                             factor_clumping:bool=True,):
     """
     Determines the mass change rate of small dust grains due to shattering and coagulation for the given gas particles.
     The grain size cutoff for large vs small grains is set by the small_large_cutoff parameter.
@@ -812,12 +810,12 @@ def get_dust_shattering_and_coagulation_rate(particles:Particle,
 
         # Determine clumping factor due to subresolved gas-dust clumping using assumed Mach number
         if factor_clumping:
-            temp_clump_factor = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nH_max/nH)) / (np.sqrt(2)*sigma))))
+            #temp_clump_factor = 1/(np.exp(sigma*sigma)/2 * (1 + erf((3/2*sigma*sigma + np.log(nH_max/nH)) / (np.sqrt(2)*sigma))))
             eff_clump_factor = np.exp(sigma*sigma)/2 * erfc((3/2*sigma*sigma-np.log(nH_max/nH)) / (np.sqrt(2)*sigma))
+            eff_clump_factor[sigma==0] = 1
         else:
-            temp_clump_factor = np.ones(npart)
+            #temp_clump_factor = np.ones(npart)
             eff_clump_factor = np.ones(npart)
-
 
         for i in range(bin_num):
             ai_upper = a_edges[i+1]
@@ -832,9 +830,7 @@ def get_dust_shattering_and_coagulation_rate(particles:Particle,
             coag_injection_term = np.zeros(npart)
             shat_removal_term = np.zeros(npart)
             shat_injection_term = np.zeros(npart)
-            print('i:',i)
             for j in range(bin_num):
-                print('j:',j)
                 aj_upper = a_edges[j+1]
                 aj_lower = a_edges[j]
                 aj_center = (aj_upper + aj_lower)/2
@@ -856,7 +852,6 @@ def get_dust_shattering_and_coagulation_rate(particles:Particle,
                 coag_removal_term[coag_mask] += scaling_factor * vijrel[coag_mask] * mi_acenter * int_I_ij[coag_mask]
 
                 for k in range(bin_num):
-                    print('k:',k)
                     ak_upper = a_edges[k+1]
                     ak_lower = a_edges[k]
                     ak_center = (ak_upper + ak_lower)/2
@@ -878,19 +873,17 @@ def get_dust_shattering_and_coagulation_rate(particles:Particle,
                     mcoag_kj = m_coagulation(ai_lower, ai_upper, ak_center, aj_center, vkjrel, v_coag, rho_c)
                     coag_injection_term[coag_mask] += scaling_factor * vkjrel[coag_mask] * mcoag_kj[coag_mask] * int_I_kj[coag_mask]
 
-            # Volume of gas cell in cm^3
-            shat_dMbin_dt[:,i] = eff_clump_factor / (mass_grams/rho) * np.pi * (-shat_removal_term + shat_injection_term) # g/sec
-            coag_dMbin_dt[:,i] = eff_clump_factor / (mass_grams/rho) * np.pi * (-coag_removal_term + coag_injection_term) # g/sec
+            # Note the Volume of gas cell in cm^3 is large so need to convert to higher floating point precision
+            V_cell = (np.asarray(mass_grams,dtype=np.float64)/rho)
+            shat_dMbin_dt[:,i] = eff_clump_factor / V_cell * np.pi * (-shat_removal_term + shat_injection_term) # g/sec
+            coag_dMbin_dt[:,i] = eff_clump_factor / V_cell * np.pi * (-coag_removal_term + coag_injection_term) # g/sec
 
  
     # Convert to more useful units Msol/yr
     shat_dMbin_dt *= config.grams_to_Msolar / config.sec_to_yr
     coag_dMbin_dt *= config.grams_to_Msolar / config.sec_to_yr
-    # Determine change in mass for snall grain bins
-    small_grain_bins = a_centers<small_large_cutoff
-    shat_dM_total = np.sum(shat_dMbin_dt[:,small_grain_bins],axis=1) # total change in mass for small grains for each gas particle
-    coag_dM_total = np.sum(coag_dMbin_dt[:,small_grain_bins],axis=1) # total change in mass for small grains for each gas particle
-    return shat_dM_total, coag_dM_total
+
+    return shat_dMbin_dt, coag_dMbin_dt
 
 
 
@@ -1110,62 +1103,61 @@ def calculate_extinction_curve(gas: Particle,
     if bin_min<table_radii_min or bin_max>table_radii_max:
         print("WARNING: The simulated grain sizes are beyond the range of sizes supported by the dust grain optical properties.\n Will truncate grain sizes beyond supported range.")
 
+    # Precompute grain centers, size diffs, and dnda column indices across all bins.
+    # These are species-independent (depend only on bin structure and subsamples).
+    _all_grain_centers = []
+    _all_size_diffs = []
+    _all_dnda_cols = []
+    for j in range(num_bins):
+        bin_upper = bin_edges[j+1]
+        bin_lower = bin_edges[j]
+        in_bin_mask = (grain_size_vals >= bin_lower) & (grain_size_vals < bin_upper)
+        grain_sizes_in_bin = grain_size_vals[in_bin_mask]
+        in_bin_indices = np.where(in_bin_mask)[0]
+        if len(grain_sizes_in_bin) == 1:
+            _all_grain_centers.append(grain_sizes_in_bin[0])
+            _all_size_diffs.append(bin_upper - bin_lower)
+            _all_dnda_cols.append(in_bin_indices[0])
+        else:
+            _all_grain_centers.extend((grain_sizes_in_bin[1:] + grain_sizes_in_bin[:-1]) / 2)
+            _all_size_diffs.extend(grain_sizes_in_bin[1:] - grain_sizes_in_bin[:-1])
+            _all_dnda_cols.extend(in_bin_indices[:-1])
+    all_grain_centers = np.array(_all_grain_centers)
+    all_size_diffs = np.array(_all_size_diffs)
+    all_dnda_cols = np.array(_all_dnda_cols, dtype=int)
+    total_centers = len(all_grain_centers)
+    # Clamp grain centers to the supported table range once for all species
+    clamped_centers = np.clip(all_grain_centers, table_radii_min, table_radii_max)
 
-    # Calculate the extinction curve for each particle
-    A_lambda_total = np.zeros([num_part,N_wave_bins])
+    # Calculate the extinction curve for each particle.
+    # We approximate integral Qext(a,lambda) * dn/da(a) da as a sum over grain centers
+    # Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower).
+    # Instead of looping over each center and calling RGI separately, we batch all
+    # (grain_center, wavelength) query points into a single RGI call per species,
+    # then use a matmul to accumulate the weighted sum over grain centers.
+    A_lambda_total = np.zeros([num_part, N_wave_bins])
     A_V_total = np.zeros(num_part) # Extinction in V band (5470 Angstrom)
-    for i,spec in enumerate(snap_species):
+    for i, spec in enumerate(snap_species):
         spec_index = spec_indices[i]
-        # Calculate the dust species A_lambda and A_V 
-        A_lambda_spec = np.zeros([num_part,N_wave_bins])
-        A_V_spec =  np.zeros(num_part) # Extinction in V band (5470 Angstrom) for one species
         Qext = spec_Qext[spec_index]
-        spec_dnda = dnda_vals[:,spec_index,:]
+        spec_dnda = dnda_vals[:, spec_index, :]
 
-        # We are approximating the integral Qext(a,lambda) * dn/da(a) da from a_min to a_max 
-        # as a sum over grain bins Qext(a_i,center,lambda) * dn/da(a_i,center) * (a_i,upper - a_i,lower)
-        for j in range(num_bins):
-            bin_upper = bin_edges[j+1]
-            bin_lower = bin_edges[j]
+        # N_in_bin_all[p, c] = dn/da(p, a_c) * da_c  shape: [num_part, total_centers]
+        N_in_bin_all = spec_dnda[:, all_dnda_cols] * all_size_diffs[np.newaxis, :]
 
-            # Need to know the extent of the bin (or subsamples of the bin) and the centers of the bin
-            # (or centers of the subsamples) to calculate the extinction curve
-            in_bin_mask = (grain_size_vals >= bin_lower) & (grain_size_vals < bin_upper)
-            grain_sizes_in_bin = grain_size_vals[in_bin_mask]
-            if (len(grain_sizes_in_bin) == 1): # Only one point in each bin which is the center
-                size_diff_in_bin = np.array([bin_upper-bin_lower])
-                grain_centers_in_bin = grain_sizes_in_bin
-            else:
-                size_diff_in_bin = grain_sizes_in_bin[1:] - grain_sizes_in_bin[:-1]
-                grain_centers_in_bin = (grain_sizes_in_bin[1:] + grain_sizes_in_bin[:-1])/2
-            dnda_in_bin = spec_dnda[:,in_bin_mask]
+        # Calculate A_lambda only for desired species
+        if spec in desired_species:
+            # Single batched RGI call over all grain centers × wavelengths
+            query_pts_lambda = np.column_stack([np.repeat(clamped_centers, N_wave_bins),
+                                                np.tile(unique_wavelengths, total_centers)])
+            Qext_all = Qext(query_pts_lambda).reshape(total_centers, N_wave_bins)  # [total_centers, N_wave_bins]
+            # sum_c: a_c^2 * Qext(a_c, lambda) * N_in_bin[p, c]  →  matmul
+            A_lambda_total += N_in_bin_all @ ((all_grain_centers ** 2)[:, np.newaxis] * Qext_all)
 
-            # Calculate A_lambda only for species we want
-            if spec in desired_species:
-                grain_size_wave_vals = np.zeros([N_wave_bins,2])
-                for l,grain_size_center in enumerate(grain_centers_in_bin):
-                    # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
-                    if grain_size_center < table_radii_min: grain_size_wave_vals[:,0] = table_radii_min
-                    elif grain_size_center > table_radii_max: grain_size_wave_vals[:,0] = table_radii_max
-                    else: grain_size_wave_vals[:,0] = grain_size_center
-                    grain_size_wave_vals[:,1] = unique_wavelengths
-
-                    N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
-                    A_lambda_spec += (grain_size_center*grain_size_center) * Qext([grain_size_wave_vals])[0][np.newaxis,:] * N_in_bin[:,np.newaxis]
-                    
-            # Calculate A_V for all species since we normalize by total A_V and want to know the relative contributions of each species
-            for l,grain_size_center in enumerate(grain_centers_in_bin):
-                N_in_bin = dnda_in_bin[:,l]*size_diff_in_bin[l]  # Assume dnda is constant value with a = a at bin center for each bin
-                # Assume grain sizes beyond supported range for optical properties have the same optical properties as the edges of the range
-                if grain_size_center < table_radii_min: Qext_vals = Qext([table_radii_min,lambda_V])[0]
-                elif grain_size_center > table_radii_max: Qext_vals = Qext([table_radii_max,lambda_V])[0]
-                else: Qext_vals = Qext([grain_size_center,lambda_V])[0]
-
-                A_V_spec += (grain_size_center*grain_size_center) * Qext_vals * N_in_bin
-
-
-        A_lambda_total += A_lambda_spec
-        A_V_total += A_V_spec
+        # Always calculate A_V for all species since we normalize by total A_V
+        query_pts_V = np.column_stack([clamped_centers, np.full(total_centers, lambda_V)])
+        Qext_V_all = Qext(query_pts_V)  # [total_centers]
+        A_V_total += N_in_bin_all @ (all_grain_centers ** 2 * Qext_V_all)
 
     # Normalize by A_V for each particle
     A_lambda_norm = A_lambda_total/A_V_total[:,np.newaxis] 
