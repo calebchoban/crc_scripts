@@ -29,7 +29,6 @@ def check_snap_exist(sdir, snum):
     
     # multiple files
     snapfile = os.path.normpath(sdir + "/snapdir_%03d/snapshot_%03d.0.hdf5" %(snum,snum))
-    print(snapfile)
     if (os.path.isfile(snapfile)):
         f = h5py.File(snapfile, 'r')
         nsnap = f['Header'].attrs['NumFilesPerSnapshot']

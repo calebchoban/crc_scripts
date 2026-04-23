@@ -239,6 +239,8 @@ class Halo(object):
             self.zc = np.median(part.get_property('position')[dens_indx,2])
             self.rvir = sp.boxsize*2.
             self.Lhat = np.array([0,0,1.])
+        else:
+            raise ValueError("mode %s not supported to load halo."%mode)
 
         self.center_position = [self.xc,self.yc,self.zc]
     

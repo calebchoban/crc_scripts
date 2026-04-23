@@ -4,6 +4,7 @@ __pycache__/
 .idea/
 *_plots/
 webbpsf-data/
+crc_scripts.egg-info/
 
 *.pyc
 *.e
@@ -18,4 +19,5 @@ webbpsf-data/
 *.pdf
 *.eps
 *.jpg
+settings.json
 

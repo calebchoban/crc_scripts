@@ -34,7 +34,7 @@ class Figure(object):
     def set_axes(self, x_props, y_props, axes_kwargs=None):
         """
         Set up all axes in figure given the properties you want you plot on the x and y axis for each. 
-        Can also give more arguements for each axis such as setting log/linear and the limits.
+        Can also give more arguments for each axis such as setting log/linear and the limits.
 
         Parameters
         ----------
@@ -200,7 +200,7 @@ class Figure(object):
         self.axis_artists[axis_num] += [sc]
 
 
-    def plot_1Dhistogram(self, axis_num, X, bin_lims=None, bin_nums=100, bin_log=False, label=None, **kwargs):
+    def plot_1Dhistogram(self, axis_num, X, bin_lims=None, bin_nums=100, scale=None, label=None, **kwargs):
         default_kwargs = {
             'density': True, 
             'histtype': 'step', 
@@ -216,7 +216,7 @@ class Figure(object):
         if bin_lims is None:
             bin_lims=axis.get_xlim()
             autoscale=False
-        if bin_log:
+        if scale == 'log':
             bins = np.logspace(np.log10(bin_lims[0]),np.log10(bin_lims[1]),bin_nums)
         else:
             bins = np.linspace(bin_lims[0],bin_lims[1],bin_nums)
@@ -226,7 +226,7 @@ class Figure(object):
         self.axis_artists[axis_num] += [img]
 
 
-    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_log=None, label=None,rescale_font=1, **kwargs):
+    def plot_2Dhistogram(self, axis_num, z_prop, X, Y, Z, cmap='magma', z_lim=None, z_scale=None, label=None,rescale_font=1, **kwargs):
         """
         Plots a 2D histogram of the given data. This is a wrapper for the matplotlib pcolormesh function.
 
@@ -246,8 +246,8 @@ class Figure(object):
             Colormap to use for the histogram.
         z_lim : list   
             Set color map limits. Overrides default choices.
-        z_log : bool
-            Set color map to log scale. Overrides default choices.
+        z_scale : str
+            Set color map to specified scale. Overrides default choices.
         label : str, optional
             Add label in top right corner.
         rescale_font : float
@@ -263,12 +263,14 @@ class Figure(object):
                 kwargs[kwarg] = default_kwargs[kwarg]        
 
         z_limits = z_lim if z_lim is not None else config.get_prop_limits(z_prop)
-        z_log = z_log if z_log is not None else config.get_prop_if_log(z_prop)
+        z_scale = z_scale if z_scale is not None else config.get_prop_scale(z_prop)
 
         # Set colormap norm if not provided
         if 'norm' not in kwargs:
-            if z_log:
+            if z_scale == 'log':
                 norm = mpl.colors.LogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
+            elif z_scale == 'symlog':
+                norm = mpl.colors.SymLogNorm(vmin=z_limits[0], vmax=z_limits[1], clip=True)
             else:
                 norm = mpl.colors.Normalize(vmin=z_limits[0], vmax=z_limits[1], clip=True)
             kwargs['norm'] = norm
@@ -339,6 +341,8 @@ class Figure(object):
                 kwargs[kwarg] = default_kwargs[kwarg]
         if 'fontsize' in kwargs:
             kwargs['fontsize'] *= rescale_font
+        else:
+            kwargs['fontsize'] = rescale_font*config.SMALL_FONT
         # Check for old legends and remove
         legends = [c for c in self.fig.get_children() if isinstance(c, mpl.legend.Legend)]
         if len(legends)>0:
@@ -531,7 +535,7 @@ class Projection(Figure):
             'cmap': 'magma', 
             'label': None,
             'limits': None,
-            'log': None}
+            'scale': None}
         
         self.axis_properties[axis_num]=property
 
@@ -558,17 +562,34 @@ class Projection(Figure):
         
         axes=self.axes[axis_num]
         for i, axis in enumerate(axes):
-            # Only need the main axis for images
-            axis.xaxis.set_visible(False)
-            axis.yaxis.set_visible(False)
-            for axe in ['top','bottom','left','right']:
-                axis.spines[axe].set_visible(False)
+            if i == 0:
+                # Only need the main axis for images
+                axis.xaxis.set_visible(False)
+                axis.yaxis.set_visible(False)
+                for axe in ['top','bottom','left','right']:
+                    axis.spines[axe].set_visible(False)
                     
 
     
-    def plot_projection(self, axis_num, main_proj_data, main_extent, sub_proj_data=None, sub_extent=None, label=None, v_limits=None, v_log=False, rescale_font=1, **kwargs):
+    def plot_projection(self, 
+                        axis_num:int, 
+                        main_proj_data:list, 
+                        main_X:list|None=None, 
+                        main_Y:list|None=None, 
+                        main_extent:list|None=None, 
+                        sub_proj_data:list|None=None, 
+                        sub_X:list|None=None, 
+                        sub_Y:list|None=None, 
+                        sub_extent:list|None=None, 
+                        label:str|None=None, 
+                        v_limits:list|None=None, 
+                        v_scale:str|None=None, 
+                        rescale_font:int=1, 
+                        use_imshow:bool=False,  
+                        **kwargs):
         """
-        Plot given projection data on specified axis. Can also plot secondary projection data and add labels.
+        Plot given projection data on specified axis. Can also plot secondary projection data and add labels uses pcolormesh by default
+        but also uses imshow is desired.
 
         Parameters
         ----------
@@ -576,35 +597,69 @@ class Projection(Figure):
             The number of the axis to plot projection data.
         main_proj_data : ndarray (N,N)
             NxN array of primary projection data.
+        main_X : ndarray (N,N) 
+            NxN X coordinate grid of primary data. Used for pcolormesh but can also be extracted from the extent arguments.
+        main_Y : ndarray (N,N) 
+            NxN Y coordinate grid of primary data. Used for pcolormesh but can also be extracted from the extent arguments.
         main_extent : ndarray (2,2)
-            The x and y limits/extenct of the primary data.
+            The x and y limits/extent of the primary data. Used for imshow or pcolormesh.
         sub_proj_data : ndarray (M,N)
             NxM array of secondary projection data. Does not have to be square sinc secondary projections are usually thinner slices.
+            NxN array of primary projection data.
+        main_X : ndarray (N,M) 
+            NxM X coordinate grid of secondary data. Used for pcolormesh but can also be extracted from the extent arguments.
+        main_Y : ndarray (N,M) 
+            NxM Y coordinate grid of secondary data. Used for pcolormesh but can also be extracted from the extent arguments.
         sub_extent : ndarray (2,2)
-            The x and y limits/extenct of the secondary data.
+            The x and y limits/extenct of the secondary data. Used for imshow or pcolormesh.
         label : str, optional
             Add label in top right corner.
         v_limits : list, optional
             Set color map limits. Overrides default choices.
-        v_log : bool, optional
-            Set color map to log scale. Overrides default choices.
+        v_scale : str, optional
+            Set color map scale. Overrides default choices.
+        rescale_font : int
+            Multiplicative factor to rescale font size for labels within plot.
         """
+
+        if (main_X is None or main_Y is None) and main_extent is None:
+            print("Need to set either main_X and main_Y or main_extent!")
+            return
+        
+        v_scale = v_scale if v_scale is not None else config.get_prop_scale(self.axis_properties[axis_num])
 
         default_imshow_kwargs = {
             'cmap': 'inferno', 
             'interpolation': 'bicubic',
             'aspect': 'equal',
-            'origin': 'lower',
-            'zorder': 1}        
+            'origin': 'lower', # This aligns imshow with pcolormesh
+            'zorder': 1}     
+        default_pcolormesh_kwargs = {
+            'cmap': 'inferno', 
+            'zorder': 1,
+            'rasterized':True}     # PDFs are huge without rasterized       
 
-        for kwarg in default_imshow_kwargs:
-            if kwarg not in kwargs:
-                kwargs[kwarg] = default_imshow_kwargs[kwarg]   
+        if use_imshow:
+            for kwarg in default_imshow_kwargs:
+                if kwarg not in kwargs:
+                    kwargs[kwarg] = default_imshow_kwargs[kwarg]   
+        else:
+            for kwarg in default_pcolormesh_kwargs:
+                if kwarg not in kwargs:
+                    kwargs[kwarg] = default_pcolormesh_kwargs[kwarg]
+        if v_scale == 'symlog':
+            if 'linthresh' not in kwargs:
+                linthresh = 10
+            else:                    
+                linthresh = kwargs.pop('linthresh')
+            kwargs['norm'] = mpl.colors.SymLogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True, linthresh=linthresh)
 
         # Change default projection limits
         if v_limits is not None:
-            if v_log:
+            if v_scale == 'log':
                 norm = mpl.colors.LogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True)
+            elif v_scale == 'symlog':
+                norm = mpl.colors.SymLogNorm(vmin=v_limits[0], vmax=v_limits[1], clip=True, linthresh=linthresh)
             else:
                 norm = mpl.colors.Normalize(vmin=v_limits[0], vmax=v_limits[1], clip=True)
             kwargs['norm'] = norm
@@ -613,7 +668,16 @@ class Projection(Figure):
         axes_set = self.axes[axis_num]
         ax1 = axes_set[0]
 		# Plot top projection
-        img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
+        if use_imshow:
+            img1 = ax1.imshow(main_proj_data, extent=main_extent, **kwargs)
+        else:
+            if main_X is None and main_Y is None:
+                res = np.shape(main_proj_data)
+                main_X = np.linspace(main_extent[0], main_extent[1], res[0])
+                main_Y = np.linspace(main_extent[2], main_extent[3], res[1])
+                main_X, main_Y = np.meshgrid(main_X, main_Y, indexing='ij')
+            img1=ax1.pcolormesh(main_X, main_Y, main_proj_data, **kwargs)
+
         if label is not None:
             ax1.annotate(label, (0.975,0.975), xycoords='axes fraction', color='xkcd:white', ha='right', va='top', fontsize=rescale_font*config.LARGE_FONT)
         # Add scale bar to main projection
@@ -623,40 +687,50 @@ class Projection(Figure):
         # Plot sub projection if applicable
         if self.sub_proj:
             ax2 = axes_set[1]
-            img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
+            if use_imshow:
+                img2 = ax2.imshow(sub_proj_data, extent=sub_extent, **kwargs)
+            else:
+                if sub_X is None and sub_Y is None:
+                    res = np.shape(sub_proj_data)
+                    sub_X = np.linspace(sub_extent[0], sub_extent[1], res[0])
+                    sub_Y = np.linspace(sub_extent[2], sub_extent[3], res[1])
+                    sub_X, sub_Y = np.meshgrid(sub_X, sub_Y, indexing='ij')
+                img2 = ax2.pcolormesh(sub_X, sub_Y, sub_proj_data, **kwargs)
         if self.has_colorbars:
             cbar = plot_utils.setup_proj_colorbar(self.axis_properties[axis_num], self.fig, axes_set[-1], mappable=img1, rescale_font=rescale_font)       
             self.axis_colorbar[axis_num] = cbar
 
 
-    def plot_image(self, axis_num, data, fov_kpc=None, fov_arcsec=None, label=None, rescale_font=1, invert_x=False, invert_y=False, **kwargs):
+    def plot_image(self, axis_num, main_img_data, fov_kpc=None, fov_arcsec=None, sub_img_data=None, 
+                   sub_fov_kpc=None, sub_fov_arcsec=None, label=None, rescale_font=1, brightness_units=None, **kwargs):
         """
-        Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image.
+        Plots image data in the form of [X,Y] for a single color image or [X,Y,3] for an RGB image using matplotlib imshow.
 
         Parameters
         ----------
         axis_num : int
             The number of the axis to plot image data.
-        data : ndarray (N,M) or (N,M,3)
-            Image data for each pixel.
-        fov_kpc : optional, float
-            Size of field of view of image in kpc so that accompanying scale line can be added to botttom left.
-        fov_arcsec : optional, float
+        main_img_data : ndarray (N,M) or (N,M,3)
+            Main image data for each pixel.
+        fov_kpc : optional, list
+            Size of field of view of image in kpc so that accompanying scale line can be added to bottom left.
+        fov_arcsec : optional, list
             Size of field of view of image in arcsecs so that accompanying scale line can be added to bottom right.
+        sub_img_data : ndarray (N,M) or (N,M,3)
+            Sub image data for each pixel if you set add_sub_proj=True when initializing Projection object.
+        sub_fov_kpc : optional, list
+            Size of field of view of sub image in kpc.
+        sub_fov_arcsec : optional, list
+            Size of field of view of sub image in arcsecs.
         label : str, optional
             Add label in top right corner.
         rescale_font : float
             Factor you want to rescale text font size by.
-        invert_x : bool
-            Invert the x axis.
-        invert_y : bool
-            Invert the y axis.
-
         """
 
         default_imshow_kwargs = {
             'cmap': 'inferno', 
-            'interpolation': 'bicubic',
+            'interpolation': None,
             'aspect': 'equal',
             'origin': 'lower',
             'zorder': 1}        
@@ -665,30 +739,48 @@ class Projection(Figure):
             if kwarg not in kwargs:
                 kwargs[kwarg] = default_imshow_kwargs[kwarg]  
 
-        axis = self.axes[axis_num][0]
-        self.axis_fov_kpc[axis_num] = fov_kpc
+        axes_set = self.axes[axis_num]
+        main_axis = axes_set[0]
+        if self.sub_proj: sub_axis = self.axes[axis_num][1]
+
 
         # Default to kpc if both kpc and arsec fov are given
         if fov_kpc is not None:
-            extent = [-fov_kpc/2,fov_kpc/2,-fov_kpc/2,fov_kpc/2]
+            self.axis_fov_kpc[axis_num] = fov_kpc[0]
+            main_extent = [-fov_kpc[0]/2,fov_kpc[0]/2,-fov_kpc[1]/2,fov_kpc[1]/2]
         elif fov_arcsec is not None:
-            extent = [-fov_arcsec/2,fov_arcsec/2,-fov_arcsec/2,fov_arcsec/2]
+            main_extent = [-fov_arcsec[0]/2,fov_arcsec[0]/2,-fov_arcsec[1]/2,fov_arcsec[1]/2]
         else: 
-            extent = None
+            main_extent = None
 
-        if invert_x:
-            data = np.flip(data,axis=1)
-        if invert_y:
-            data = np.flip(data,axis=0)
+        if self.sub_proj:
+            if sub_fov_kpc is not None:
+                sub_extent = [-sub_fov_kpc[0]/2,sub_fov_kpc[0]/2,-sub_fov_kpc[1]/2,sub_fov_kpc[1]/2]
+            elif sub_fov_arcsec is not None:
+                sub_extent = [-sub_fov_arcsec[0]/2,sub_fov_arcsec[0]/2,-sub_fov_arcsec[1]/2,sub_fov_arcsec[1]/2]
+            else: 
+                sub_extent = None       
 
-        img = axis.imshow(data, extent = extent, **kwargs)
+        main_img = main_axis.imshow(main_img_data, extent = main_extent, **kwargs)
+        if self.sub_proj:
+            sub_img = sub_axis.imshow(sub_img_data, extent = sub_extent, **kwargs)
 
         # If the size of the field of view is given add a scale bar. Kpc scale bars go on the left and arcsec bars on the right
         if fov_kpc is not None or fov_arcsec is not None:
-            self.set_scale_bar(axis_num, fov_kpc=fov_kpc, fov_arcsec=fov_arcsec, rescale_font=rescale_font)
+            scale_fov_kpc = fov_kpc[0] if fov_kpc is not None else None
+            scale_fov_arcsec = fov_arcsec[0] if fov_arcsec is not None else None
+            self.set_scale_bar(axis_num, fov_kpc=scale_fov_kpc, fov_arcsec=scale_fov_arcsec,  rescale_font=rescale_font)
 
         if label is not None:
-            axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=axis.transAxes)
+            main_axis.text(.95, .95, label, color='xkcd:white', fontsize=rescale_font*config.LARGE_FONT, ha='right', va='top', transform=main_axis.transAxes)
+        
+        if self.has_colorbars and brightness_units is not None:
+            cbar = plot_utils.setup_proj_colorbar(None, self.fig, axes_set[-1], label = brightness_units, mappable=main_img, rescale_font=rescale_font)       
+            self.axis_colorbar[axis_num] = cbar    
+        elif self.has_colorbars and brightness_units is None:
+            # Get rid of colorbar axis for image we don't provide units
+            cbar_axis = axes_set[-1]
+            cbar_axis.remove()     
     
 
     def set_scale_bar(self, axis_num, fov_kpc=None, fov_arcsec=None, rescale_font=1):
@@ -730,3 +822,28 @@ class Projection(Figure):
                 bar_x_center = +0.7*fov_kpc/2; bar_y_center = -0.75*fov_kpc/2; label_offset = 0.04*fov_kpc/2
             axis.plot([bar_x_center-bar/2,bar_x_center+bar/2], [bar_y_center,bar_y_center], '-', c='xkcd:white', lw=2*config.BASE_LINEWIDTH)
             axis.annotate(bar_label, [bar_x_center,bar_y_center-label_offset], color='xkcd:white', ha='center', va='top', fontsize=rescale_font*config.LARGE_FONT)
+
+
+    # This is a wrapper for the matplotlib annotate function which is more versatile than the text function
+    def add_text(self, axis_num, x, y, text, rescale_font=1, **kwargs):
+        default_kwargs = {
+            'color': config.BASE_COLOR,
+            'fontsize': rescale_font*config.EXTRA_LARGE_FONT,
+            'ha': 'center',
+            'va': 'center',
+            'xycoords': 'axes fraction'} 
+
+        # Adding outlines to text is not simple so lets make it similar to edges 
+        if 'ec' in kwargs:
+            if 'ew' not in kwargs:
+                kwargs['ew']=0.5*config.BASE_ELINEWIDTH
+            kwargs['path_effects']=[patheffects.withStroke(linewidth= kwargs['ew'],
+                                                        foreground= kwargs['ec'])]
+            kwargs.pop('ec',0);kwargs.pop('ew',0)
+
+        for kwarg in default_kwargs:
+            if kwarg not in kwargs:
+                kwargs[kwarg] = default_kwargs[kwarg]
+                 
+        axis=self.axes[axis_num][0]
+        axis.annotate(text,xy=[x,y], **kwargs)

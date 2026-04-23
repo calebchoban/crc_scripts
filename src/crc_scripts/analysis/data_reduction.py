@@ -6,6 +6,7 @@ from ..io.snapshot import Snapshot
 from ..utils import data_calc_utils as calc_utils
 from ..utils.math_utils import weighted_percentile, quick_lookback_time
 from ..utils.snap_utils import check_snap_exist
+from ..utils.grain_size import grain_size_utils
 import time
 
 
@@ -26,9 +27,11 @@ class MultiSnapDataIO(object):
                  gas_props:list|None=None, 
                  gas_subsamples:list|None=None, 
                  star_props:list|None=None, 
-                 star_subsamples:list|None=None, 
+                 star_subsamples:list|None=None,
+                 include_extinction:bool=False, 
                  save_dir:str|None=None, 
-                 halohist_file:str|None=None):
+                 halohist_file:str|None=None,
+                 sim_name:str|None=None):
         """
         Parameters
         ----------
@@ -40,6 +43,8 @@ class MultiSnapDataIO(object):
             List of gas properties to reduce. If None, defaults to commonly used values, determined based on simulation flags (mainly for dust).
         gas_subsamples : list, optional
             List of gas subsamples to reduce. If None, defaults to ['all','cold','warm','hot','coronal','neutral','molecular','ionized'].
+        include_extinction : bool, optional
+            Calculate extinction curves for each gas subsample.
         star_props : list, optional
             List of star properties to reduce. If None, defaults to ['M_star','M_form_10Myr','M_form_100Myr','r1/2_stars'].
         star_subsamples : list, optional
@@ -50,6 +55,8 @@ class MultiSnapDataIO(object):
             Path to the AHF halo history file used to determine where the galaxy center is for each snapshot. 
             This is necessary for simulations where the main halo between snapshots such as dwarf-mass galaxies and at high-z.
             If None, defaults to determining the rough galactic center from dense gas/young star locations.
+        sim_name : str, optional
+            Name of the simulation. Used to create a unique name for the reduced data file. If None, defaults to the basename of the snapshot directory.
         """
         
         self.loaded = False
@@ -63,7 +70,7 @@ class MultiSnapDataIO(object):
 
         # Get the basename of the directory the snapshots are stored in
         self.basename = os.path.basename(os.path.dirname(os.path.normpath(sdir)))
-        self.name = self.basename+'_reduced_data'
+        self.name = self.basename+'_reduced_data' if sim_name is None else sim_name+'_reduced_data'
         # Remove the last folder in the path of sdir
         parent_dir = os.path.dirname(os.path.normpath(sdir))
         # Set the basename of the directory the reduced data is saved to
@@ -106,6 +113,8 @@ class MultiSnapDataIO(object):
                                             'M_grain_small_sil','M_grain_large_sil','M_grain_small_carb','M_grain_large_carb','M_grain_small_iron','M_grain_large_iron']
         else:
             self.gas_properties = gas_props
+
+        self.include_extinction = include_extinction
 
         # Subsampling of gas properties
         self.gas_subsamples = ['all','cold','warm','hot','coronal','neutral','molecular','ionized'] if gas_subsamples is None else gas_subsamples
@@ -199,8 +208,9 @@ class MultiSnapDataIO(object):
         # Check if object file has already been created if so load that first instead of creating a new one
         if not os.path.isfile(self.data_dirc+self.name) or overwrite:
             self.reduced_data = MultiSnapReducedData(self.sdir, self.snap_nums, 
-                                self.gas_properties, self.gas_subsamples, self.star_properties, 
-                                self.star_subsamples,halohist_file=self.halohist_file)
+                                self.gas_properties, self.gas_subsamples, self.include_extinction, 
+                                self.star_properties, self.star_subsamples, 
+                                halohist_file=self.halohist_file)
             if self.setHalo:
                 self.reduced_data.set_halo(**self.halo_args)
             else:
@@ -210,7 +220,7 @@ class MultiSnapDataIO(object):
                 self.reduced_data = pickle.load(handle)
             print("Reduced data already exists for the given halo setup so loading that first....")
             self.reduced_data.compare_and_update_props_and_snaps(self.snap_nums, 
-                    self.gas_properties, self.gas_subsamples, 
+                    self.gas_properties, self.gas_subsamples,self.include_extinction,
                     self.star_properties, self.star_subsamples)
 
         if increment < 1:
@@ -275,31 +285,34 @@ class MultiSnapDataIO(object):
         if not self.reduced_data.all_snaps_loaded:
             print("Warning: Not all snapshots have been loaded! All unloaded values will be zero!")
 
-        data_key = prop + '_' + subsample
-        reduced_data = self.reduced_data.data
-        if data_key in reduced_data:
-            data = reduced_data[data_key]
-        elif prop == 'time':
-            data = self.reduced_data.time
-        elif prop == 'redshift' and self.reduced_data.cosmological:
-            data = self.reduced_data.redshift
-        elif prop in ['sfr_10Myr','sfr']:
-            data = reduced_data['M_form_10Myr_'+subsample]/1E7
-        elif prop == 'sfr_100Myr':
-            data = reduced_data['M_form_100Myr_'+subsample]/1E8
-        elif prop == 'ssfr':
-            data = (reduced_data['M_form_10Myr_'+subsample]/0.01)/reduced_data['M_star_'+subsample] # Gyr^-1
-        elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral','f_coronal','f_ionized']:
-            if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
-            elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
-            elif 'hot' in prop: data = reduced_data['M_gas_hot']/reduced_data['M_gas_all']
-            elif 'H2' in prop: data = reduced_data['M_H2_all']/reduced_data['M_gas_all']
-            elif 'neutral' in prop: data = reduced_data['M_gas_neutral_all']/reduced_data['M_gas_all']
-            elif 'coronal' in prop: data = reduced_data['M_gas_coronal']/reduced_data['M_gas_all']
-            elif 'ionized' in prop: data = reduced_data['M_gas_ionzed']/reduced_data['M_gas_all']
+        if prop=='extinction':
+            data = np.asarray([self.reduced_data.extinction_wavelength[subsample],self.reduced_data.extinction_curve[subsample]])
         else:
-            print(prop," is not in the dataset.")
-            return None
+            data_key = prop + '_' + subsample
+            reduced_data = self.reduced_data.data
+            if data_key in reduced_data:
+                data = reduced_data[data_key]
+            elif prop == 'time':
+                data = self.reduced_data.time
+            elif prop == 'redshift' and self.reduced_data.cosmological:
+                data = self.reduced_data.redshift
+            elif prop in ['sfr_10Myr','sfr']:
+                data = reduced_data['M_form_10Myr_'+subsample]/1E7
+            elif prop == 'sfr_100Myr':
+                data = reduced_data['M_form_100Myr_'+subsample]/1E8
+            elif prop == 'ssfr':
+                data = (reduced_data['M_form_10Myr_'+subsample]/0.01)/reduced_data['M_star_'+subsample] # Gyr^-1
+            elif prop in ['f_cold','f_warm','f_hot','f_H2','f_neutral','f_coronal','f_ionized']:
+                if 'cold' in prop: data = reduced_data['M_gas_cold']/reduced_data['M_gas_all']
+                elif 'warm' in prop: data = reduced_data['M_gas_warm']/reduced_data['M_gas_all']
+                elif 'hot' in prop: data = reduced_data['M_gas_hot']/reduced_data['M_gas_all']
+                elif 'H2' in prop: data = reduced_data['M_H2_all']/reduced_data['M_gas_all']
+                elif 'neutral' in prop: data = reduced_data['M_gas_neutral_all']/reduced_data['M_gas_all']
+                elif 'coronal' in prop: data = reduced_data['M_gas_coronal']/reduced_data['M_gas_all']
+                elif 'ionized' in prop: data = reduced_data['M_gas_ionzed']/reduced_data['M_gas_all']
+            else:
+                print(prop," is not in the dataset.")
+                return None
         
         # Only return specified snaps
         data = data.copy()
@@ -332,6 +345,7 @@ class MultiSnapReducedData(object):
                  snap_nums:list, 
                  gas_props:list, 
                  gas_subsamples:list, 
+                 include_extinction:bool,
                  star_props:list, 
                  star_subsamples:list,
                  halohist_file:str|None):
@@ -346,6 +360,8 @@ class MultiSnapReducedData(object):
             List of gas properties to reduce. If None, defaults to commonly used values, determined based on simulation flags (mainly for dust).
         gas_subsamples : list
             List of gas subsamples to reduce. If None, defaults to ['all','cold','warm','hot','coronal','neutral','molecular','ionized'].
+        include_extinction : bool, optional
+            Calculate extinction curves for each gas subsample.
         star_props : list
             List of star properties to reduce. If None, defaults to ['M_star','M_form_10Myr','M_form_100Myr','r1/2_stars'].
         star_subsamples : list
@@ -392,12 +408,20 @@ class MultiSnapReducedData(object):
         for prop in star_props:
             for sample in star_subsamples:
                 prop_list += [prop + '_' + sample]
+        extinction_list = []
+        if include_extinction:
+            for sample in gas_subsamples:
+                extinction_list += [sample]
+        
         
         self.gas_props = gas_props
         self.gas_subsamples = gas_subsamples
         self.star_props = star_props
         self.star_subsamples = star_subsamples
         self.data = {key : np.zeros(self.num_snaps) for key in prop_list}
+        self.include_extinction = include_extinction
+        self.extinction_curve = {key : [[] for x in range(self.num_snaps)] for key in extinction_list}
+        self.extinction_wavelength = {key : [[] for x in range(self.num_snaps)] for key in extinction_list}
 
         # Arguments used for each snapshot when determining the halo and what particles are within the halo
         self.setHalo=False
@@ -434,7 +458,8 @@ class MultiSnapReducedData(object):
     def compare_and_update_props_and_snaps(self, 
                                             snap_nums:list, 
                                             gas_props:list, 
-                                            gas_subsamples:list, 
+                                            gas_subsamples:list,
+                                            include_extinction:bool, 
                                             star_props:list, 
                                             star_subsamples:list):
         """
@@ -449,6 +474,8 @@ class MultiSnapReducedData(object):
             List of gas properties to reduce.
         gas_subsamples : list
             List of gas subsamples to reduce.
+        include_extinction : bool, optional
+            Calculate extinction curves for each gas subsample.
         star_props : list  
             List of star properties to reduce.
         star_subsamples : list
@@ -499,8 +526,13 @@ class MultiSnapReducedData(object):
         for prop in star_props:
             for sample in star_subsamples:
                 prop_list += [prop + '_' + sample]
+        extinction_list = []
+        if include_extinction:
+            for sample in gas_subsamples:
+                extinction_list += [sample]
+
         new_props = np.setdiff1d(prop_list,list(self.data.keys()))
-        if len(new_props)>0:
+        if len(new_props)>0 or self.include_extinction != include_extinction:
             print("New properties listed below added. Will need to reload all snaps.")
             print(new_props)
             # Add new props not already in reduced_data
@@ -510,6 +542,14 @@ class MultiSnapReducedData(object):
             self.star_subsamples = self.star_subsamples+list(set(star_subsamples)-set(self.star_subsamples))
             new_data = {key : np.zeros(self.num_snaps) for key in new_props}
             self.data.update(new_data)
+            # Need to reload all snaps
+            self.snap_loaded = np.zeros(len(self.snap_loaded))
+            self.all_snaps_loaded=False
+        if self.include_extinction is False and include_extinction:
+            print("Added extinction curves. Will need to reload all snaps.")
+            self.include_extinction=True
+            self.extinction_curve = {key : []*self.num_snaps for key in extinction_list}
+            self.extinction_wavelength = {key : []*self.num_snaps for key in extinction_list}
             # Need to reload all snaps
             self.snap_loaded = np.zeros(len(self.snap_loaded))
             self.all_snaps_loaded=False
@@ -609,7 +649,7 @@ class MultiSnapReducedData(object):
                     else:
                         gal.set_zoom(**self.set_kwargs)
                 # Orientate the halo
-                gal.set_orientation()
+                gal.set_orientation(mass_radius_max=10)
             else:
                 raise Exception("No halo specified. Set halo using set_halo() to specify halo before loading snapshots.")
 
@@ -645,6 +685,19 @@ class MultiSnapReducedData(object):
                             galaxy_value = weighted_percentile(prop_vals, percentiles=np.array([50]), weights=weights, ignore_invalid=True)
                         
                     self.data[data_key][i] = galaxy_value
+
+                # Postprocess extinction curve
+                if self.include_extinction:
+                        data_key = subsample
+                        P = gal.loadpart(ptype)
+                        bin_subsamples = int(16/sp.Flag_GrainSizeBins)
+                        wavelength_points, A_lambda_percentiles = \
+                        grain_size_utils.calculate_extinction_curve(P,species='all', mask=sample_mask, 
+                                                                    weights=None, std_percentiles = [],
+                                                                    bin_subsamples=bin_subsamples)  
+                        self.extinction_curve[data_key][i] = A_lambda_percentiles[0]  
+                        self.extinction_wavelength[data_key][i] = wavelength_points
+
 
             # Calculate each star particle property for each subsample
             ptype=4
